@@ -19,12 +19,12 @@ public class PlayerMovement : MonoBehaviour
     public float lookXLimit = 85f;
 
     [Header("Crouching")]
-    public float defaultHeight = 2f;
+    public float defaultHeight = 1.5f;
     public float crouchHeight = 1.2f;
     public float crouchSpeed = 2f;
 
     private Vector3 moveDirection = Vector3.zero;
-    private float rotationX = 0;
+    private float rotationX = 0f;
 
     private CharacterController characterController;
     private bool canMove = true;
@@ -34,6 +34,9 @@ public class PlayerMovement : MonoBehaviour
 
     private Vector3 standingCameraPosition;
     private Vector3 crouchingCameraPosition;
+
+    private float defaultCenterY;
+    private float crouchCenterY;
 
     void Start()
     {
@@ -45,10 +48,14 @@ public class PlayerMovement : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
+        defaultCenterY = defaultHeight / 2f;
+        crouchCenterY = crouchHeight / 2f;
+
         characterController.height = defaultHeight;
-        characterController.center = new Vector3(0, defaultHeight / 2f, 0);
+        characterController.center = new Vector3(0f, defaultCenterY, 0f);
 
         standingCameraPosition = playerCamera.transform.localPosition;
+
         crouchingCameraPosition = new Vector3(
             standingCameraPosition.x,
             standingCameraPosition.y - (defaultHeight - crouchHeight),
@@ -63,21 +70,23 @@ public class PlayerMovement : MonoBehaviour
 
         bool isRunning = Input.GetKey(KeyCode.LeftShift);
 
-        float currentSpeed =
-            isRunning ? runSpeed : walkSpeed;
+        float currentSpeed = isRunning
+            ? runSpeed
+            : walkSpeed;
 
         float curSpeedX = canMove
             ? currentSpeed * Input.GetAxis("Vertical")
-            : 0;
+            : 0f;
 
         float curSpeedY = canMove
             ? currentSpeed * Input.GetAxis("Horizontal")
-            : 0;
+            : 0f;
 
         float movementDirectionY = moveDirection.y;
 
-        moveDirection = (forward * curSpeedX) +
-                        (right * curSpeedY);
+        moveDirection =
+            (forward * curSpeedX) +
+            (right * curSpeedY);
 
         if (Input.GetButton("Jump") &&
             canMove &&
@@ -95,12 +104,12 @@ public class PlayerMovement : MonoBehaviour
             moveDirection.y -= gravity * Time.deltaTime;
         }
 
-        // Crouch
+        // Crouching
         if (Input.GetKey(KeyCode.C) && canMove)
         {
             characterController.height = crouchHeight;
             characterController.center =
-                new Vector3(0, crouchHeight / 2f, 0);
+                new Vector3(0f, crouchCenterY, 0f);
 
             walkSpeed = crouchSpeed;
             runSpeed = crouchSpeed;
@@ -112,7 +121,7 @@ public class PlayerMovement : MonoBehaviour
         {
             characterController.height = defaultHeight;
             characterController.center =
-                new Vector3(0, defaultHeight / 2f, 0);
+                new Vector3(0f, defaultCenterY, 0f);
 
             walkSpeed = defaultWalkSpeed;
             runSpeed = defaultRunSpeed;
@@ -137,13 +146,13 @@ public class PlayerMovement : MonoBehaviour
             );
 
             playerCamera.transform.localRotation =
-                Quaternion.Euler(rotationX, 0, 0);
+                Quaternion.Euler(rotationX, 0f, 0f);
 
             transform.rotation *=
                 Quaternion.Euler(
-                    0,
+                    0f,
                     Input.GetAxis("Mouse X") * lookSpeed,
-                    0
+                    0f
                 );
         }
     }
