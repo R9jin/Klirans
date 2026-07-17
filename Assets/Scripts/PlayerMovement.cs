@@ -63,6 +63,11 @@ public class PlayerMovement : MonoBehaviour
         );
     }
 
+    public void SetControlsEnabled(bool enabled)
+    {
+        canMove = enabled;
+    }
+
     void Update()
     {
         Vector3 forward = transform.forward;
