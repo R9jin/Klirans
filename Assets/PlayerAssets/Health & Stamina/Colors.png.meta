@@ -1,0 +1,322 @@
+fileFormatVersion: 2
+guid: a89b307053834b44fbf1d4c545c0efd2
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 0
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: GaugeColor1
+      rect:
+        serializedVersion: 2
+        x: 97
+        y: 373
+        width: 46
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6a8b9bf3cc11e014aaf27c0dfb98d769
+      internalID: -18713873
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: GaugeColor2
+      rect:
+        serializedVersion: 2
+        x: 105
+        y: 357
+        width: 38
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: cc8ef69d0e52f4c4193e99aeb4060fcf
+      internalID: -1763728462
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: HeartColor1
+      rect:
+        serializedVersion: 2
+        x: 98
+        y: 306
+        width: 12
+        height: 11
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 22d8a4e13de19d94385e29325f0e039d
+      internalID: 915956139
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: HeartColor2
+      rect:
+        serializedVersion: 2
+        x: 114
+        y: 306
+        width: 6
+        height: 11
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1fdf5985bfb3e324b92022adbeff1277
+      internalID: -1979937670
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AnxietyGaugeColor
+      rect:
+        serializedVersion: 2
+        x: 98
+        y: 169
+        width: 44
+        height: 2
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bab08441764da85418b4b18584710459
+      internalID: 751937757
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: StaminaGaugeColor
+      rect:
+        serializedVersion: 2
+        x: 98
+        y: 165
+        width: 44
+        height: 2
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c4a179e77eeef2446a5d500fb1137e21
+      internalID: -1835564898
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 2747a80860d8cfa4fa6e4c948f40bb0f
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries:
+      - key: SpriteEditor.SliceOnImport
+        value: False
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+    nameFileIdTable:
+      AnxietyGaugeColor: 751937757
+      Colors_10: -296795140
+      Colors_11: 1053999183
+      Colors_12: 1972513660
+      Colors_13: 650928327
+      Colors_14: 1141053434
+      Colors_15: -495703839
+      Colors_16: -134327842
+      Colors_17: 1054515048
+      Colors_18: 144303640
+      Colors_19: -347071821
+      Colors_2: 1430022065
+      Colors_20: 120755982
+      Colors_21: -1467028615
+      Colors_22: -747612425
+      Colors_23: 1138766344
+      Colors_24: 742608071
+      Colors_25: -760234167
+      Colors_26: 595438535
+      Colors_27: 2124512172
+      Colors_28: -1013596461
+      Colors_29: 1660954202
+      Colors_3: 1464053130
+      Colors_30: -695663512
+      Colors_31: -1903021629
+      Colors_32: -1619880071
+      Colors_33: -577623449
+      Colors_34: -570266692
+      Colors_35: 1704303171
+      Colors_36: -1286657698
+      Colors_37: -1813407413
+      Colors_38: -1547363813
+      Colors_39: 987759229
+      Colors_4: 726884439
+      Colors_40: -635804680
+      Colors_41: -1465084219
+      Colors_42: -524333262
+      Colors_43: -674891543
+      Colors_44: 777092432
+      Colors_45: 607108975
+      Colors_46: -1109775540
+      Colors_47: 501332613
+      Colors_48: -2112959515
+      Colors_49: 1139528216
+      Colors_5: -314784150
+      Colors_50: -353845238
+      Colors_51: 912159078
+      Colors_52: -494623874
+      Colors_53: -1455669156
+      Colors_54: 989209286
+      Colors_55: -1734355298
+      Colors_56: 332619834
+      Colors_57: 1171541582
+      Colors_58: -1316636692
+      Colors_59: -1678546805
+      Colors_6: -825226134
+      Colors_60: -1473141855
+      Colors_61: -2005991047
+      Colors_62: 1044133541
+      Colors_63: -903987389
+      Colors_64: -133095646
+      Colors_7: 1710691131
+      Colors_8: 728783643
+      Colors_9: -529900758
+      GaugeColor1: -18713873
+      GaugeColor2: -1763728462
+      HeartColor1: 915956139
+      HeartColor2: -1979937670
+      StaminaGaugeColor: -1835564898
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
