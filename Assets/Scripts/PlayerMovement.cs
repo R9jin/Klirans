@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI; // Required for the Universal Vignette
+using UnityEngine.UI;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : MonoBehaviour
@@ -25,6 +25,11 @@ public class PlayerMovement : MonoBehaviour
     public float crouchHeight = 1.2f;
     public float crouchSpeed = 2f;
 
+    [Header("Head Bobbing")]
+    public bool enableHeadBobbing = true;
+    public float headBobSpeed = 12f;
+    public float headBobAmount = 0.05f;
+
     [Header("Breathing Camera Effect")]
     public float normalFOV = 60f;
     public float fovBreathingIntensity = 2f;
@@ -33,15 +38,19 @@ public class PlayerMovement : MonoBehaviour
     public float cameraSmoothSpeed = 8f;
 
     [Header("Vignette Effect (Universal)")]
-    [Tooltip("Assign a UI Image with a black vignette texture. Works in both URP and Built-in.")]
+    [Tooltip("Assign a UI Image with a white or black vignette texture. It will be colored black via code.")]
     public Image vignetteImage;
-    public float maxVignetteAlpha = 0.75f;
+    public float maxVignetteAlpha = 0.85f;
 
     private Vector3 moveDirection = Vector3.zero;
     private float rotationX = 0f;
+    private float headBobTimer = 0f;
 
     private CharacterController characterController;
     private bool canMove = true;
+    private bool isMoving = false;
+    private bool isRunning = false;
+    private bool isCrouching = false;
 
     private Vector3 standingCameraPosition;
     private Vector3 crouchingCameraPosition;
@@ -77,10 +86,8 @@ public class PlayerMovement : MonoBehaviour
 
         if (vignetteImage != null)
         {
-            // Ensure the vignette starts completely transparent
-            Color vColor = vignetteImage.color;
-            vColor.a = 0f;
-            vignetteImage.color = vColor;
+            // Force the initial color to be pure black and transparent
+            vignetteImage.color = new Color(0f, 0f, 0f, 0f);
         }
     }
 
@@ -91,10 +98,18 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
+        UpdateMovementStates();
         HandleMovement();
         HandleStamina();
         HandleCameraAndBreathing();
         HandleMouseLook();
+    }
+
+    private void UpdateMovementStates()
+    {
+        isMoving = Mathf.Abs(Input.GetAxis("Horizontal")) > 0.01f || Mathf.Abs(Input.GetAxis("Vertical")) > 0.01f;
+        isRunning = Input.GetKey(KeyCode.LeftShift) && isMoving && canMove && staminaSystem != null && staminaSystem.CanSprint;
+        isCrouching = Input.GetKey(KeyCode.C) && canMove;
     }
 
     private void HandleMovement()
@@ -102,14 +117,10 @@ public class PlayerMovement : MonoBehaviour
         Vector3 forward = transform.forward;
         Vector3 right = transform.right;
 
-        bool isMoving = Mathf.Abs(Input.GetAxis("Horizontal")) > 0.01f || Mathf.Abs(Input.GetAxis("Vertical")) > 0.01f;
-        bool isRunning = Input.GetKey(KeyCode.LeftShift) && isMoving && canMove && staminaSystem != null && staminaSystem.CanSprint;
-
         float currentSpeed;
 
         if (staminaSystem != null && !staminaSystem.CanSprint)
         {
-            // Exhausted movement penalty
             currentSpeed = walkSpeed * 0.75f;
         }
         else if (isRunning)
@@ -121,8 +132,7 @@ public class PlayerMovement : MonoBehaviour
             currentSpeed = walkSpeed;
         }
 
-        // Apply crouch speed modifier if crouching
-        if (Input.GetKey(KeyCode.C) && canMove)
+        if (isCrouching)
         {
             currentSpeed = crouchSpeed;
             characterController.height = crouchHeight;
@@ -161,9 +171,6 @@ public class PlayerMovement : MonoBehaviour
     {
         if (staminaSystem == null) return;
 
-        bool isMoving = Mathf.Abs(Input.GetAxis("Horizontal")) > 0.01f || Mathf.Abs(Input.GetAxis("Vertical")) > 0.01f;
-        bool isRunning = Input.GetKey(KeyCode.LeftShift) && isMoving && canMove && staminaSystem.CanSprint;
-
         if (isRunning)
         {
             staminaSystem.Drain();
@@ -178,36 +185,46 @@ public class PlayerMovement : MonoBehaviour
     {
         if (playerCamera == null) return;
 
-        bool isCrouching = Input.GetKey(KeyCode.C) && canMove;
         Vector3 targetCameraPosition = isCrouching ? crouchingCameraPosition : standingCameraPosition;
         float targetFOV = normalFOV;
         float fatigue = 0f;
 
+        // 1. Head Bobbing (Y-Axis)
+        if (enableHeadBobbing && isMoving && characterController.isGrounded)
+        {
+            headBobTimer += Time.deltaTime * (isRunning ? headBobSpeed * 1.5f : headBobSpeed);
+            float currentBobAmount = isRunning ? headBobAmount * 1.5f : headBobAmount;
+            targetCameraPosition.y += Mathf.Sin(headBobTimer) * currentBobAmount;
+        }
+        else
+        {
+            headBobTimer = 0f; 
+        }
+
+        // 2. Breathing Effects & Vignette
         if (staminaSystem != null)
         {
-            // Calculate fatigue: 0 is fully rested, 1 is completely exhausted
             fatigue = 1f - (staminaSystem.currentStamina / staminaSystem.maxStamina);
-
-            // Calculate the continuous breathing wave
             float breathingWave = Mathf.Sin(Time.time * breathingSpeed);
 
-            // 1. Dynamic Forward Movement (Z-Axis)
+            // Forward/Backward Breathing (Z-Axis)
             float zOffset = breathingWave * forwardBreathingIntensity * fatigue;
             targetCameraPosition.z += zOffset;
 
-            // 2. Dynamic FOV
+            // FOV Breathing
             float fovOffset = breathingWave * fovBreathingIntensity * fatigue;
             targetFOV = normalFOV + fovOffset;
 
-            // 3. Dynamic Vignette
+            // Interval Black Vignette
             if (vignetteImage != null)
             {
-                // Absolute value so the vignette pulses smoothly in and out
-                float vignettePulse = Mathf.Abs(breathingWave) * maxVignetteAlpha * fatigue;
+                // Using a powered sine wave creates a sharp, interval-based pulse
+                float intervalPulse = Mathf.Pow(Mathf.Sin(Time.time * (breathingSpeed * 0.5f)), 4f);
+                float targetAlpha = intervalPulse * maxVignetteAlpha * fatigue;
                 
-                Color vColor = vignetteImage.color;
-                vColor.a = Mathf.Lerp(vColor.a, vignettePulse, cameraSmoothSpeed * Time.deltaTime);
-                vignetteImage.color = vColor;
+                // Explicitly set the RGB to 0, 0, 0 (black) and only lerp the alpha channel
+                float newAlpha = Mathf.Lerp(vignetteImage.color.a, targetAlpha, cameraSmoothSpeed * Time.deltaTime);
+                vignetteImage.color = new Color(0f, 0f, 0f, newAlpha);
             }
         }
 
