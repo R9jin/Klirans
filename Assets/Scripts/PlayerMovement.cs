@@ -13,6 +13,7 @@ public class PlayerMovement : MonoBehaviour
     [Header("Movement")]
     public float walkSpeed = 4f;
     public float runSpeed = 6.5f;
+    public float exhaustedSpeed = 2f;
     public float jumpPower = 3.5f;
     public float gravity = 20f;
 
@@ -121,7 +122,7 @@ public class PlayerMovement : MonoBehaviour
 
         if (staminaSystem != null && !staminaSystem.CanSprint)
         {
-            currentSpeed = walkSpeed * 0.75f;
+            currentSpeed = exhaustedSpeed;
         }
         else if (isRunning)
         {
