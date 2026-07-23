@@ -8,6 +8,10 @@ public class FlashlightController : MonoBehaviour
     [Tooltip("The Unity Light component to toggle (e.g., a Spotlight).")]
     public Light flashlightLight;
 
+    [Header("Held Item View")]
+    [Tooltip("The 3D flashlight model shown in the player's view when equipped (child of Main Camera).")]
+    public GameObject heldFlashlightModel;
+
     private bool isFlashlightOn = false;
 
     void Start()
@@ -15,6 +19,12 @@ public class FlashlightController : MonoBehaviour
         if (flashlightLight != null)
         {
             flashlightLight.enabled = false;
+        }
+
+        // Make sure the held model starts hidden
+        if (heldFlashlightModel != null)
+        {
+            heldFlashlightModel.SetActive(false);
         }
     }
 
@@ -32,6 +42,8 @@ public class FlashlightController : MonoBehaviour
             isFlashlightOn = false;
             if (flashlightLight != null)
                 flashlightLight.enabled = false;
+            if (heldFlashlightModel != null)
+                heldFlashlightModel.SetActive(false);
         }
     }
 
@@ -43,6 +55,10 @@ public class FlashlightController : MonoBehaviour
             if (flashlightLight != null)
             {
                 flashlightLight.enabled = isFlashlightOn;
+            }
+            if (heldFlashlightModel != null)
+            {
+                heldFlashlightModel.SetActive(isFlashlightOn);
             }
             // Optional: Play a click sound here
         }

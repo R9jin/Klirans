@@ -4,22 +4,44 @@ using UnityEngine.UI;
 public class PlayerInteract : MonoBehaviour
 {
     [Header("Interaction Settings")]
+    [Tooltip("Maximum distance at which the player can interact with an object.")]
     public float interactRange = 3f;
+
+    [Tooltip("The layers that can be interacted with.")]
     public LayerMask interactableLayer;
 
     [Header("Interaction UI")]
+    [Tooltip("The UI Text that displays the interaction prompt.")]
     public Text promptText;
 
     private Camera playerCamera;
+
     private PickupItem currentTarget;
 
     private void Start()
     {
+        // Find the camera attached to the player or one of its children.
         playerCamera = GetComponentInChildren<Camera>();
 
+        if (playerCamera == null)
+        {
+            Debug.LogError(
+                "PlayerInteract could not find a Camera. " +
+                "Make sure the Player has a Camera component on itself or one of its children."
+            );
+        }
+
+        // Hide the interaction prompt when the game starts.
         if (promptText != null)
         {
             promptText.gameObject.SetActive(false);
+        }
+        else
+        {
+            Debug.LogWarning(
+                "PlayerInteract has no Prompt Text assigned. " +
+                "The interaction may work, but the interaction message cannot be displayed."
+            );
         }
     }
 
@@ -30,29 +52,26 @@ public class PlayerInteract : MonoBehaviour
             return;
         }
 
-        // Create a ray from the center of the player's camera.
-        Ray ray = playerCamera.ScreenPointToRay(
-            new Vector3(
-                Screen.width / 2f,
-                Screen.height / 2f,
-                0f
-            )
+        // Create a ray from the exact center of the player's screen.
+        Ray ray = playerCamera.ViewportPointToRay(
+            new Vector3(0.5f, 0.5f, 0f)
         );
 
         RaycastHit hit;
 
-        // Check if the ray hits an object on the interactable layer.
+        // Cast the ray forward from the player's camera.
         if (Physics.Raycast(
             ray,
             out hit,
             interactRange,
-            interactableLayer
+            interactableLayer,
+            QueryTriggerInteraction.Collide
         ))
         {
-            // Look for PickupItem on the object that was hit
-            // OR on any of its parents.
+            // Search the object that was hit and all of its parents
+            // for a PickupItem component.
             //
-            // This allows the flashlight to be structured like:
+            // This supports the following hierarchy:
             //
             // Flashlight
             // ├── Back
@@ -62,14 +81,16 @@ public class PlayerInteract : MonoBehaviour
             // ├── Glass
             // └── PickupItem
             //
-            // If the ray hits Glass, Base, or Back,
-            // Unity will find PickupItem on the Flashlight parent.
+            // If the ray hits Back, Base, or Glass,
+            // GetComponentInParent will find PickupItem
+            // on the Flashlight parent.
             PickupItem pickupItem = hit.collider.GetComponentInParent<PickupItem>();
 
             if (pickupItem != null)
             {
-                currentTarget = pickupItem;
+                SetCurrentTarget(pickupItem);
 
+                // Show the pickup prompt.
                 if (promptText != null)
                 {
                     promptText.text = "Press E to Pick Up";
@@ -79,37 +100,51 @@ public class PlayerInteract : MonoBehaviour
                 // Pick up the item when E is pressed.
                 if (Input.GetKeyDown(KeyCode.E))
                 {
-                    currentTarget.Interact();
-
-                    currentTarget = null;
-
-                    if (promptText != null)
-                    {
-                        promptText.gameObject.SetActive(false);
-                    }
+                    pickupItem.Interact();
                 }
-            }
-            else
-            {
-                ClearTarget();
+
+                return;
             }
         }
-        else
+
+        // The player is not looking at a pickup item.
+        ClearCurrentTarget();
+    }
+
+    private void SetCurrentTarget(PickupItem pickupItem)
+    {
+        currentTarget = pickupItem;
+    }
+
+    private void ClearCurrentTarget()
+    {
+        currentTarget = null;
+
+        // Always hide the prompt when there is no valid target.
+        if (promptText != null)
         {
-            ClearTarget();
+            promptText.gameObject.SetActive(false);
         }
     }
 
-    private void ClearTarget()
+    private void OnDrawGizmosSelected()
     {
-        if (currentTarget != null)
+        // Only draw the interaction ray when the player is selected
+        // and the camera has already been found.
+        if (playerCamera == null)
         {
-            currentTarget = null;
-
-            if (promptText != null)
-            {
-                promptText.gameObject.SetActive(false);
-            }
+            return;
         }
+
+        Gizmos.color = Color.yellow;
+
+        Ray ray = playerCamera.ViewportPointToRay(
+            new Vector3(0.5f, 0.5f, 0f)
+        );
+
+        Gizmos.DrawRay(
+            ray.origin,
+            ray.direction * interactRange
+        );
     }
 }
