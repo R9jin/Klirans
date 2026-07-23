@@ -14,8 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::InventoryItem
   itemName: Flashlight
   description: Press F to toggle on/off.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: c21884d8ba9d80047a12e176c3cba80e, type: 3}
   itemType: 3
+  itemPrefab: {fileID: 4016707115870403265, guid: a2a1079d713bde54c98a72f8f5011e74, type: 3}
   isStackable: 0
   maxStack: 1
   anxietyChange: 0

@@ -3,47 +3,86 @@ using UnityEngine.UI;
 
 public class PlayerInteract : MonoBehaviour
 {
+    [Header("Interaction Settings")]
     public float interactRange = 3f;
     public LayerMask interactableLayer;
-    public Text promptText; // We will link a Text UI element here
+
+    [Header("Interaction UI")]
+    public Text promptText;
+
     private Camera playerCamera;
-    
     private PickupItem currentTarget;
 
-    void Start()
+    private void Start()
     {
         playerCamera = GetComponentInChildren<Camera>();
+
         if (promptText != null)
         {
             promptText.gameObject.SetActive(false);
         }
     }
 
-    void Update()
+    private void Update()
     {
-        if (playerCamera == null) return;
+        if (playerCamera == null)
+        {
+            return;
+        }
 
-        Ray ray = playerCamera.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0f));
+        // Create a ray from the center of the player's camera.
+        Ray ray = playerCamera.ScreenPointToRay(
+            new Vector3(
+                Screen.width / 2f,
+                Screen.height / 2f,
+                0f
+            )
+        );
+
         RaycastHit hit;
 
-        // Perform raycast
-        if (Physics.Raycast(ray, out hit, interactRange, interactableLayer))
+        // Check if the ray hits an object on the interactable layer.
+        if (Physics.Raycast(
+            ray,
+            out hit,
+            interactRange,
+            interactableLayer
+        ))
         {
-            PickupItem pickupItem = hit.collider.GetComponent<PickupItem>();
+            // Look for PickupItem on the object that was hit
+            // OR on any of its parents.
+            //
+            // This allows the flashlight to be structured like:
+            //
+            // Flashlight
+            // ├── Back
+            // ├── Base
+            // ├── Button
+            // ├── ButtonDesign
+            // ├── Glass
+            // └── PickupItem
+            //
+            // If the ray hits Glass, Base, or Back,
+            // Unity will find PickupItem on the Flashlight parent.
+            PickupItem pickupItem = hit.collider.GetComponentInParent<PickupItem>();
+
             if (pickupItem != null)
             {
                 currentTarget = pickupItem;
+
                 if (promptText != null)
                 {
                     promptText.text = "Press E to Pick Up";
                     promptText.gameObject.SetActive(true);
                 }
 
-                // Check for input
+                // Pick up the item when E is pressed.
                 if (Input.GetKeyDown(KeyCode.E))
                 {
                     currentTarget.Interact();
+
                     currentTarget = null;
+
                     if (promptText != null)
                     {
                         promptText.gameObject.SetActive(false);
@@ -66,6 +105,7 @@ public class PlayerInteract : MonoBehaviour
         if (currentTarget != null)
         {
             currentTarget = null;
+
             if (promptText != null)
             {
                 promptText.gameObject.SetActive(false);
