@@ -105,9 +105,30 @@ public class PlayerInteract : MonoBehaviour
 
                 return;
             }
+
+            // Check for an interactable door.
+            DoorInteract door = hit.collider.GetComponentInParent<DoorInteract>();
+
+            if (door != null)
+            {
+                // Show the door prompt.
+                if (promptText != null)
+                {
+                    promptText.text = door.GetPrompt();
+                    promptText.gameObject.SetActive(true);
+                }
+
+                // Toggle the door when E is pressed.
+                if (Input.GetKeyDown(KeyCode.E))
+                {
+                    door.ToggleDoor();
+                }
+
+                return;
+            }
         }
 
-        // The player is not looking at a pickup item.
+        // The player is not looking at an interactable object.
         ClearCurrentTarget();
     }
 
