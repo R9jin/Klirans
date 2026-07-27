@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Simulates realistic random flickering for fluorescent ceiling lights.
-/// Controls both the Light component intensity and the MeshRenderer emissive material.
+/// Controls Light component intensity and safely syncs emissive materials if enabled.
 /// </summary>
 public class RandomLightFlicker : MonoBehaviour
 {
@@ -27,13 +27,14 @@ public class RandomLightFlicker : MonoBehaviour
     public float flickerProbability = 0.35f;
 
     [Tooltip("Base light intensity when fully ON.")]
-    public float normalIntensity = 8.0f;
+    public float normalIntensity = 3.5f;
 
     [Tooltip("Minimum intensity multiplier during a flicker dip.")]
     public float minFlickerMultiplier = 0.05f;
 
     private Material instancedMaterial;
-    private Color originalEmissionColor = new Color(3f, 3f, 3f, 1f);
+    private Color originalEmissionColor = Color.black;
+    private bool hasOriginalEmission = false;
     private bool isFlickeringActive = false;
 
     private void Awake()
@@ -54,27 +55,22 @@ public class RandomLightFlicker : MonoBehaviour
 
         if (targetLight != null)
         {
-            normalIntensity = targetLight.intensity > 0 ? targetLight.intensity : 8.0f;
+            normalIntensity = targetLight.intensity > 0 ? targetLight.intensity : 3.5f;
         }
 
         if (targetRenderer != null && targetRenderer.sharedMaterial != null)
         {
-            // Create instance so individual lights flicker their emission independently
             instancedMaterial = targetRenderer.material;
-            if (instancedMaterial.HasProperty("_EmissionColor"))
+            if (instancedMaterial.HasProperty("_EmissionColor") && instancedMaterial.IsKeywordEnabled("_EMISSION"))
             {
                 originalEmissionColor = instancedMaterial.GetColor("_EmissionColor");
-                if (originalEmissionColor == Color.black)
-                {
-                    originalEmissionColor = new Color(3f, 3f, 3f, 1f);
-                }
+                hasOriginalEmission = originalEmissionColor != Color.black;
             }
         }
     }
 
     private void Start()
     {
-        // Decide if this specific light fixture is one of the flickering ones
         if (Random.value <= flickerProbability)
         {
             isFlickeringActive = true;
@@ -86,11 +82,9 @@ public class RandomLightFlicker : MonoBehaviour
     {
         while (isFlickeringActive)
         {
-            // Wait for next random interval
             float waitTime = Random.Range(minTimeBetweenFlickers, maxTimeBetweenFlickers);
             yield return new WaitForSeconds(waitTime);
 
-            // Trigger a flicker sequence (rapid bursts of dimming/blinking)
             int numBlinks = Random.Range(2, 6);
             for (int i = 0; i < numBlinks; i++)
             {
@@ -99,7 +93,6 @@ public class RandomLightFlicker : MonoBehaviour
 
                 yield return new WaitForSeconds(Random.Range(0.03f, 0.12f));
 
-                // Quick pulse back up or micro-gap
                 if (Random.value > 0.4f)
                 {
                     SetLightState(normalIntensity, 1.0f);
@@ -107,7 +100,6 @@ public class RandomLightFlicker : MonoBehaviour
                 }
             }
 
-            // Restore full brightness after flicker burst
             SetLightState(normalIntensity, 1.0f);
         }
     }
@@ -117,10 +109,10 @@ public class RandomLightFlicker : MonoBehaviour
         if (targetLight != null)
         {
             targetLight.intensity = intensity;
-            targetLight.enabled = intensity > 0.1f;
+            targetLight.enabled = intensity > 0.05f;
         }
 
-        if (instancedMaterial != null && instancedMaterial.HasProperty("_EmissionColor"))
+        if (hasOriginalEmission && instancedMaterial != null && instancedMaterial.HasProperty("_EmissionColor"))
         {
             Color currentEmission = originalEmissionColor * emissionMultiplier;
             instancedMaterial.SetColor("_EmissionColor", currentEmission);
