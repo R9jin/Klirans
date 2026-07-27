@@ -108,7 +108,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 36d904e2f84cd6e41bb4fc66b26c21ef, type: 3}
       propertyPath: m_Name
-      value: Flashlight 1
+      value: Flashlight
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -120,6 +120,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 36d904e2f84cd6e41bb4fc66b26c21ef, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8736721043550465282}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 36d904e2f84cd6e41bb4fc66b26c21ef, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -8127598859122870481}
     - targetCorrespondingSourceObject: {fileID: -2851195749870887970, guid: 36d904e2f84cd6e41bb4fc66b26c21ef, type: 3}
       insertIndex: -1
       addedObject: {fileID: 8448951202522219629}
@@ -166,6 +169,22 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
+--- !u!114 &-8127598859122870481
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4016707115870403265}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec3218ba5dcf69640a0c132403014d7d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FloatingItemAnimation
+  rotationSpeed: 60
+  rotationAxis: {x: 0, y: 1, z: 0}
+  floatAmplitude: 0.12
+  floatFrequency: 2
 --- !u!4 &4392669331009134715 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 36d904e2f84cd6e41bb4fc66b26c21ef, type: 3}
