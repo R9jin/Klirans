@@ -108,8 +108,8 @@ public class RandomLightFlicker : MonoBehaviour
     {
         if (targetLight != null)
         {
-            targetLight.intensity = intensity;
-            targetLight.enabled = intensity > 0.05f;
+            targetLight.intensity = Mathf.Max(intensity, 0.5f);
+            targetLight.enabled = true;
         }
 
         if (hasOriginalEmission && instancedMaterial != null && instancedMaterial.HasProperty("_EmissionColor"))

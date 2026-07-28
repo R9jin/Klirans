@@ -6,7 +6,7 @@ using UnityEngine;
 /// Make sure the door's pivot is at the hinge edge, or parent it under an empty
 /// GameObject whose pivot is at the hinge.
 /// </summary>
-public class DoorInteract : MonoBehaviour
+public class DoorInteract : MonoBehaviour, IInteractable
 {
     [Tooltip("How far the door swings open, in degrees.")]
     public float openAngle = 90f;
@@ -43,8 +43,13 @@ public class DoorInteract : MonoBehaviour
     }
 
     /// <summary>
-    /// Called by PlayerInteract when the player presses E while looking at this door.
+    /// Called by PlayerInteract when the player presses E while looking at this object.
     /// </summary>
+    public void Interact()
+    {
+        ToggleDoor();
+    }
+
     public void ToggleDoor()
     {
         isOpen = !isOpen;
