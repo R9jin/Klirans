@@ -63,6 +63,14 @@ public class PlayerInteract : MonoBehaviour
 
         foreach (var h in hits)
         {
+            if (h.collider == null) continue;
+
+            // Ignore any colliders attached to the player or childed under player/camera (e.g. held items)
+            if (h.collider.transform.IsChildOf(transform) || (playerCamera != null && h.collider.transform.IsChildOf(playerCamera.transform)))
+            {
+                continue;
+            }
+
             // Check for IInteractable on hit object, its parents, or its children
             IInteractable interactable = h.collider.GetComponentInParent<IInteractable>();
             if (interactable == null)

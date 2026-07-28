@@ -178,11 +178,17 @@ public class InventoryEquipController : MonoBehaviour
             {
                 currentEquippedInstance = Instantiate(prefabToSpawn, equipPoint.position, equipPoint.rotation, equipPoint);
 
-                // Disable colliders and physics on held viewmodels
-                Collider[] colliders = currentEquippedInstance.GetComponentsInChildren<Collider>();
+                // Strip PickupItem scripts and Colliders on held viewmodels
+                PickupItem[] pickups = currentEquippedInstance.GetComponentsInChildren<PickupItem>(true);
+                foreach (var p in pickups)
+                {
+                    if (p != null) Destroy(p);
+                }
+
+                Collider[] colliders = currentEquippedInstance.GetComponentsInChildren<Collider>(true);
                 foreach (var col in colliders)
                 {
-                    col.enabled = false;
+                    if (col != null) Destroy(col);
                 }
 
                 Rigidbody rb = currentEquippedInstance.GetComponent<Rigidbody>();
