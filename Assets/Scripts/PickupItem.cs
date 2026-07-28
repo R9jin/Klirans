@@ -1,9 +1,14 @@
 using UnityEngine;
 
-public class PickupItem : MonoBehaviour
+public class PickupItem : MonoBehaviour, IInteractable
 {
     public InventoryItem itemData;
     public int amount = 1;
+
+    public string GetPrompt()
+    {
+        return "Press E to Pick Up " + (itemData != null ? itemData.itemName : "Item");
+    }
 
     public void Interact()
     {

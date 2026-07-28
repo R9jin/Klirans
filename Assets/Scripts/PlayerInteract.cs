@@ -57,71 +57,52 @@ public class PlayerInteract : MonoBehaviour
             new Vector3(0.5f, 0.5f, 0f)
         );
 
-        RaycastHit hit;
+        // Cast ray forward from camera using RaycastAll to handle layered or childed meshes
+        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, interactableLayer, QueryTriggerInteraction.Collide);
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
-        // Cast the ray forward from the player's camera.
-        if (Physics.Raycast(
-            ray,
-            out hit,
-            interactRange,
-            interactableLayer,
-            QueryTriggerInteraction.Collide
-        ))
+        foreach (var h in hits)
         {
-            // Search the object that was hit and all of its parents
-            // for a PickupItem component.
-            //
-            // This supports the following hierarchy:
-            //
-            // Flashlight
-            // ├── Back
-            // ├── Base
-            // ├── Button
-            // ├── ButtonDesign
-            // ├── Glass
-            // └── PickupItem
-            //
-            // If the ray hits Back, Base, or Glass,
-            // GetComponentInParent will find PickupItem
-            // on the Flashlight parent.
-            PickupItem pickupItem = hit.collider.GetComponentInParent<PickupItem>();
+            if (h.collider == null) continue;
 
-            if (pickupItem != null)
+            // Ignore any colliders attached to the player or childed under player/camera (e.g. held items)
+            if (h.collider.transform.IsChildOf(transform) || (playerCamera != null && h.collider.transform.IsChildOf(playerCamera.transform)))
             {
-                SetCurrentTarget(pickupItem);
-
-                // Show the pickup prompt.
-                if (promptText != null)
-                {
-                    promptText.text = "Press E to Pick Up";
-                    promptText.gameObject.SetActive(true);
-                }
-
-                // Pick up the item when E is pressed.
-                if (Input.GetKeyDown(KeyCode.E))
-                {
-                    pickupItem.Interact();
-                }
-
-                return;
+                continue;
             }
 
-            // Check for an interactable door.
-            DoorInteract door = hit.collider.GetComponentInParent<DoorInteract>();
-
-            if (door != null)
+            // Check for IInteractable on hit object, its parents, or its children
+            IInteractable interactable = h.collider.GetComponentInParent<IInteractable>();
+            if (interactable == null)
             {
-                // Show the door prompt.
+                interactable = h.collider.GetComponentInChildren<IInteractable>();
+            }
+
+            if (interactable != null)
+            {
+                // Set current target if it's a PickupItem for backward compatibility
+                PickupItem pickupItem = interactable as PickupItem;
+                if (pickupItem != null) SetCurrentTarget(pickupItem);
+
+                // Display prompt
                 if (promptText != null)
                 {
-                    promptText.text = door.GetPrompt();
-                    promptText.gameObject.SetActive(true);
+                    string prompt = interactable.GetPrompt();
+                    if (!string.IsNullOrEmpty(prompt))
+                    {
+                        promptText.text = prompt;
+                        promptText.gameObject.SetActive(true);
+                    }
+                    else
+                    {
+                        promptText.gameObject.SetActive(false);
+                    }
                 }
 
-                // Toggle the door when E is pressed.
+                // Interact when E is pressed
                 if (Input.GetKeyDown(KeyCode.E))
                 {
-                    door.ToggleDoor();
+                    interactable.Interact();
                 }
 
                 return;

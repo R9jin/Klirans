@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7902f9d091be45d4fabc9d5e72f58aeb, type: 3}
+  m_Name: Fragment_Right
+  m_EditorClassIdentifier: Assembly-CSharp::InventoryItem
+  itemName: Clearance Slip (Right)
+  description: A fragment piece of the clearance slip.
+  icon: {fileID: 21300000, guid: 439c3f16326e19a41ace55c0806d4a11, type: 3}
+  itemType: 0
+  itemPrefab: {fileID: 0}
+  isStackable: 0
+  maxStack: 1
+  anxietyChange: 0
+  staminaChange: 0
+  canBeDropped: 1

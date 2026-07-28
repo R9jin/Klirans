@@ -41,7 +41,7 @@ public class PlayerMovement : MonoBehaviour
     [Header("Vignette Effect (Universal)")]
     [Tooltip("Assign a UI Image with a white or black vignette texture. It will be colored black via code.")]
     public Image vignetteImage;
-    public float maxVignetteAlpha = 0.85f;
+    public float maxVignetteAlpha = 0.25f;
 
     private Vector3 moveDirection = Vector3.zero;
     private float rotationX = 0f;
@@ -166,6 +166,15 @@ public class PlayerMovement : MonoBehaviour
         }
 
         characterController.Move(moveDirection * Time.deltaTime);
+
+        // Fall Safety Recovery: If player clips below map (Y < -2.0f), safety teleport back to floor
+        if (transform.position.y < -2.0f)
+        {
+            characterController.enabled = false;
+            transform.position = new Vector3(-84.5f, 2.5f, 13.5f); // Teleport to stair entrance floor
+            characterController.enabled = true;
+            Debug.LogWarning("[PlayerMovement] Player fell through ground! Reset to safety floor.");
+        }
     }
 
     private void HandleStamina()

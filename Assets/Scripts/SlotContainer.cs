@@ -14,14 +14,19 @@ public abstract class SlotContainer : MonoBehaviour
 
     protected virtual void Awake()
     {
-        Slots = new List<InventorySlot>();
-        for (int i = 0; i < size; i++)
-            Slots.Add(new InventorySlot());
+        EnsureSlotsInitialized();
+    }
+
+    public void EnsureSlotsInitialized()
+    {
+        if (Slots == null) Slots = new List<InventorySlot>();
+        while (Slots.Count < size) Slots.Add(new InventorySlot());
     }
 
     public bool AddItem(InventoryItem newItem, int amount = 1)
     {
         if (newItem == null) return false;
+        EnsureSlotsInitialized();
 
         if (newItem.isStackable)
         {
@@ -60,6 +65,7 @@ public abstract class SlotContainer : MonoBehaviour
 
     public bool RemoveItem(InventoryItem itemToRemove, int amount = 1)
     {
+        EnsureSlotsInitialized();
         foreach (var slot in Slots)
         {
             if (!slot.IsEmpty && slot.item == itemToRemove)
@@ -76,6 +82,7 @@ public abstract class SlotContainer : MonoBehaviour
     // Matches the Proctor's "steal one item on catch" punishment.
     public void RemoveRandomItem()
     {
+        EnsureSlotsInitialized();
         List<int> filled = new List<int>();
         for (int i = 0; i < Slots.Count; i++)
             if (!Slots[i].IsEmpty && Slots[i].item.canBeDropped) filled.Add(i);
@@ -89,6 +96,7 @@ public abstract class SlotContainer : MonoBehaviour
 
     public bool HasItem(InventoryItem item)
     {
+        EnsureSlotsInitialized();
         foreach (var slot in Slots)
             if (!slot.IsEmpty && slot.item == item) return true;
         return false;
@@ -96,6 +104,7 @@ public abstract class SlotContainer : MonoBehaviour
 
     public bool HasFreeSlot()
     {
+        EnsureSlotsInitialized();
         foreach (var slot in Slots)
             if (slot.IsEmpty) return true;
         return false;
