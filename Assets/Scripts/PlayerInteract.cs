@@ -17,6 +17,7 @@ public class PlayerInteract : MonoBehaviour
     private Camera playerCamera;
 
     private PickupItem currentTarget;
+    private RaycastHit[] hitBuffer = new RaycastHit[10];
 
     private void Start()
     {
@@ -52,64 +53,68 @@ public class PlayerInteract : MonoBehaviour
             return;
         }
 
-        // Create a ray from the exact center of the player's screen.
         Ray ray = playerCamera.ViewportPointToRay(
             new Vector3(0.5f, 0.5f, 0f)
         );
 
-        // Cast ray forward from camera using RaycastAll to handle layered or childed meshes
-        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, interactableLayer, QueryTriggerInteraction.Collide);
-        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+        int hitCount = Physics.RaycastNonAlloc(ray, hitBuffer, interactRange, interactableLayer, QueryTriggerInteraction.Collide);
+        
+        float closestDistance = float.MaxValue;
+        IInteractable closestInteractable = null;
+        PickupItem closestPickup = null;
 
-        foreach (var h in hits)
+        for (int i = 0; i < hitCount; i++)
         {
-            if (h.collider == null) continue;
-
-            // Ignore any colliders attached to the player or childed under player/camera (e.g. held items)
+            RaycastHit h = hitBuffer[i];
+            
             if (h.collider.transform.IsChildOf(transform) || (playerCamera != null && h.collider.transform.IsChildOf(playerCamera.transform)))
             {
                 continue;
             }
 
-            // Check for IInteractable on hit object, its parents, or its children
-            IInteractable interactable = h.collider.GetComponentInParent<IInteractable>();
-            if (interactable == null)
+            if (h.distance < closestDistance)
             {
-                interactable = h.collider.GetComponentInChildren<IInteractable>();
-            }
-
-            if (interactable != null)
-            {
-                // Set current target if it's a PickupItem for backward compatibility
-                PickupItem pickupItem = interactable as PickupItem;
-                if (pickupItem != null) SetCurrentTarget(pickupItem);
-
-                // Display prompt
-                if (promptText != null)
+                IInteractable interactable = h.collider.GetComponentInParent<IInteractable>();
+                if (interactable == null)
                 {
-                    string prompt = interactable.GetPrompt();
-                    if (!string.IsNullOrEmpty(prompt))
-                    {
-                        promptText.text = prompt;
-                        promptText.gameObject.SetActive(true);
-                    }
-                    else
-                    {
-                        promptText.gameObject.SetActive(false);
-                    }
+                    interactable = h.collider.GetComponentInChildren<IInteractable>();
                 }
 
-                // Interact when E is pressed
-                if (Input.GetKeyDown(KeyCode.E))
+                if (interactable != null)
                 {
-                    interactable.Interact();
+                    closestDistance = h.distance;
+                    closestInteractable = interactable;
+                    closestPickup = interactable as PickupItem;
                 }
-
-                return;
             }
         }
 
-        // The player is not looking at an interactable object.
+        if (closestInteractable != null)
+        {
+            if (closestPickup != null) SetCurrentTarget(closestPickup);
+
+            if (promptText != null)
+            {
+                string prompt = closestInteractable.GetPrompt();
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    promptText.text = prompt;
+                    promptText.gameObject.SetActive(true);
+                }
+                else
+                {
+                    promptText.gameObject.SetActive(false);
+                }
+            }
+
+            if (Input.GetKeyDown(KeyCode.E))
+            {
+                closestInteractable.Interact();
+            }
+
+            return;
+        }
+
         ClearCurrentTarget();
     }
 

@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -32,10 +31,18 @@ public class RandomLightFlicker : MonoBehaviour
     [Tooltip("Minimum intensity multiplier during a flicker dip.")]
     public float minFlickerMultiplier = 0.05f;
 
-    private Material instancedMaterial;
+    private MaterialPropertyBlock propBlock;
     private Color originalEmissionColor = Color.black;
     private bool hasOriginalEmission = false;
     private bool isFlickeringActive = false;
+
+    private float nextFlickerTime;
+    private bool isCurrentlyBlinking;
+    private int blinksRemaining;
+    private float nextBlinkChangeTime;
+    private bool isLightDip;
+
+    private static readonly int EmissionColorProp = Shader.PropertyToID("_EmissionColor");
 
     private void Awake()
     {
@@ -60,10 +67,11 @@ public class RandomLightFlicker : MonoBehaviour
 
         if (targetRenderer != null && targetRenderer.sharedMaterial != null)
         {
-            instancedMaterial = targetRenderer.material;
-            if (instancedMaterial.HasProperty("_EmissionColor") && instancedMaterial.IsKeywordEnabled("_EMISSION"))
+            propBlock = new MaterialPropertyBlock();
+            Material mat = targetRenderer.sharedMaterial;
+            if (mat.HasProperty("_EmissionColor"))
             {
-                originalEmissionColor = instancedMaterial.GetColor("_EmissionColor");
+                originalEmissionColor = mat.GetColor("_EmissionColor");
                 hasOriginalEmission = originalEmissionColor != Color.black;
             }
         }
@@ -74,34 +82,74 @@ public class RandomLightFlicker : MonoBehaviour
         if (Random.value <= flickerProbability)
         {
             isFlickeringActive = true;
-            StartCoroutine(FlickerRoutine());
+            ScheduleNextFlicker();
         }
     }
 
-    private IEnumerator FlickerRoutine()
+    private void Update()
     {
-        while (isFlickeringActive)
+        if (!isFlickeringActive) return;
+
+        if (!isCurrentlyBlinking)
         {
-            float waitTime = Random.Range(minTimeBetweenFlickers, maxTimeBetweenFlickers);
-            yield return new WaitForSeconds(waitTime);
-
-            int numBlinks = Random.Range(2, 6);
-            for (int i = 0; i < numBlinks; i++)
+            if (Time.time >= nextFlickerTime)
             {
-                float dimFactor = Random.Range(minFlickerMultiplier, 0.3f);
-                SetLightState(normalIntensity * dimFactor, dimFactor);
-
-                yield return new WaitForSeconds(Random.Range(0.03f, 0.12f));
-
-                if (Random.value > 0.4f)
+                isCurrentlyBlinking = true;
+                blinksRemaining = Random.Range(2, 6);
+                StartNextBlinkSequence();
+            }
+        }
+        else
+        {
+            if (Time.time >= nextBlinkChangeTime)
+            {
+                if (isLightDip)
                 {
-                    SetLightState(normalIntensity, 1.0f);
-                    yield return new WaitForSeconds(Random.Range(0.02f, 0.08f));
+                    if (Random.value > 0.4f)
+                    {
+                        SetLightState(normalIntensity, 1.0f);
+                        isLightDip = false;
+                        nextBlinkChangeTime = Time.time + Random.Range(0.02f, 0.08f);
+                    }
+                    else
+                    {
+                        ProceedToNextBlink();
+                    }
+                }
+                else
+                {
+                    ProceedToNextBlink();
                 }
             }
-
-            SetLightState(normalIntensity, 1.0f);
         }
+    }
+
+    private void ProceedToNextBlink()
+    {
+        blinksRemaining--;
+        if (blinksRemaining <= 0)
+        {
+            SetLightState(normalIntensity, 1.0f);
+            isCurrentlyBlinking = false;
+            ScheduleNextFlicker();
+        }
+        else
+        {
+            StartNextBlinkSequence();
+        }
+    }
+
+    private void StartNextBlinkSequence()
+    {
+        float dimFactor = Random.Range(minFlickerMultiplier, 0.3f);
+        SetLightState(normalIntensity * dimFactor, dimFactor);
+        isLightDip = true;
+        nextBlinkChangeTime = Time.time + Random.Range(0.03f, 0.12f);
+    }
+
+    private void ScheduleNextFlicker()
+    {
+        nextFlickerTime = Time.time + Random.Range(minTimeBetweenFlickers, maxTimeBetweenFlickers);
     }
 
     private void SetLightState(float intensity, float emissionMultiplier)
@@ -112,26 +160,12 @@ public class RandomLightFlicker : MonoBehaviour
             targetLight.enabled = true;
         }
 
-        if (hasOriginalEmission && instancedMaterial != null && instancedMaterial.HasProperty("_EmissionColor"))
+        if (hasOriginalEmission && propBlock != null && targetRenderer != null)
         {
+            targetRenderer.GetPropertyBlock(propBlock);
             Color currentEmission = originalEmissionColor * emissionMultiplier;
-            instancedMaterial.SetColor("_EmissionColor", currentEmission);
-            if (emissionMultiplier <= 0.05f)
-            {
-                instancedMaterial.DisableKeyword("_EMISSION");
-            }
-            else
-            {
-                instancedMaterial.EnableKeyword("_EMISSION");
-            }
-        }
-    }
-
-    private void OnDestroy()
-    {
-        if (instancedMaterial != null)
-        {
-            Destroy(instancedMaterial);
+            propBlock.SetColor(EmissionColorProp, currentEmission);
+            targetRenderer.SetPropertyBlock(propBlock);
         }
     }
 }
