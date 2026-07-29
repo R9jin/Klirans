@@ -165,42 +165,40 @@ public class InventoryEquipController : MonoBehaviour
             return;
         }
 
-        // 2. Blank Paper Clearance Slip Handling ONLY (No viewmodels for individual fragments)
+        // 2. Spawn 3D viewmodel for items with an itemPrefab (e.g. Lockpin, Blank Paper)
         bool isBlankPaper = (blankPaperItemData != null && item == blankPaperItemData) ||
                            itemNameLower.Equals("blank_paper") ||
                            itemNameLower.Equals("blank paper");
 
-        if (isBlankPaper)
+        GameObject prefabToSpawn = item.itemPrefab;
+        if (isBlankPaper && heldPaperModelPrefab != null) prefabToSpawn = heldPaperModelPrefab;
+
+        if (prefabToSpawn != null && equipPoint != null)
         {
-            GameObject prefabToSpawn = heldPaperModelPrefab != null ? heldPaperModelPrefab : item.itemPrefab;
+            currentEquippedInstance = Instantiate(prefabToSpawn, equipPoint.position, equipPoint.rotation, equipPoint);
 
-            if (prefabToSpawn != null && equipPoint != null)
+            // Strip PickupItem scripts and Colliders on held viewmodels
+            PickupItem[] pickups = currentEquippedInstance.GetComponentsInChildren<PickupItem>(true);
+            foreach (var p in pickups)
             {
-                currentEquippedInstance = Instantiate(prefabToSpawn, equipPoint.position, equipPoint.rotation, equipPoint);
-
-                // Strip PickupItem scripts and Colliders on held viewmodels
-                PickupItem[] pickups = currentEquippedInstance.GetComponentsInChildren<PickupItem>(true);
-                foreach (var p in pickups)
-                {
-                    if (p != null) Destroy(p);
-                }
-
-                Collider[] colliders = currentEquippedInstance.GetComponentsInChildren<Collider>(true);
-                foreach (var col in colliders)
-                {
-                    if (col != null) Destroy(col);
-                }
-
-                Rigidbody rb = currentEquippedInstance.GetComponent<Rigidbody>();
-                if (rb != null)
-                {
-                    rb.isKinematic = true;
-                }
-
-                currentEquippedInstance.transform.localPosition = Vector3.zero;
-                currentEquippedInstance.transform.localRotation = Quaternion.identity;
-                currentEquippedInstance.SetActive(true);
+                if (p != null) Destroy(p);
             }
+
+            Collider[] colliders = currentEquippedInstance.GetComponentsInChildren<Collider>(true);
+            foreach (var col in colliders)
+            {
+                if (col != null) Destroy(col);
+            }
+
+            Rigidbody rb = currentEquippedInstance.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = true;
+            }
+
+            currentEquippedInstance.transform.localPosition = Vector3.zero;
+            currentEquippedInstance.transform.localRotation = Quaternion.identity;
+            currentEquippedInstance.SetActive(true);
         }
     }
 
