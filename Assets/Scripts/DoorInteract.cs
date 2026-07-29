@@ -22,6 +22,13 @@ public class DoorInteract : MonoBehaviour, IInteractable
     private Quaternion openRotation;
     private Quaternion targetRotation;
 
+    [Header("Lock Settings")]
+    [Tooltip("Is this door currently locked?")]
+    public bool isLocked = false;
+
+    [Tooltip("Specific lockpin item required. If null, any item named 'Lockpin' works.")]
+    public InventoryItem requiredLockpinItem;
+
     private void Start()
     {
         closedRotation = transform.localRotation;
@@ -47,6 +54,25 @@ public class DoorInteract : MonoBehaviour, IInteractable
     /// </summary>
     public void Interact()
     {
+        if (isLocked)
+        {
+            if (LockpickingMinigame.Instance != null)
+            {
+                LockpickingMinigame.Instance.StartLockpicking(this);
+            }
+            else
+            {
+                Debug.LogWarning("[DoorInteract] Door is locked, but LockpickingMinigame instance was not found!");
+            }
+            return;
+        }
+
+        ToggleDoor();
+    }
+
+    public void UnlockDoor()
+    {
+        isLocked = false;
         ToggleDoor();
     }
 
@@ -61,6 +87,12 @@ public class DoorInteract : MonoBehaviour, IInteractable
     /// </summary>
     public string GetPrompt()
     {
+        if (isLocked)
+        {
+            bool hasPin = LockpickingMinigame.HasLockpin(requiredLockpinItem);
+            return hasPin ? "Press E to Pick Lock" : "Locked (Requires Lockpin)";
+        }
+
         return isOpen ? "Press E to Close" : "Press E to Open";
     }
 }

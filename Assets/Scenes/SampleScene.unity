@@ -3656,6 +3656,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &29096872
 GameObject:
   m_ObjectHideFlags: 0
@@ -11336,6 +11338,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &76724646
 GameObject:
   m_ObjectHideFlags: 0
@@ -16037,6 +16041,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &104069858
 GameObject:
   m_ObjectHideFlags: 0
@@ -19693,6 +19699,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &144836816
 GameObject:
   m_ObjectHideFlags: 0
@@ -24908,6 +24916,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &202731229 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 1157621097192362790, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -28562,6 +28572,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!43 &228575563
 Mesh:
   m_ObjectHideFlags: 0
@@ -33222,6 +33234,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1001 &267673964
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -38827,6 +38841,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -39812,6 +39828,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &348511004 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5951876038832189993, guid: 0c26584f4bffdd74fa3c60b2ba665f13, type: 3}
@@ -42476,6 +42494,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 1
+  requiredLockpinItem: {fileID: 11400000, guid: c8a291f04b1e42a988d3e911a3b592f7, type: 2}
 --- !u!1001 &375355653
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -43203,6 +43223,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1001 &381427582
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -65156,6 +65178,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &542559746
 GameObject:
   m_ObjectHideFlags: 0
@@ -67748,6 +67772,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &583834776
 GameObject:
   m_ObjectHideFlags: 0
@@ -69891,6 +69917,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &607825240
 GameObject:
   m_ObjectHideFlags: 0
@@ -72936,6 +72964,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!43 &629510024
 Mesh:
   m_ObjectHideFlags: 0
@@ -77371,6 +77401,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &673430927
 GameObject:
   m_ObjectHideFlags: 0
@@ -80608,6 +80640,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 1
+  requiredLockpinItem: {fileID: 11400000, guid: c8a291f04b1e42a988d3e911a3b592f7, type: 2}
 --- !u!1 &702433294 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7327031552221067082, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -94800,6 +94834,55 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &831258347
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 831258349}
+  - component: {fileID: 831258348}
+  m_Layer: 0
+  m_Name: LockpickingMinigame
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &831258348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 831258347}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e61d8a09f8742d4a942b01237e89ab0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LockpickingMinigame
+  totalPins: 5
+  difficultyTimer: 60
+  difficultyName: Easy
+  lockpinItemData: {fileID: 0}
+  minigameUIRoot: {fileID: 0}
+--- !u!4 &831258349
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 831258347}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &832079336
 GameObject:
   m_ObjectHideFlags: 0
@@ -104909,6 +104992,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &907401555
 GameObject:
   m_ObjectHideFlags: 0
@@ -113813,6 +113898,104 @@ MonoBehaviour:
   m_SelectedFaces: 
   m_SelectedEdges: []
   m_SelectedVertices: 
+--- !u!1001 &1008661119
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 1805192057701968248, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_Name
+      value: LockpinPickup
+      objectReference: {fileID: 0}
+    - target: {fileID: 2556354962511615422, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -84.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 2556354962511615422, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 2.9120002
+      objectReference: {fileID: 0}
+    - target: {fileID: 2556354962511615422, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 21.56
+      objectReference: {fileID: 0}
+    - target: {fileID: 2556354962511615422, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.9238795
+      objectReference: {fileID: 0}
+    - target: {fileID: 2556354962511615422, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2556354962511615422, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.38268346
+      objectReference: {fileID: 0}
+    - target: {fileID: 2556354962511615422, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2556354962511615422, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2556354962511615422, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2556354962511615422, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1805192057701968248, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1008661122}
+    - targetCorrespondingSourceObject: {fileID: 1805192057701968248, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1008661121}
+  m_SourcePrefab: {fileID: 100100000, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+--- !u!1 &1008661120 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1805192057701968248, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
+  m_PrefabInstance: {fileID: 1008661119}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1008661121
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1008661120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec3218ba5dcf69640a0c132403014d7d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FloatingItemAnimation
+  rotationSpeed: 60
+  rotationAxis: {x: 0, y: 1, z: 0}
+  floatAmplitude: 0.12
+  floatFrequency: 2
+--- !u!114 &1008661122
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1008661120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29ee60f42c66ed7448e361e680681196, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PickupItem
+  itemData: {fileID: 11400000, guid: c8a291f04b1e42a988d3e911a3b592f7, type: 2}
+  amount: 3
 --- !u!1 &1010012728 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6775831315749639024, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -119192,6 +119375,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1068148733 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -4064448652249572082, guid: a74a7c5a2f6c01e43a79a10d430ada40, type: 3}
@@ -119444,6 +119629,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!43 &1070527252
 Mesh:
   m_ObjectHideFlags: 0
@@ -140573,6 +140760,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!21 &1207996399
 Material:
   serializedVersion: 8
@@ -146406,6 +146595,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1001 &1233010378
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -153445,6 +153636,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1001 &1260132701
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -153926,6 +154119,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1262784829 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3977699040533212987, guid: eadcfcc17e7cf5f42996d2500acd05fe, type: 3}
@@ -164851,6 +165046,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1371840320
 GameObject:
   m_ObjectHideFlags: 0
@@ -167062,6 +167259,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1397855694 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -4064448652249572082, guid: a74a7c5a2f6c01e43a79a10d430ada40, type: 3}
@@ -172482,6 +172681,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1407446994
 GameObject:
   m_ObjectHideFlags: 0
@@ -176195,6 +176396,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1442724642 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -6187804799474236792, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -176702,6 +176905,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1446286357
 GameObject:
   m_ObjectHideFlags: 0
@@ -185238,6 +185443,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1487695458 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6769524434039023597, guid: a74a7c5a2f6c01e43a79a10d430ada40, type: 3}
@@ -187373,6 +187580,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1510487790
 GameObject:
   m_ObjectHideFlags: 0
@@ -190255,6 +190464,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 1
+  requiredLockpinItem: {fileID: 11400000, guid: c8a291f04b1e42a988d3e911a3b592f7, type: 2}
 --- !u!1 &1546952787
 GameObject:
   m_ObjectHideFlags: 0
@@ -192851,6 +193062,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1568084354 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6011852730486390552, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -195734,6 +195947,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1001 &1596844512
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -198238,6 +198453,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1001 &1619689105
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -200801,6 +201018,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!43 &1652047414
 Mesh:
   m_ObjectHideFlags: 0
@@ -211571,6 +211790,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1718620325
 GameObject:
   m_ObjectHideFlags: 0
@@ -215413,6 +215634,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1760191977
 GameObject:
   m_ObjectHideFlags: 0
@@ -218910,6 +219133,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1001 &1794163787
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -221025,6 +221250,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1817028523
 GameObject:
   m_ObjectHideFlags: 0
@@ -225306,6 +225533,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1853627133 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 278737803950985747, guid: 24893a7c3297b884584e0a27a68b384d, type: 3}
@@ -227989,6 +228218,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!43 &1886227808
 Mesh:
   m_ObjectHideFlags: 0
@@ -237531,6 +237762,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!43 &1945459483
 Mesh:
   m_ObjectHideFlags: 0
@@ -240756,6 +240989,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &1968795793
 GameObject:
   m_ObjectHideFlags: 0
@@ -251583,6 +251818,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &2051210359 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -7997450462283417050, guid: 2a1ccbee4737ccb4da51cec2e5548c70, type: 3}
@@ -253626,6 +253863,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &2067438240 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -3444755872446549979, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -257230,6 +257469,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1001 &2121762833
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -257501,6 +257742,8 @@ MonoBehaviour:
   openAngle: -70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
+  isLocked: 0
+  requiredLockpinItem: {fileID: 0}
 --- !u!1 &2123807699
 GameObject:
   m_ObjectHideFlags: 0
@@ -260654,3 +260897,5 @@ SceneRoots:
   - {fileID: 67207297}
   - {fileID: 1926143885}
   - {fileID: 712706462}
+  - {fileID: 1008661119}
+  - {fileID: 831258349}

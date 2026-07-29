@@ -111,6 +111,10 @@ public class PlayerMovement : MonoBehaviour
     public void SetControlsEnabled(bool enabled)
     {
         canMove = enabled;
+        if (!enabled && footstepAudioSource != null && footstepAudioSource.isPlaying)
+        {
+            footstepAudioSource.Pause();
+        }
     }
 
     void Update()
@@ -124,7 +128,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void UpdateMovementStates()
     {
-        isMoving = Mathf.Abs(Input.GetAxis("Horizontal")) > 0.01f || Mathf.Abs(Input.GetAxis("Vertical")) > 0.01f;
+        isMoving = canMove && (Mathf.Abs(Input.GetAxis("Horizontal")) > 0.01f || Mathf.Abs(Input.GetAxis("Vertical")) > 0.01f);
         isRunning = Input.GetKey(KeyCode.LeftShift) && isMoving && canMove && staminaSystem != null && staminaSystem.CanSprint;
         isCrouching = Input.GetKey(KeyCode.C) && canMove;
     }
