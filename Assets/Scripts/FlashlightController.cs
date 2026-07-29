@@ -41,7 +41,23 @@ public class FlashlightController : MonoBehaviour
     private void Start()
     {
         AutoAssignReferences();
+        StripRogueComponents();
         SetEquippedState(false);
+    }
+
+    private void StripRogueComponents()
+    {
+        if (heldFlashlightModel != null)
+        {
+            foreach (var p in heldFlashlightModel.GetComponentsInChildren<PickupItem>(true))
+            {
+                if (p != null) Destroy(p);
+            }
+            foreach (var col in heldFlashlightModel.GetComponentsInChildren<Collider>(true))
+            {
+                if (col != null) Destroy(col);
+            }
+        }
     }
 
     public void AutoAssignReferences()
@@ -86,18 +102,6 @@ public class FlashlightController : MonoBehaviour
         if (heldFlashlightModel != null)
         {
             heldFlashlightModel.SetActive(equipped);
-            if (equipped)
-            {
-                // Strip rogue PickupItem scripts or Colliders on viewmodel so raycasts/interaction never hit it
-                foreach (var p in heldFlashlightModel.GetComponentsInChildren<PickupItem>(true))
-                {
-                    if (p != null) Destroy(p);
-                }
-                foreach (var col in heldFlashlightModel.GetComponentsInChildren<Collider>(true))
-                {
-                    if (col != null) Destroy(col);
-                }
-            }
         }
 
         if (!equipped)

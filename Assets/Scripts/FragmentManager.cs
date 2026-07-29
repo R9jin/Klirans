@@ -38,6 +38,7 @@ public class FragmentManager : MonoBehaviour
     private HashSet<string> collectedFragments = new HashSet<string>();
     private List<InventoryItem> collectedFragmentItems = new List<InventoryItem>();
     private float notificationTimer = 0f;
+    private Camera mainCamera;
 
     private void Awake()
     {
@@ -47,6 +48,7 @@ public class FragmentManager : MonoBehaviour
             return;
         }
         Instance = this;
+        mainCamera = Camera.main;
     }
 
     private void Update()
@@ -80,8 +82,8 @@ public class FragmentManager : MonoBehaviour
         {
             collectedFragmentItems.Add(itemData);
 
-            InventoryManager inventory = InventoryManager.Instance ?? FindObjectOfType<InventoryManager>(true);
-            StorageManager storage = StorageManager.Instance ?? FindObjectOfType<StorageManager>(true);
+            InventoryManager inventory = InventoryManager.Instance;
+            StorageManager storage = StorageManager.Instance;
 
             // 1. Try adding to InventoryManager (6-Slot Hotbar on screen) so it appears immediately
             bool itemAdded = false;
@@ -126,11 +128,11 @@ public class FragmentManager : MonoBehaviour
         // Play completion SFX
         if (completionSound != null)
         {
-            AudioSource.PlayClipAtPoint(completionSound, Camera.main != null ? Camera.main.transform.position : transform.position, 1.0f);
+            AudioSource.PlayClipAtPoint(completionSound, mainCamera != null ? mainCamera.transform.position : transform.position, 1.0f);
         }
 
-        InventoryManager inventory = InventoryManager.Instance ?? FindObjectOfType<InventoryManager>(true);
-        StorageManager storage = StorageManager.Instance ?? FindObjectOfType<StorageManager>(true);
+        InventoryManager inventory = InventoryManager.Instance;
+        StorageManager storage = StorageManager.Instance;
 
         // 1. Remove individual fragment items from Hotbar/Bag inventory
         foreach (var fragItem in collectedFragmentItems)
@@ -170,8 +172,8 @@ public class FragmentManager : MonoBehaviour
     /// </summary>
     private bool AddRewardToPlayerInventory()
     {
-        InventoryManager inventory = InventoryManager.Instance ?? FindObjectOfType<InventoryManager>(true);
-        StorageManager storage = StorageManager.Instance ?? FindObjectOfType<StorageManager>(true);
+        InventoryManager inventory = InventoryManager.Instance;
+        StorageManager storage = StorageManager.Instance;
 
         // 1. Try adding to InventoryManager (6-Slot Hotbar on screen)
         if (inventory != null && blankPaperRewardItem != null)

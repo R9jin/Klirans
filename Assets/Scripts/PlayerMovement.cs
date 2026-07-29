@@ -9,6 +9,12 @@ public class PlayerMovement : MonoBehaviour
     [Header("References")]
     public Camera playerCamera;
     public StaminaSystem staminaSystem;
+    
+    [Header("Audio")]
+    public AudioSource footstepAudioSource;
+    public bool enableDiegeticFootsteps = true;
+    [Range(0f, 1f)] public float stereoPanAmount = 0.8f; 
+    public AudioReverbPreset footstepReverbPreset = AudioReverbPreset.Hallway;
 
     [Header("Movement")]
     public float walkSpeed = 4f;
@@ -89,6 +95,16 @@ public class PlayerMovement : MonoBehaviour
         {
             // Force the initial color to be pure black and transparent
             vignetteImage.color = new Color(0f, 0f, 0f, 0f);
+        }
+
+        if (footstepAudioSource != null && enableDiegeticFootsteps)
+        {
+            AudioReverbFilter reverb = footstepAudioSource.gameObject.GetComponent<AudioReverbFilter>();
+            if (reverb == null)
+            {
+                reverb = footstepAudioSource.gameObject.AddComponent<AudioReverbFilter>();
+            }
+            reverb.reverbPreset = footstepReverbPreset;
         }
     }
 
@@ -175,6 +191,27 @@ public class PlayerMovement : MonoBehaviour
             characterController.enabled = true;
             Debug.LogWarning("[PlayerMovement] Player fell through ground! Reset to safety floor.");
         }
+
+        // Footstep Audio Logic
+        if (footstepAudioSource != null)
+        {
+            if (isMoving && characterController.isGrounded)
+            {
+                if (!footstepAudioSource.isPlaying) footstepAudioSource.Play();
+                footstepAudioSource.pitch = isRunning ? 1.3f : (isCrouching ? 0.7f : 1f);
+
+                if (enableDiegeticFootsteps)
+                {
+                    // Use the headbob timer to alternate stereo pan left/right
+                    // This syncs the sound position with the visual head sway
+                    footstepAudioSource.panStereo = Mathf.Sin(headBobTimer) * stereoPanAmount;
+                }
+            }
+            else
+            {
+                if (footstepAudioSource.isPlaying) footstepAudioSource.Pause();
+            }
+        }
     }
 
     private void HandleStamina()
@@ -233,8 +270,10 @@ public class PlayerMovement : MonoBehaviour
                 float targetAlpha = intervalPulse * maxVignetteAlpha * fatigue;
                 
                 // Explicitly set the RGB to 0, 0, 0 (black) and only lerp the alpha channel
-                float newAlpha = Mathf.Lerp(vignetteImage.color.a, targetAlpha, cameraSmoothSpeed * Time.deltaTime);
-                vignetteImage.color = new Color(0f, 0f, 0f, newAlpha);
+                Color vColor = vignetteImage.color;
+                vColor.r = 0f; vColor.g = 0f; vColor.b = 0f;
+                vColor.a = Mathf.Lerp(vColor.a, targetAlpha, cameraSmoothSpeed * Time.deltaTime);
+                vignetteImage.color = vColor;
             }
         }
 

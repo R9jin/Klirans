@@ -6,6 +6,10 @@ public class StaminaSystem : MonoBehaviour
     [Header("UI")]
     public Image staminaFill;
 
+    [Header("Audio")]
+    public AudioSource breathingAudioSource;
+    public float exhaustionThreshold = 30f;
+
     [Header("Stamina")]
     public float maxStamina = 100f;
     public float currentStamina = 100f;
@@ -41,6 +45,19 @@ public class StaminaSystem : MonoBehaviour
         if (staminaFill != null)
         {
             staminaFill.fillAmount = currentStamina / maxStamina;
+        }
+
+        // Exhaustion Audio Logic
+        if (breathingAudioSource != null)
+        {
+            if (currentStamina <= exhaustionThreshold)
+            {
+                if (!breathingAudioSource.isPlaying) breathingAudioSource.Play();
+            }
+            else
+            {
+                if (breathingAudioSource.isPlaying) breathingAudioSource.Pause();
+            }
         }
     }
 }
