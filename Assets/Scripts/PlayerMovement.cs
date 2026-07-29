@@ -12,6 +12,9 @@ public class PlayerMovement : MonoBehaviour
     
     [Header("Audio")]
     public AudioSource footstepAudioSource;
+    public bool enableDiegeticFootsteps = true;
+    [Range(0f, 1f)] public float stereoPanAmount = 0.8f; 
+    public AudioReverbPreset footstepReverbPreset = AudioReverbPreset.Hallway;
 
     [Header("Movement")]
     public float walkSpeed = 4f;
@@ -92,6 +95,16 @@ public class PlayerMovement : MonoBehaviour
         {
             // Force the initial color to be pure black and transparent
             vignetteImage.color = new Color(0f, 0f, 0f, 0f);
+        }
+
+        if (footstepAudioSource != null && enableDiegeticFootsteps)
+        {
+            AudioReverbFilter reverb = footstepAudioSource.gameObject.GetComponent<AudioReverbFilter>();
+            if (reverb == null)
+            {
+                reverb = footstepAudioSource.gameObject.AddComponent<AudioReverbFilter>();
+            }
+            reverb.reverbPreset = footstepReverbPreset;
         }
     }
 
@@ -186,6 +199,13 @@ public class PlayerMovement : MonoBehaviour
             {
                 if (!footstepAudioSource.isPlaying) footstepAudioSource.Play();
                 footstepAudioSource.pitch = isRunning ? 1.3f : (isCrouching ? 0.7f : 1f);
+
+                if (enableDiegeticFootsteps)
+                {
+                    // Use the headbob timer to alternate stereo pan left/right
+                    // This syncs the sound position with the visual head sway
+                    footstepAudioSource.panStereo = Mathf.Sin(headBobTimer) * stereoPanAmount;
+                }
             }
             else
             {
