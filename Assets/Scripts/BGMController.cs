@@ -14,10 +14,8 @@ public class BGMController : MonoBehaviour
             DontDestroyOnLoad(gameObject);
             
             AudioSource source = GetComponent<AudioSource>();
-            if (!source.isPlaying)
-            {
-                source.Play();
-            }
+            source.Stop();
+            source.enabled = false;
         }
         else
         {
