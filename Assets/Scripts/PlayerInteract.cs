@@ -7,6 +7,9 @@ public class PlayerInteract : MonoBehaviour
     [Tooltip("Maximum distance at which the player can interact with an object.")]
     public float interactRange = 3f;
 
+    [Tooltip("Radius of the interaction ray to make pointing at items more forgiving.")]
+    public float interactRadius = 0.5f;
+
     [Tooltip("The layers that can be interacted with.")]
     public LayerMask interactableLayer;
 
@@ -57,7 +60,8 @@ public class PlayerInteract : MonoBehaviour
             new Vector3(0.5f, 0.5f, 0f)
         );
 
-        int hitCount = Physics.RaycastNonAlloc(ray, hitBuffer, interactRange, interactableLayer, QueryTriggerInteraction.Collide);
+        // Use SphereCast instead of a thin Raycast so the player doesn't have to aim perfectly
+        int hitCount = Physics.SphereCastNonAlloc(ray, interactRadius, hitBuffer, interactRange, interactableLayer, QueryTriggerInteraction.Collide);
         
         float closestDistance = float.MaxValue;
         IInteractable closestInteractable = null;
@@ -140,7 +144,8 @@ public class PlayerInteract : MonoBehaviour
         // and the camera has already been found.
         if (playerCamera == null)
         {
-            return;
+            playerCamera = GetComponentInChildren<Camera>();
+            if (playerCamera == null) return;
         }
 
         Gizmos.color = Color.yellow;
@@ -153,5 +158,8 @@ public class PlayerInteract : MonoBehaviour
             ray.origin,
             ray.direction * interactRange
         );
+
+        // Draw the sphere at the end of the cast
+        Gizmos.DrawWireSphere(ray.origin + ray.direction * interactRange, interactRadius);
     }
 }
