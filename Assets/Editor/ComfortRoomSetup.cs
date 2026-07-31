@@ -187,6 +187,9 @@ public class ComfortRoomSetup
             newDoor.transform.localPosition = targetRotationOffset * templateDoorPos;
             newDoor.transform.localRotation = targetRotationOffset * templateDoorRot;
             newDoor.transform.localScale = templateDoorScale;
+            
+            Undo.AddComponent<DoorInteract>(newDoor);
+            
             Undo.RegisterCreatedObjectUndo(newDoor, "Swap/Add Door");
 
             // Ensure all children in room have clean names
