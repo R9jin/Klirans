@@ -449,7 +449,12 @@ public class LockpickingMinigame : MonoBehaviour
         createdCanvas = canvasObj.AddComponent<Canvas>();
         createdCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
         createdCanvas.sortingOrder = 100;
-        canvasObj.AddComponent<CanvasScaler>();
+        
+        CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.matchWidthOrHeight = 0.5f;
+
         canvasObj.AddComponent<GraphicRaycaster>();
 
         minigameUIRoot = new GameObject("MinigameRoot", typeof(RectTransform));
@@ -559,6 +564,10 @@ public class LockpickingMinigame : MonoBehaviour
             Image rbImg = redBot.GetComponent<Image>();
             rbImg.color = new Color(0.85f, 0.22f, 0.2f, 1f);
             pin.redBottomSegmentImage = rbImg;
+            RectTransform rbRect = redBot.GetComponent<RectTransform>();
+            rbRect.anchorMin = new Vector2(0.5f, 0f);
+            rbRect.anchorMax = new Vector2(0.5f, 0f);
+            rbRect.pivot = new Vector2(0.5f, 0f);
 
             // Green Middle Target Segment
             GameObject greenMid = new GameObject("GreenMiddle", typeof(Image));
@@ -566,6 +575,10 @@ public class LockpickingMinigame : MonoBehaviour
             Image gImg = greenMid.GetComponent<Image>();
             gImg.color = new Color(0.2f, 0.88f, 0.3f, 1f);
             pin.greenSegmentImage = gImg;
+            RectTransform gRect = greenMid.GetComponent<RectTransform>();
+            gRect.anchorMin = new Vector2(0.5f, 0f);
+            gRect.anchorMax = new Vector2(0.5f, 0f);
+            gRect.pivot = new Vector2(0.5f, 0f);
 
             // Red Top Segment
             GameObject redTop = new GameObject("RedTop", typeof(Image));
@@ -573,6 +586,10 @@ public class LockpickingMinigame : MonoBehaviour
             Image rtImg = redTop.GetComponent<Image>();
             rtImg.color = new Color(0.85f, 0.22f, 0.2f, 1f);
             pin.redTopSegmentImage = rtImg;
+            RectTransform rtRect = redTop.GetComponent<RectTransform>();
+            rtRect.anchorMin = new Vector2(0.5f, 0f);
+            rtRect.anchorMax = new Vector2(0.5f, 0f);
+            rtRect.pivot = new Vector2(0.5f, 0f);
 
             // Pin Cap (Brass bottom cylinder cap)
             GameObject pinCap = new GameObject("PinCap", typeof(Image));
@@ -581,6 +598,9 @@ public class LockpickingMinigame : MonoBehaviour
             capImg.color = new Color(0.78f, 0.62f, 0.18f, 1f);
             pin.pinCapImage = capImg;
             RectTransform capRect = pinCap.GetComponent<RectTransform>();
+            capRect.anchorMin = new Vector2(0.5f, 0f);
+            capRect.anchorMax = new Vector2(0.5f, 0f);
+            capRect.pivot = new Vector2(0.5f, 0f);
             capRect.sizeDelta = new Vector2(34, 24);
 
             pin.containerRect = chanRect;
