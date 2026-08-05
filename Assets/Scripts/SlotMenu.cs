@@ -1,8 +1,12 @@
 using UnityEngine;
 
 // Attach this to the "SlotMenu" GameObject (under SlotCanvas). Controls the
-// 6 held-item slots - binding them to InventoryManager's data, and handling clicks.
-// (Tab-key open/close is handled separately, by InventoryScreen.cs.)
+// 6 held-item hotbar slots - binding them to InventoryManager's data.
+//
+// Click behaviour:
+//   - Single click: equip item (hotkey slot), show preview ONLY if Tab bag is open
+//   - Double click: send to bag/storage if there's room
+// (Tab-key open/close is handled separately by InventoryScreen.cs.)
 public class SlotMenu : MonoBehaviour, ISlotOwner
 {
     [Header("SlotCanvas > SlotMenu > SlotHolder references")]
@@ -10,6 +14,13 @@ public class SlotMenu : MonoBehaviour, ISlotOwner
 
     private void Start()
     {
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas != null)
+        {
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 10;
+        }
+
         for (int i = 0; i < slotUIElements.Length; i++)
         {
             if (i < InventoryManager.Instance.Slots.Count)
@@ -31,17 +42,31 @@ public class SlotMenu : MonoBehaviour, ISlotOwner
             slotUI.Refresh();
     }
 
-    // Single click on a held item: use it if it's a consumable.
+    // ─── ISlotOwner ──────────────────────────────────────────────────
+
+    /// <summary>Returns the backing data container for drag-and-drop.</summary>
+    public SlotContainer GetContainer() => InventoryManager.Instance;
+
+    /// <summary>
+    /// Single click on a hotbar slot.
+    /// - Shows item preview ONLY when the Tab inventory bag is open.
+    /// - Consumes the item if it is a Consumable type.
+    /// </summary>
     public void OnSlotClicked(InventorySlot slot)
     {
+        // Show preview only while inventory panel is open
+        if (InventoryScreen.Instance != null && InventoryScreen.Instance.IsOpen)
+            StorageMenu.ShowPreview(slot.item);
+
+        // Original consumable-use behaviour
         if (slot.item.itemType == InventoryItem.ItemType.Consumable)
             UseConsumable(slot);
     }
 
-    // Double click on a held item: send it to the bag/storage, if there's room.
+    /// <summary>Double click on a hotbar slot: send it to the bag/storage if there's room.</summary>
     public void OnSlotDoubleClicked(InventorySlot slot)
     {
-        if (StorageManager.Instance == null) return;
+        if (StorageManager.Instance == null || slot == null || slot.IsEmpty) return;
 
         if (!StorageManager.Instance.HasFreeSlot())
         {
@@ -50,11 +75,24 @@ public class SlotMenu : MonoBehaviour, ISlotOwner
         }
 
         InventoryItem item = slot.item;
-        int qty = slot.quantity;
+        int           qty  = slot.quantity;
 
         if (StorageManager.Instance.AddItem(item, qty))
-            InventoryManager.Instance.RemoveItem(item, qty);
+        {
+            slot.quantity -= qty;
+            if (slot.quantity <= 0) slot.Clear();
+            InventoryManager.Instance.NotifyChanged();
+        }
     }
+
+    /// <summary>Click on an empty hotbar slot: hide preview if inventory is open.</summary>
+    public void OnSlotDeselected()
+    {
+        if (InventoryScreen.Instance != null && InventoryScreen.Instance.IsOpen)
+            StorageMenu.HidePreview();
+    }
+
+    // ─── Private ─────────────────────────────────────────────────────
 
     private void UseConsumable(InventorySlot slot)
     {

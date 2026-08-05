@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::InventoryItem
   itemName: Lockpin
   description: A sturdy metal lockpin used for picking door locks.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: e38973e21aaff22429eec73fe917502b, type: 3}
   itemType: 3
   itemPrefab: {fileID: 1805192057701968248, guid: 6be1703142c905840b84fe8cc25f80d8, type: 3}
   isStackable: 1

@@ -16,7 +16,7 @@ MonoBehaviour:
   description: A fragment piece of the clearance slip.
   icon: {fileID: 21300000, guid: 15c178ac4a9017d4fbd7f77fdbeda076, type: 3}
   itemType: 0
-  itemPrefab: {fileID: 0}
+  itemPrefab: {fileID: 5873359596262116153, guid: 7574233ad7726c74cb7d42020d53c489, type: 3}
   isStackable: 0
   maxStack: 1
   anxietyChange: 0

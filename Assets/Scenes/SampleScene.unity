@@ -37025,6 +37025,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 99321925}
   quantityText: {fileID: 1304133330}
+  slotBackground: {fileID: 0}
 --- !u!1 &265386550
 GameObject:
   m_ObjectHideFlags: 0
@@ -56387,6 +56388,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 174248070}
   quantityText: {fileID: 1188726638}
+  slotBackground: {fileID: 0}
 --- !u!1 &424852003 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7163342363501559643, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -60718,6 +60720,7 @@ MonoBehaviour:
   - {fileID: 263641667}
   inventoryDescription: {fileID: 1278876850}
   itemImage: {fileID: 1157326940}
+  itemNameText: {fileID: 0}
   itemDescriptionText: {fileID: 0}
 --- !u!1 &429733773
 GameObject:
@@ -75067,6 +75070,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 870792635}
   quantityText: {fileID: 1859114401}
+  slotBackground: {fileID: 0}
 --- !u!1 &558414696 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7163342363501559643, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -80485,6 +80489,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 2070310869}
   quantityText: {fileID: 1738306902}
+  slotBackground: {fileID: 0}
 --- !u!1 &616487278
 GameObject:
   m_ObjectHideFlags: 0
@@ -86241,6 +86246,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 1978625380}
   quantityText: {fileID: 1304308990}
+  slotBackground: {fileID: 0}
 --- !u!1 &668149469
 GameObject:
   m_ObjectHideFlags: 0
@@ -87024,6 +87030,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 320603935}
   quantityText: {fileID: 1248606085}
+  slotBackground: {fileID: 0}
 --- !u!1 &674365389 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7575260776061194229, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -98761,6 +98768,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 262695834}
   quantityText: {fileID: 96111236}
+  slotBackground: {fileID: 0}
 --- !u!1001 &775890444
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -117409,6 +117417,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 1407446996}
   quantityText: {fileID: 1672475894}
+  slotBackground: {fileID: 0}
 --- !u!1 &907514100
 GameObject:
   m_ObjectHideFlags: 0
@@ -141846,6 +141855,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 400941450}
   quantityText: {fileID: 136967764}
+  slotBackground: {fileID: 0}
 --- !u!43 &1124743590
 Mesh:
   m_ObjectHideFlags: 0
@@ -144897,6 +144907,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 659687514}
   quantityText: {fileID: 760406720}
+  slotBackground: {fileID: 0}
 --- !u!1 &1154786241 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -544344203618067018, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -145228,16 +145239,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.392}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 21300000, guid: e38973e21aaff22429eec73fe917502b, type: 3}
   m_Type: 1
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -145472,6 +145483,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 1547145005}
   quantityText: {fileID: 1503148670}
+  slotBackground: {fileID: 0}
 --- !u!1001 &1160502981
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -174766,6 +174778,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 869084542}
   quantityText: {fileID: 1083899551}
+  slotBackground: {fileID: 0}
 --- !u!1 &1286729970
 GameObject:
   m_ObjectHideFlags: 0
@@ -218828,6 +218841,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 657717692}
   quantityText: {fileID: 1146328731}
+  slotBackground: {fileID: 0}
 --- !u!1 &1612051645
 GameObject:
   m_ObjectHideFlags: 0
@@ -222919,8 +222933,8 @@ MonoBehaviour:
   openAngle: 70
   swingSpeed: 200
   rotationAxis: {x: 0, y: 1, z: 0}
-  isLocked: 0
-  requiredLockpinItem: {fileID: 0}
+  isLocked: 1
+  requiredLockpinItem: {fileID: 11400000, guid: c8a291f04b1e42a988d3e911a3b592f7, type: 2}
 --- !u!43 &1652047414
 Mesh:
   m_ObjectHideFlags: 0
@@ -236282,6 +236296,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 1225364594}
   quantityText: {fileID: 1191409041}
+  slotBackground: {fileID: 0}
 --- !u!1 &1730861904 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -6951400523381982603, guid: 24893a7c3297b884584e0a27a68b384d, type: 3}
@@ -241409,6 +241424,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 1781983345}
   quantityText: {fileID: 810190297}
+  slotBackground: {fileID: 0}
 --- !u!1 &1780386607 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: -8391222552659086748, guid: cf2b7a923418c9743bd018d83abf5f73, type: 3}
@@ -245122,6 +245138,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 181374254}
   quantityText: {fileID: 847858928}
+  slotBackground: {fileID: 0}
 --- !u!1 &1809658987
 GameObject:
   m_ObjectHideFlags: 0
@@ -268585,6 +268602,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 1801526367}
   quantityText: {fileID: 198149338}
+  slotBackground: {fileID: 0}
 --- !u!1 &1973614629
 GameObject:
   m_ObjectHideFlags: 0
@@ -268677,6 +268695,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SlotUI
   iconImage: {fileID: 1025620906}
   quantityText: {fileID: 1274145049}
+  slotBackground: {fileID: 0}
 --- !u!1 &1974960353
 GameObject:
   m_ObjectHideFlags: 0
