@@ -109,4 +109,14 @@ public abstract class SlotContainer : MonoBehaviour
             if (slot.IsEmpty) return true;
         return false;
     }
+
+    /// <summary>
+    /// Manually fires the OnInventoryChanged event.
+    /// Used by InventoryDragHandler after a drag-and-drop slot swap so both
+    /// container UIs refresh without going through AddItem / RemoveItem.
+    /// </summary>
+    public void NotifyChanged()
+    {
+        OnInventoryChanged?.Invoke();
+    }
 }

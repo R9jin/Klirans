@@ -174,6 +174,9 @@ public class LockpickingMinigame : MonoBehaviour
         selectedPinIndex = 0;
         timeLeft = difficultyTimer;
 
+        // Reset pin state for a fresh separate lockpicking puzzle per door
+        ResetPuzzle();
+
         // Pause Player Movement
         SetPlayerMovementActive(false);
 
@@ -187,7 +190,7 @@ public class LockpickingMinigame : MonoBehaviour
 
     private void InitializeDoorCombination(DoorInteract door)
     {
-        // Generate or retrieve persistent lock combination for this door
+        // Generate or retrieve persistent lock combination for this specific door
         if (!doorCombinations.ContainsKey(door) || doorCombinations[door].Count != totalPins)
         {
             List<Vector2> combo = new List<Vector2>();
@@ -205,6 +208,9 @@ public class LockpickingMinigame : MonoBehaviour
         {
             pins[i].greenMin = targets[i].x;
             pins[i].greenMax = targets[i].y;
+            pins[i].isLocked = false;
+            pins[i].currentHeight = 0f;
+            pins[i].velocity = 0f;
         }
     }
 
