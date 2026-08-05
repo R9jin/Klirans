@@ -25,7 +25,13 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
+    - _ColorBleed: 0.002
+    - _DirtIntensity: 0.2
+    - _NoiseIntensity: 0.02
     - _PixelSize: 2
+    - _ScanlineIntensity: 0.5
+    - _VignetteIntensity: 0.8
+    - _VignetteSmoothness: 0.5
     m_Colors: []
   m_BuildTextureStacks: []
   m_AllowLocking: 1
