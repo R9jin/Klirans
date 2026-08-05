@@ -41,6 +41,12 @@ public class ViewmodelSway : MonoBehaviour
     private void Start()
     {
         characterController = GetComponentInParent<CharacterController>();
+        
+        // Auto-disable if this item is just sitting in the world as a pickup
+        if (characterController == null && GetComponentInParent<Camera>() == null)
+        {
+            enabled = false;
+        }
     }
 
     private void Update()

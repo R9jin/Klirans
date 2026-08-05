@@ -122,6 +122,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2556354962511615422}
   - component: {fileID: 2816370582070975212}
+  - component: {fileID: 3438605104013729673}
   m_Layer: 0
   m_Name: LockpinPrefab
   m_TagString: Untagged
@@ -168,6 +169,26 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.04, y: 0.04, z: 0.35}
   m_Center: {x: 0, y: 0, z: 0.03}
+--- !u!114 &3438605104013729673
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1805192057701968248}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c485892b825951e40b15c6f88587cd1e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ViewmodelSway
+  mouseSwayAmount: 0.015
+  maxMouseSway: 0.05
+  mouseSwaySmoothness: 8
+  walkBobSpeed: 10
+  walkBobAmountY: 0.018
+  walkBobAmountX: 0.012
+  walkBobRotationAmount: 2.5
+  bobSmoothness: 10
 --- !u!1 &3267304740828193008
 GameObject:
   m_ObjectHideFlags: 0
