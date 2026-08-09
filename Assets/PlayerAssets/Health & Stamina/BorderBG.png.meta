@@ -1,0 +1,271 @@
+fileFormatVersion: 2
+guid: 1d0a9c9e9f247f94aa1f8c4edca35734
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 0
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Gaugebg1
+      rect:
+        serializedVersion: 2
+        x: 97
+        y: 373
+        width: 46
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 859f18fb0f6b446479140fe5a4931b4b
+      internalID: -304558663
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Gaugebg2
+      rect:
+        serializedVersion: 2
+        x: 97
+        y: 357
+        width: 46
+        height: 5
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7732f56fa64bb974b9fcfb840e6f6d8a
+      internalID: 1294810142
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: AnxietyGaugeBg
+      rect:
+        serializedVersion: 2
+        x: 98
+        y: 169
+        width: 44
+        height: 2
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4551a99b114386e4292739dc59511b29
+      internalID: -202336654
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: StaminaGaugeBg
+      rect:
+        serializedVersion: 2
+        x: 98
+        y: 165
+        width: 44
+        height: 2
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 198c593a36eeaa94596c1d35a6e4d2b7
+      internalID: -1593870467
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 1dd048f5680a9e04781a5d3c333bddec
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+    nameFileIdTable:
+      AnxietyGaugeBg: 1660092996
+      BorderBG_1: -310358232
+      BorderBG_10: 1350203278
+      BorderBG_11: -2015932319
+      BorderBG_12: -2044347716
+      BorderBG_13: 1588981943
+      BorderBG_14: 1812682340
+      BorderBG_15: -215773848
+      BorderBG_16: -844520302
+      BorderBG_17: 755445046
+      BorderBG_18: -213418389
+      BorderBG_19: 1297515657
+      BorderBG_20: -1244108916
+      BorderBG_21: 719910969
+      BorderBG_22: -1258323460
+      BorderBG_23: 2009153890
+      BorderBG_24: 127679538
+      BorderBG_25: 309350272
+      BorderBG_26: 1247428244
+      BorderBG_27: 563943762
+      BorderBG_28: 366657412
+      BorderBG_29: 84530170
+      BorderBG_30: 149515968
+      BorderBG_31: 1564358528
+      BorderBG_32: 176582758
+      BorderBG_33: -688017257
+      BorderBG_34: -967881868
+      BorderBG_35: -754855784
+      BorderBG_36: 329596327
+      BorderBG_37: -570345718
+      BorderBG_38: -2147078228
+      BorderBG_39: 1417902241
+      BorderBG_4: 1874211487
+      BorderBG_40: 911148605
+      BorderBG_41: -843012548
+      BorderBG_42: 941298131
+      BorderBG_43: -413934583
+      BorderBG_49: -1184908745
+      BorderBG_5: 352060410
+      BorderBG_50: 670783306
+      BorderBG_51: -1921353469
+      BorderBG_52: -1337162504
+      BorderBG_53: 1326847774
+      BorderBG_54: 655334520
+      BorderBG_55: -738537861
+      BorderBG_56: -1795893349
+      BorderBG_57: 7242188
+      BorderBG_58: 559808353
+      BorderBG_59: 1945036450
+      BorderBG_6: 1210485189
+      BorderBG_60: 1869244179
+      BorderBG_7: -1113518395
+      BorderBG_8: 1093066925
+      BorderBG_9: -1153898426
+      Gaugebg1: -304558663
+      Gaugebg2: 1294810142
+      Inventorybg1: 1621284618
+      Inventorybg2: -683505830
+      Itembg1: 293315893
+      Itembg2: -964264673
+      Itembg3: -199569650
+      Itembg4: 688576251
+      Itembg5: -1761064962
+      StaminaGaugeBg: -1593870467
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
