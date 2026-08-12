@@ -234,7 +234,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleCameraAndBreathing()
     {
-        if (playerCamera == null) return;
+        if (playerCamera == null || PauseMenu.GameIsPaused) return;
 
         Vector3 targetCameraPosition = isCrouching ? crouchingCameraPosition : standingCameraPosition;
         float targetFOV = normalFOV;
@@ -297,7 +297,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleMouseLook()
     {
-        if (!canMove) return;
+        if (!canMove || PauseMenu.GameIsPaused) return;
 
         rotationX += -Input.GetAxis("Mouse Y") * lookSpeed;
         rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);

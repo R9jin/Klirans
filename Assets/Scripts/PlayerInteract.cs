@@ -51,8 +51,9 @@ public class PlayerInteract : MonoBehaviour
 
     private void Update()
     {
-        if (playerCamera == null)
+        if (playerCamera == null || PauseMenu.GameIsPaused)
         {
+            if (promptText != null) promptText.gameObject.SetActive(false);
             return;
         }
 
