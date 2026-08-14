@@ -471,30 +471,30 @@ public class LockpickingMinigame : MonoBehaviour
         rootRect.anchorMax = Vector2.one;
         rootRect.sizeDelta = Vector2.zero;
 
-        // Dark Background Overlay
+        // Dark Green Background Overlay
         GameObject bgObj = new GameObject("Background", typeof(Image));
         bgObj.transform.SetParent(minigameUIRoot.transform, false);
         Image bgImg = bgObj.GetComponent<Image>();
-        bgImg.color = new Color(0.08f, 0.08f, 0.1f, 0.92f);
+        bgImg.color = new Color(0.05f, 0.08f, 0.05f, 0.95f);
         RectTransform bgRect = bgObj.GetComponent<RectTransform>();
         bgRect.anchorMin = Vector2.zero;
         bgRect.anchorMax = Vector2.one;
         bgRect.sizeDelta = Vector2.zero;
 
-        // Centered Lock Housing Block
+        // Dark Green Lock Housing Block
         GameObject lockBlockObj = new GameObject("LockHousingBlock", typeof(Image));
         lockBlockObj.transform.SetParent(minigameUIRoot.transform, false);
         Image blockImg = lockBlockObj.GetComponent<Image>();
-        blockImg.color = new Color(0.2f, 0.2f, 0.22f, 0.95f);
+        blockImg.color = new Color(0.15f, 0.20f, 0.15f, 0.95f);
         RectTransform blockRect = lockBlockObj.GetComponent<RectTransform>();
         blockRect.anchoredPosition = new Vector2(0, 20);
         blockRect.sizeDelta = new Vector2(420, 320);
 
-        // Subtle Outer Border Frame
+        // Subtle Cream Border Frame
         GameObject borderObj = new GameObject("BorderFrame", typeof(Image));
         borderObj.transform.SetParent(lockBlockObj.transform, false);
         Image borderImg = borderObj.GetComponent<Image>();
-        borderImg.color = new Color(0.4f, 0.4f, 0.45f, 0.4f);
+        borderImg.color = new Color(0.85f, 0.83f, 0.75f, 0.8f);
         RectTransform borderRect = borderObj.GetComponent<RectTransform>();
         borderRect.anchorMin = Vector2.zero;
         borderRect.anchorMax = Vector2.one;
@@ -509,7 +509,7 @@ public class LockpickingMinigame : MonoBehaviour
         headerText.fontSize = 24;
         headerText.fontStyle = FontStyle.Bold;
         headerText.text = "LOCKPICKING";
-        headerText.color = new Color(0.95f, 0.85f, 0.35f, 1f);
+        headerText.color = new Color(0.95f, 0.93f, 0.85f, 1f);
         headerText.alignment = TextAnchor.MiddleLeft;
         RectTransform headerRect = headerObj.GetComponent<RectTransform>();
         headerRect.anchoredPosition = new Vector2(-180, 130);
@@ -523,7 +523,7 @@ public class LockpickingMinigame : MonoBehaviour
         timerText.fontSize = 24;
         timerText.fontStyle = FontStyle.Bold;
         timerText.text = "60s";
-        timerText.color = new Color(0.95f, 0.85f, 0.35f, 1f);
+        timerText.color = new Color(0.95f, 0.93f, 0.85f, 1f);
         timerText.alignment = TextAnchor.MiddleRight;
         RectTransform timerRect = timerObj.GetComponent<RectTransform>();
         timerRect.anchoredPosition = new Vector2(180, 130);
@@ -533,7 +533,7 @@ public class LockpickingMinigame : MonoBehaviour
         GameObject cylHole = new GameObject("CylinderHole", typeof(Image));
         cylHole.transform.SetParent(lockBlockObj.transform, false);
         Image holeImg = cylHole.GetComponent<Image>();
-        holeImg.color = new Color(0.12f, 0.12f, 0.14f, 1f);
+        holeImg.color = new Color(0.10f, 0.15f, 0.10f, 1f);
         RectTransform holeRect = cylHole.GetComponent<RectTransform>();
         holeRect.anchoredPosition = new Vector2(0, -60);
         holeRect.sizeDelta = new Vector2(390, 150);
@@ -558,7 +558,7 @@ public class LockpickingMinigame : MonoBehaviour
             GameObject chanBg = new GameObject("ChannelBg", typeof(Image));
             chanBg.transform.SetParent(channelObj.transform, false);
             Image chanBgImg = chanBg.GetComponent<Image>();
-            chanBgImg.color = new Color(0.08f, 0.08f, 0.1f, 1f);
+            chanBgImg.color = new Color(0.05f, 0.08f, 0.05f, 1f);
             RectTransform chanBgRect = chanBg.GetComponent<RectTransform>();
             chanBgRect.anchorMin = Vector2.zero;
             chanBgRect.anchorMax = Vector2.one;
@@ -652,7 +652,7 @@ public class LockpickingMinigame : MonoBehaviour
         GameObject hintBarObj = new GameObject("ControlHintBar", typeof(Image));
         hintBarObj.transform.SetParent(minigameUIRoot.transform, false);
         Image hintBg = hintBarObj.GetComponent<Image>();
-        hintBg.color = new Color(0.12f, 0.12f, 0.15f, 0.9f);
+        hintBg.color = new Color(0.10f, 0.15f, 0.10f, 0.95f);
         RectTransform hintBarRect = hintBarObj.GetComponent<RectTransform>();
         hintBarRect.anchoredPosition = new Vector2(0, -185);
         hintBarRect.sizeDelta = new Vector2(620, 38);
@@ -663,7 +663,7 @@ public class LockpickingMinigame : MonoBehaviour
         hintText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         hintText.fontSize = 15;
         hintText.text = "[A / D] Move Pick   •   [W / RClick] Push Pin   •   [S / LClick] Lock Pin   •   [ESC] Exit";
-        hintText.color = new Color(0.85f, 0.85f, 0.85f, 1f);
+        hintText.color = new Color(0.95f, 0.93f, 0.85f, 1f);
         hintText.alignment = TextAnchor.MiddleCenter;
         RectTransform hintTextRect = hintTextObj.GetComponent<RectTransform>();
         hintTextRect.anchorMin = Vector2.zero;
