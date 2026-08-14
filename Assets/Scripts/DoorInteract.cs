@@ -54,6 +54,12 @@ public class DoorInteract : MonoBehaviour, IInteractable
     /// </summary>
     public void Interact()
     {
+        // Prevent interaction if the door is currently moving
+        if (Quaternion.Angle(transform.localRotation, targetRotation) > 0.1f)
+        {
+            return;
+        }
+
         if (isLocked)
         {
             if (LockpickingMinigame.Instance != null)
@@ -76,10 +82,51 @@ public class DoorInteract : MonoBehaviour, IInteractable
         ToggleDoor();
     }
 
+    [Header("Audio Settings")]
+    [Tooltip("AudioSource to play door sounds")]
+    public AudioSource audioSource;
+
+    [Tooltip("Sounds to play when opening")]
+    public AudioClip[] openSounds;
+
+    [Tooltip("Sound to play when closing")]
+    public AudioClip closeSound;
+
+    [Tooltip("Volume multiplier for closing sound")]
+    [Range(0f, 1f)]
+    public float closeVolume = 0.4f;
+
+    [Tooltip("Makes the door close faster than the audio clip length.")]
+    public float closeSpeedMultiplier = 1.5f;
+
     public void ToggleDoor()
     {
         isOpen = !isOpen;
         targetRotation = isOpen ? openRotation : closedRotation;
+
+        if (audioSource == null) audioSource = GetComponent<AudioSource>();
+        if (audioSource != null)
+        {
+            if (isOpen && openSounds != null && openSounds.Length > 0)
+            {
+                AudioClip clipToPlay = openSounds[Random.Range(0, openSounds.Length)];
+                audioSource.PlayOneShot(clipToPlay);
+                
+                if (clipToPlay.length > 0f)
+                {
+                    swingSpeed = Mathf.Abs(openAngle) / clipToPlay.length;
+                }
+            }
+            else if (!isOpen && closeSound != null)
+            {
+                audioSource.PlayOneShot(closeSound, closeVolume);
+                
+                if (closeSound.length > 0f)
+                {
+                    swingSpeed = (Mathf.Abs(openAngle) / closeSound.length) * closeSpeedMultiplier;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -87,6 +134,11 @@ public class DoorInteract : MonoBehaviour, IInteractable
     /// </summary>
     public string GetPrompt()
     {
+        if (Quaternion.Angle(transform.localRotation, targetRotation) > 0.1f)
+        {
+            return "";
+        }
+
         if (isLocked)
         {
             bool hasPin = LockpickingMinigame.HasLockpin(requiredLockpinItem);
