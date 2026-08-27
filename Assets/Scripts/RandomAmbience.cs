@@ -8,7 +8,7 @@ public class RandomAmbience : MonoBehaviour
     
     [Tooltip("Volume of the ambience sound.")]
     [Range(0f, 1f)]
-    public float volume = 0.03f; 
+    public float volume = 0.25f; 
     
     [Tooltip("Minimum time (in seconds) between ambience triggers.")]
     public float minDelay = 20f;
@@ -28,22 +28,27 @@ public class RandomAmbience : MonoBehaviour
         StartCoroutine(PlayAmbienceRoutine());
     }
 
+    private void PlayRandomClip()
+    {
+        if (ambienceClips != null && ambienceClips.Length > 0)
+        {
+            AudioClip clipToPlay = ambienceClips[Random.Range(0, ambienceClips.Length)];
+            if (clipToPlay != null)
+                audioSource.PlayOneShot(clipToPlay, volume);
+        }
+    }
+
     private IEnumerator PlayAmbienceRoutine()
     {
+        // Play one immediately so the player hears ambience right away
+        PlayRandomClip();
+
         while (true)
         {
             float waitTime = Random.Range(minDelay, maxDelay);
             yield return new WaitForSeconds(waitTime);
 
-            if (ambienceClips != null && ambienceClips.Length > 0)
-            {
-                AudioClip clipToPlay = ambienceClips[Random.Range(0, ambienceClips.Length)];
-                if (clipToPlay != null)
-                {
-                    audioSource.PlayOneShot(clipToPlay, volume);
-                    yield return new WaitForSeconds(clipToPlay.length);
-                }
-            }
+            PlayRandomClip();
         }
     }
 }
