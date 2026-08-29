@@ -13,6 +13,7 @@ public class PlayerMovement : MonoBehaviour
     [Header("Audio")]
     public AudioSource footstepAudioSource;
     public bool enableDiegeticFootsteps = true;
+    [Range(0f, 1f)] public float footstepVolume = 0.4f;
     [Range(0f, 1f)] public float stereoPanAmount = 0.8f; 
     public AudioReverbPreset footstepReverbPreset = AudioReverbPreset.Hallway;
 
@@ -99,6 +100,7 @@ public class PlayerMovement : MonoBehaviour
 
         if (footstepAudioSource != null && enableDiegeticFootsteps)
         {
+            footstepAudioSource.volume = footstepVolume;
             AudioReverbFilter reverb = footstepAudioSource.gameObject.GetComponent<AudioReverbFilter>();
             if (reverb == null)
             {

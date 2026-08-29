@@ -63,8 +63,8 @@ public class InventoryEquipController : MonoBehaviour
                 {
                     GameObject newPoint = new GameObject("EquipPoint");
                     newPoint.transform.SetParent(mainCam.transform, false);
-                    newPoint.transform.localPosition = new Vector3(0.2f, -0.2f, 0.45f);
-                    newPoint.transform.localRotation = Quaternion.Euler(0f, -15f, 0f);
+                    newPoint.transform.localPosition = new Vector3(0f, -0.05f, 0.42f);
+                    newPoint.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
                     equipPoint = newPoint.transform;
                 }
             }
