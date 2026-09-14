@@ -34,6 +34,31 @@ public class ProctorAI : MonoBehaviour
     public string speedParam   = "Speed";
     public string talkingParam = "Talking";
 
+    [Header("Footstep Audio")]
+    [Tooltip("Audio clip for footsteps (softer/lighter atmospheric sound).")]
+    public AudioClip footstepClip;
+    [Range(0f, 1f)]
+    [Tooltip("Lighter/softer volume for NPC footsteps.")]
+    public float footstepVolume = 0.20f;
+    public float footstepMinDistance = 1.2f;
+    public float footstepMaxDistance = 14.0f;
+
+    [Header("Creepy Head Tracking")]
+    [Tooltip("If true, the NPC will randomly and frequently lock their head to stare at the player, even while their body continues walking another way.")]
+    public bool enableCreepyStare = true;
+    [Tooltip("Maximum distance from player to initiate a stare.")]
+    public float stareMaxDistance = 11.0f;
+    [Tooltip("Maximum head turn angle away from body forward (degrees).")]
+    public float maxHeadTurnAngle = 95.0f;
+    [Range(0f, 1f)]
+    [Tooltip("Probability of triggering a stare when player is in range.")]
+    public float stareChance = 0.85f;
+    public float minStareDuration = 3.5f;
+    public float maxStareDuration = 6.5f;
+    public float minStareCooldown = 1.0f;
+    public float maxStareCooldown = 3.0f;
+    public float headTurnSpeed = 4.0f;
+
     [Header("Procedural Motion")]
     public bool enableProceduralWalk = true;
     public float walkBobFrequency = 7.5f;
@@ -46,6 +71,9 @@ public class ProctorAI : MonoBehaviour
 
     private NavMeshAgent _agent;
     private Animator     _animator;
+    private AudioSource  _footstepAudio;
+    private Transform    _headBone;
+    private Transform    _neckBone;
     private Transform    _modelChild;
     private Vector3      _modelInitialLocalPos;
     private Quaternion   _modelInitialLocalRot;
@@ -58,6 +86,12 @@ public class ProctorAI : MonoBehaviour
     private bool _isTraversingLink = false;
     private float _bobTimer     = 0f;
     private Coroutine _idleCoroutine;
+
+    // Creepy stare runtime
+    private bool  _isStaringAtPlayer    = false;
+    private float _stareTimer           = 0f;
+    private float _stareCooldownTimer   = 0f;
+    private float _currentStareWeight   = 0f;
 
     private int _speedHash;
     private int _talkingHash;
@@ -114,6 +148,10 @@ public class ProctorAI : MonoBehaviour
         if (playerGO != null) _playerTransform = playerGO.transform;
 
         _lastValidY = transform.position.y;
+
+        InitFootstepAudio();
+        FindBones();
+        _stareCooldownTimer = Random.Range(0.5f, 2.0f);
 
         StartCoroutine(InitNavMeshPatrol());
     }
@@ -200,11 +238,14 @@ public class ProctorAI : MonoBehaviour
                     transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 5f);
                 }
             }
+            UpdateFootstepAudio();
             return;
         }
 
         SyncAnimator();
         HandleProceduralMotion();
+        UpdateFootstepAudio();
+        UpdateCreepyStareTimer();
 
         if (waypoints == null || waypoints.Length == 0) return;
         if (_isIdling || _agent.pathPending) return;
@@ -228,6 +269,11 @@ public class ProctorAI : MonoBehaviour
         {
             GoToNextWaypoint();
         }
+    }
+
+    private void LateUpdate()
+    {
+        UpdateCreepyHeadTracking();
     }
 
     /// <summary>
@@ -381,8 +427,15 @@ public class ProctorAI : MonoBehaviour
         }
         else
         {
-            float speed = Mathf.Max(_agent.velocity.magnitude, _agent.desiredVelocity.magnitude);
-            float normalizedSpeed = Mathf.Clamp01(speed / Mathf.Max(walkSpeed, 0.01f));
+            float actualSpeed = _agent.velocity.magnitude;
+            // If physically blocked by the player or an obstacle, don't run in place
+            if (actualSpeed < 0.15f)
+            {
+                _animator.SetFloat(_speedHash, 0f, 0.12f, Time.deltaTime);
+                return;
+            }
+
+            float normalizedSpeed = Mathf.Clamp01(actualSpeed / Mathf.Max(walkSpeed, 0.01f));
             if (normalizedSpeed > 0.15f)
             {
                 normalizedSpeed = Mathf.Max(normalizedSpeed, 0.85f);
@@ -478,6 +531,178 @@ public class ProctorAI : MonoBehaviour
             AdvanceWaypointIndex();
             // Prevent infinite recursion with a simple counter
         }
+    }
+
+    // ── Footstep Audio & Creepy Stare Implementation ──────────────────────────
+
+    private void FindBones()
+    {
+        _headBone = FindBoneRecursive(transform, "mixamorig:Head");
+        _neckBone = FindBoneRecursive(transform, "mixamorig:Neck");
+
+        if (_headBone == null)
+        {
+            foreach (var t in GetComponentsInChildren<Transform>())
+            {
+                if (t.name.ToLower().Contains("head") && _headBone == null) _headBone = t;
+                if (t.name.ToLower().Contains("neck") && _neckBone == null) _neckBone = t;
+            }
+        }
+    }
+
+    private Transform FindBoneRecursive(Transform parent, string boneName)
+    {
+        if (parent.name == boneName) return parent;
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            var found = FindBoneRecursive(parent.GetChild(i), boneName);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private void InitFootstepAudio()
+    {
+        _footstepAudio = GetComponent<AudioSource>();
+        if (_footstepAudio == null) _footstepAudio = gameObject.AddComponent<AudioSource>();
+
+        if (footstepClip == null)
+        {
+#if UNITY_EDITOR
+            footstepClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/footsteps walking & running.mp3");
+#endif
+        }
+
+        if (footstepClip != null)
+        {
+            _footstepAudio.clip = footstepClip;
+            _footstepAudio.spatialBlend = 1.0f; // 100% 3D spatialization
+            _footstepAudio.rolloffMode = AudioRolloffMode.Linear;
+            _footstepAudio.minDistance = footstepMinDistance;
+            _footstepAudio.maxDistance = footstepMaxDistance;
+            _footstepAudio.loop = true;
+            _footstepAudio.playOnAwake = false;
+            _footstepAudio.dopplerLevel = 0f;
+            _footstepAudio.pitch = Random.Range(0.94f, 1.06f);
+            _footstepAudio.time = Random.Range(0f, Mathf.Min(35f, footstepClip.length));
+            _footstepAudio.volume = 0f;
+        }
+    }
+
+    private void UpdateFootstepAudio()
+    {
+        if (_footstepAudio == null || _footstepAudio.clip == null) return;
+
+        bool isMoving = !_isTalking && _agent != null && _agent.isOnNavMesh && !_agent.isStopped && _agent.velocity.magnitude > 0.15f;
+        float targetVol = isMoving ? footstepVolume : 0f;
+
+        _footstepAudio.volume = Mathf.MoveTowards(_footstepAudio.volume, targetVol, Time.deltaTime * 2.0f);
+
+        if (_footstepAudio.volume > 0.005f)
+        {
+            if (!_footstepAudio.isPlaying) _footstepAudio.Play();
+        }
+        else if (_footstepAudio.isPlaying && targetVol == 0f)
+        {
+            _footstepAudio.Pause();
+        }
+    }
+
+    private void UpdateCreepyStareTimer()
+    {
+        if (!enableCreepyStare || _headBone == null)
+        {
+            _isStaringAtPlayer = false;
+            return;
+        }
+
+        if (_playerTransform == null)
+        {
+            var playerGO = GameObject.FindGameObjectWithTag("Player");
+            if (playerGO != null) _playerTransform = playerGO.transform;
+            if (_playerTransform == null) return;
+        }
+
+        if (_isTalking)
+        {
+            _isStaringAtPlayer = false;
+            return;
+        }
+
+        float distToPlayer = Vector3.Distance(transform.position, _playerTransform.position);
+
+        if (_isStaringAtPlayer)
+        {
+            _stareTimer -= Time.deltaTime;
+
+            Vector3 toPlayer = (_playerTransform.position + Vector3.up * 1.5f - _headBone.position).normalized;
+            float angleToPlayer = Vector3.Angle(transform.forward, toPlayer);
+
+            // Cancel stare if time expired, player got too far, or player walked behind NPC back
+            if (_stareTimer <= 0f || distToPlayer > stareMaxDistance * 1.25f || angleToPlayer > maxHeadTurnAngle + 20f)
+            {
+                _isStaringAtPlayer = false;
+                _stareCooldownTimer = Random.Range(minStareCooldown, maxStareCooldown);
+            }
+        }
+        else
+        {
+            _stareCooldownTimer -= Time.deltaTime;
+
+            if (_stareCooldownTimer <= 0f && distToPlayer <= stareMaxDistance)
+            {
+                Vector3 toPlayer = (_playerTransform.position + Vector3.up * 1.5f - _headBone.position).normalized;
+                float angleToPlayer = Vector3.Angle(transform.forward, toPlayer);
+
+                if (angleToPlayer <= maxHeadTurnAngle + 10f)
+                {
+                    if (Random.value <= stareChance)
+                    {
+                        _isStaringAtPlayer = true;
+                        _stareTimer = Random.Range(minStareDuration, maxStareDuration);
+                    }
+                    else
+                    {
+                        _stareCooldownTimer = Random.Range(minStareCooldown, maxStareCooldown);
+                    }
+                }
+                else
+                {
+                    _stareCooldownTimer = 0.5f;
+                }
+            }
+        }
+    }
+
+    private void UpdateCreepyHeadTracking()
+    {
+        float targetWeight = (_isStaringAtPlayer && !_isTalking) ? 1.0f : 0.0f;
+        _currentStareWeight = Mathf.MoveTowards(_currentStareWeight, targetWeight, Time.deltaTime * headTurnSpeed);
+
+        if (_currentStareWeight <= 0.001f || _headBone == null || _playerTransform == null) return;
+
+        Vector3 targetEyePos = _playerTransform.position + Vector3.up * 1.5f;
+        Vector3 toPlayer = (targetEyePos - _headBone.position).normalized;
+
+        // Clamp rotation within maxHeadTurnAngle of NPC forward direction
+        Vector3 clampedDir = Vector3.RotateTowards(transform.forward, toPlayer, maxHeadTurnAngle * Mathf.Deg2Rad, 1.0f);
+        Quaternion targetRot = Quaternion.LookRotation(clampedDir, Vector3.up);
+
+        if (_neckBone != null)
+        {
+            _neckBone.rotation = Quaternion.Slerp(_neckBone.rotation, targetRot, _currentStareWeight * 0.25f);
+        }
+        _headBone.rotation = Quaternion.Slerp(_headBone.rotation, targetRot, _currentStareWeight);
+    }
+
+    private void OnDisable()
+    {
+        if (_footstepAudio != null && _footstepAudio.isPlaying)
+        {
+            _footstepAudio.Pause();
+        }
+        _isStaringAtPlayer = false;
+        _currentStareWeight = 0f;
     }
 
 #if UNITY_EDITOR

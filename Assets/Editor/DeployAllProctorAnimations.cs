@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.AI;
 using UnityEditor;
 using System.Collections.Generic;
@@ -18,7 +18,7 @@ public static class DeployAllProctorAnimations
         public Vector3 startPos;
     }
 
-    static readonly float SCALE = 36.0f;
+    static readonly float SCALE = 37.0f;
 
     static readonly NPCDef[] NPCs = new[]
     {
@@ -29,7 +29,7 @@ public static class DeployAllProctorAnimations
             idleFbx = "Assets/NPC Assets/Animations/animateds/drei/IdleDrei.fbx",
             ctrlPath = "Assets/NPC Assets/AnimatorControllers/ClearanceNPC_Drei_AnimCtrl.controller",
             matPath = "Assets/NPC Assets/Materials/Drei_Mat.mat",
-            meshRotation = Quaternion.Euler(-90, -90, 0),
+            meshRotation = Quaternion.Euler(-90, 90, 0),
             isFemale = false,
             vertOffset = Vector3.zero,
             startPos = new Vector3(-80.94f, 2.43f, 9.38f)
@@ -41,7 +41,7 @@ public static class DeployAllProctorAnimations
             idleFbx = "Assets/NPC Assets/Animations/animateds/glad/IdleGlad.fbx",
             ctrlPath = "Assets/NPC Assets/AnimatorControllers/ClearanceNPC_Glad_AnimCtrl.controller",
             matPath = "Assets/NPC Assets/Materials/Glad_Mat.mat",
-            meshRotation = Quaternion.Euler(-90, -90, 0),
+            meshRotation = Quaternion.Euler(-90, 90, 0),
             isFemale = false,
             vertOffset = Vector3.zero,
             startPos = new Vector3(-77.34f, 2.43f, 20.00f)
@@ -55,7 +55,7 @@ public static class DeployAllProctorAnimations
             matPath = "Assets/NPC Assets/Materials/Ira_Mat.mat",
             meshRotation = Quaternion.Euler(-90, 90, 0),
             isFemale = true,
-            vertOffset = Vector3.up * 0.024f, // Lift Ira waist-centered pivot so feet sit flush on the floor!
+            vertOffset = Vector3.zero,
             startPos = new Vector3(-84.00f, 8.35f, 25.00f)
         },
         new NPCDef
@@ -77,7 +77,7 @@ public static class DeployAllProctorAnimations
             idleFbx = "Assets/NPC Assets/Animations/animateds/josua/IdleJosua.fbx",
             ctrlPath = "Assets/NPC Assets/AnimatorControllers/ClearanceNPC_Josua_AnimCtrl.controller",
             matPath = "Assets/NPC Assets/Materials/Josua_Mat.mat",
-            meshRotation = Quaternion.Euler(-90, -90, 0),
+            meshRotation = Quaternion.Euler(-90, 90, 0),
             isFemale = false,
             vertOffset = Vector3.zero,
             startPos = new Vector3(-84.00f, 14.34f, 2.00f)
@@ -89,12 +89,21 @@ public static class DeployAllProctorAnimations
             idleFbx = "Assets/NPC Assets/Animations/animateds/niel/IdleNeil.fbx",
             ctrlPath = "Assets/NPC Assets/AnimatorControllers/ClearanceNPC_Niel_AnimCtrl.controller",
             matPath = "Assets/NPC Assets/Materials/Niel_Mat.mat",
-            meshRotation = Quaternion.Euler(-90, -90, 0),
+            meshRotation = Quaternion.Euler(-90, 90, 0),
             isFemale = false,
             vertOffset = Vector3.zero,
             startPos = new Vector3(-84.00f, 14.34f, 26.00f)
         }
     };
+
+    private static float DistToSegment(Vector3 p, Vector3 a, Vector3 b)
+    {
+        Vector3 ab = b - a;
+        float lenSq = ab.sqrMagnitude;
+        if (lenSq < 1e-8f) return Vector3.Distance(p, a);
+        float t = Mathf.Clamp01(Vector3.Dot(p - a, ab) / lenSq);
+        return Vector3.Distance(p, a + t * ab);
+    }
 
     [MenuItem("Tools/Klirans/Deploy All Proctor Animations")]
     public static void Run()
@@ -176,38 +185,6 @@ public static class DeployAllProctorAnimations
                 if (boneMap.ContainsKey(bn)) bones.Add(boneMap[bn]);
             }
 
-            int bHips = bones.IndexOf(boneMap["mixamorig:Hips"]);
-            int bSpine = bones.IndexOf(boneMap["mixamorig:Spine"]);
-            int bNeck = bones.IndexOf(boneMap["mixamorig:Neck"]);
-            int bHead = bones.IndexOf(boneMap["mixamorig:Head"]);
-            int bLShoulder = bones.IndexOf(boneMap["mixamorig:LeftShoulder"]);
-            int bLArm = bones.IndexOf(boneMap["mixamorig:LeftArm"]);
-            int bLForeArm = bones.IndexOf(boneMap["mixamorig:LeftForeArm"]);
-            int bLHand = bones.IndexOf(boneMap["mixamorig:LeftHand"]);
-            int bRShoulder = bones.IndexOf(boneMap["mixamorig:RightShoulder"]);
-            int bRArm = bones.IndexOf(boneMap["mixamorig:RightArm"]);
-            int bRForeArm = bones.IndexOf(boneMap["mixamorig:RightForeArm"]);
-            int bRHand = bones.IndexOf(boneMap["mixamorig:RightHand"]);
-            int bLUpLeg = bones.IndexOf(boneMap["mixamorig:LeftUpLeg"]);
-            int bLLeg = bones.IndexOf(boneMap["mixamorig:LeftLeg"]);
-            int bLFoot = bones.IndexOf(boneMap["mixamorig:LeftFoot"]);
-            int bRUpLeg = bones.IndexOf(boneMap["mixamorig:RightUpLeg"]);
-            int bRLeg = bones.IndexOf(boneMap["mixamorig:RightLeg"]);
-            int bRFoot = bones.IndexOf(boneMap["mixamorig:RightFoot"]);
-
-            // Compute bone positions in armature local space (scale-independent & position-independent)
-            Vector3 localFootPos = armature.transform.InverseTransformPoint(boneMap["mixamorig:LeftFoot"].position);
-            Vector3 localHeadPos = armature.transform.InverseTransformPoint(boneMap["mixamorig:Head"].position);
-            Vector3 localHipPos = armature.transform.InverseTransformPoint(boneMap["mixamorig:Hips"].position);
-            Vector3 localKneePos = armature.transform.InverseTransformPoint(boneMap["mixamorig:LeftLeg"].position);
-            Vector3 localNeckPos = armature.transform.InverseTransformPoint(boneMap["mixamorig:Neck"].position);
-            Vector3 localLArmPos = armature.transform.InverseTransformPoint(boneMap["mixamorig:LeftArm"].position);
-            Vector3 localRArmPos = armature.transform.InverseTransformPoint(boneMap["mixamorig:RightArm"].position);
-            Vector3 localLElbow = armature.transform.InverseTransformPoint(boneMap["mixamorig:LeftForeArm"].position);
-            Vector3 localRElbow = armature.transform.InverseTransformPoint(boneMap["mixamorig:RightForeArm"].position);
-            Vector3 localLWrist = armature.transform.InverseTransformPoint(boneMap["mixamorig:LeftHand"].position);
-            Vector3 localRWrist = armature.transform.InverseTransformPoint(boneMap["mixamorig:RightHand"].position);
-
             // 4. Align raw mesh vertices to skeleton space
             Quaternion q = def.meshRotation;
             Vector3[] origVerts = meshAsset.vertices;
@@ -215,86 +192,148 @@ public static class DeployAllProctorAnimations
             Vector3[] alignedVerts = new Vector3[origVerts.Length];
             Vector3[] alignedNorms = new Vector3[origNorms.Length];
 
-            Vector3 min = q * origVerts[0] + def.vertOffset, max = min;
+            float minY = float.MaxValue, maxY = float.MinValue;
             for (int i = 0; i < origVerts.Length; i++)
             {
-                alignedVerts[i] = q * origVerts[i] + def.vertOffset;
+                Vector3 v = q * origVerts[i];
+                alignedVerts[i] = v;
                 alignedNorms[i] = q * origNorms[i];
-                min = Vector3.Min(min, alignedVerts[i]);
-                max = Vector3.Max(max, alignedVerts[i]);
+                if (v.y < minY) minY = v.y;
+                if (v.y > maxY) maxY = v.y;
             }
 
-            float skelHeight = localHeadPos.y - localFootPos.y;
-            float meshHeight = max.y - min.y;
-            float sFactor = skelHeight / meshHeight;
+            // Soles of the shoes sit flush on the floor (Y = 0)
             for (int i = 0; i < origVerts.Length; i++)
             {
-                alignedVerts[i].y = (alignedVerts[i].y - min.y) * sFactor + localFootPos.y;
-                alignedVerts[i].x *= sFactor;
-                alignedVerts[i].z *= sFactor;
+                alignedVerts[i].y -= minY;
             }
 
-            // 5. Anatomical Bone Weighting
-            BoneWeight[] weights = new BoneWeight[origVerts.Length];
-            float hipY = localHipPos.y;
-            float kneeY = localKneePos.y;
-            float footY = localFootPos.y;
-            float neckY = localNeckPos.y;
-            float shoulderWidth = Mathf.Abs(localLArmPos.x - localRArmPos.x);
-
-            for (int i = 0; i < origVerts.Length; i++)
+            // Compute bone segment endpoints in armature local space (scale = 1)
+            Vector3[] segA = new Vector3[bones.Count];
+            Vector3[] segB = new Vector3[bones.Count];
+            for (int b = 0; b < bones.Count; b++)
             {
-                Vector3 v = alignedVerts[i];
-                bool isLeft = v.x < 0;
-                bool isArm = Mathf.Abs(v.x) > (shoulderWidth * 0.32f) && v.y > (hipY - 0.003f) && v.y < (neckY + 0.003f);
-                BoneWeight bw = new BoneWeight();
+                Transform boneT = bones[b];
+                segA[b] = armature.transform.InverseTransformPoint(boneT.position);
+                string bn = boneT.name;
 
-                if (v.y >= neckY)
+                if (bn == "mixamorig:Hips")
                 {
-                    bw.boneIndex0 = bHead; bw.weight0 = 0.8f; bw.boneIndex1 = bNeck; bw.weight1 = 0.2f;
+                    // Centerline pelvis: hips downward towards crotch
+                    Vector3 crotch = (boneMap.ContainsKey("mixamorig:LeftUpLeg") && boneMap.ContainsKey("mixamorig:RightUpLeg"))
+                        ? (boneMap["mixamorig:LeftUpLeg"].position + boneMap["mixamorig:RightUpLeg"].position) * 0.5f
+                        : boneT.position + Vector3.down * 0.002f;
+                    segB[b] = armature.transform.InverseTransformPoint(crotch);
                 }
-                else if (isArm)
+                else if (bn == "mixamorig:Spine2" && boneMap.ContainsKey("mixamorig:Neck"))
                 {
-                    int arm = isLeft ? bLArm : bRArm;
-                    int fore = isLeft ? bLForeArm : bRForeArm;
-                    int hand = isLeft ? bLHand : bRHand;
-                    float elbowY = isLeft ? localLElbow.y : localRElbow.y;
-                    float wristY = isLeft ? localLWrist.y : localRWrist.y;
-                    if (v.y > elbowY) { bw.boneIndex0 = arm; bw.weight0 = 0.8f; bw.boneIndex1 = isLeft ? bLShoulder : bRShoulder; bw.weight1 = 0.2f; }
-                    else if (v.y > wristY) { bw.boneIndex0 = fore; bw.weight0 = 0.8f; bw.boneIndex1 = arm; bw.weight1 = 0.2f; }
-                    else { bw.boneIndex0 = hand; bw.weight0 = 0.9f; bw.boneIndex1 = fore; bw.weight1 = 0.1f; }
+                    segB[b] = armature.transform.InverseTransformPoint(boneMap["mixamorig:Neck"].position);
                 }
-                else if (v.y >= hipY)
+                else if (bn == "mixamorig:Head" && boneMap.ContainsKey("mixamorig:HeadTop_End"))
                 {
-                    bw.boneIndex0 = bHips; bw.weight0 = 0.7f; bw.boneIndex1 = bSpine; bw.weight1 = 0.3f;
+                    segB[b] = armature.transform.InverseTransformPoint(boneMap["mixamorig:HeadTop_End"].position);
+                }
+                else if (bn == "mixamorig:LeftFoot" && boneMap.ContainsKey("mixamorig:LeftToeBase"))
+                {
+                    segB[b] = armature.transform.InverseTransformPoint(boneMap["mixamorig:LeftToeBase"].position);
+                }
+                else if (bn == "mixamorig:RightFoot" && boneMap.ContainsKey("mixamorig:RightToeBase"))
+                {
+                    segB[b] = armature.transform.InverseTransformPoint(boneMap["mixamorig:RightToeBase"].position);
+                }
+                else if (bn == "mixamorig:LeftHand" && boneMap.ContainsKey("mixamorig:LeftHandIndex1"))
+                {
+                    segB[b] = armature.transform.InverseTransformPoint(boneMap["mixamorig:LeftHandIndex1"].position);
+                }
+                else if (bn == "mixamorig:RightHand" && boneMap.ContainsKey("mixamorig:RightHandIndex1"))
+                {
+                    segB[b] = armature.transform.InverseTransformPoint(boneMap["mixamorig:RightHandIndex1"].position);
+                }
+                else if (boneT.childCount > 0)
+                {
+                    segB[b] = armature.transform.InverseTransformPoint(boneT.GetChild(0).position);
+                }
+                else if (boneT.parent != null)
+                {
+                    Vector3 dir = (boneT.position - boneT.parent.position).normalized;
+                    segB[b] = armature.transform.InverseTransformPoint(boneT.position + dir * 0.003f);
                 }
                 else
                 {
-                    int upLeg = isLeft ? bLUpLeg : bRUpLeg;
-                    int leg = isLeft ? bLLeg : bRLeg;
-                    int foot = isLeft ? bLFoot : bRFoot;
-                    if (v.y > kneeY)
+                    segB[b] = segA[b] + Vector3.up * 0.003f;
+                }
+            }
+
+            // 5. Anatomical Segment-Proximity Bone Weighting
+            BoneWeight[] weights = new BoneWeight[origVerts.Length];
+            for (int i = 0; i < origVerts.Length; i++)
+            {
+                Vector3 p = alignedVerts[i];
+                float bestD0 = 999f, bestD1 = 999f;
+                int bestB0 = 0, bestB1 = 0;
+
+                for (int b = 0; b < bones.Count; b++)
+                {
+                    float d = DistToSegment(p, segA[b], segB[b]);
+                    string bName = bones[b].name;
+
+                    // 1. Cross-side separation (prevent left side pulling right side & vice versa)
+                    if (bName.Contains("Left") && p.x > 0.0002f)
                     {
-                        if (def.isFemale)
+                        d += (p.x - 0.0002f) * 15f;
+                    }
+                    else if (bName.Contains("Right") && p.x < -0.0002f)
+                    {
+                        d += (-p.x - 0.0002f) * 15f;
+                    }
+
+                    // 2. Torso vs Arm separation (protect ribs/torso from arm swings)
+                    if (bName.Contains("Arm") || bName.Contains("ForeArm") || bName.Contains("Hand"))
+                    {
+                        if (Mathf.Abs(p.x) < 0.0032f)
                         {
-                            // Skirt stability: 75% hips, 25% upLeg prevents skirt tearing
-                            bw.boneIndex0 = bHips; bw.weight0 = 0.75f; bw.boneIndex1 = upLeg; bw.weight1 = 0.25f;
-                        }
-                        else
-                        {
-                            bw.boneIndex0 = upLeg; bw.weight0 = 0.8f; bw.boneIndex1 = bHips; bw.weight1 = 0.2f;
+                            d += (0.0032f - Mathf.Abs(p.x)) * 10f;
                         }
                     }
-                    else if (v.y > footY + 0.002f)
+
+                    // 3. Pelvis / Crotch stability (centerline pelvis vertices must stay with Hips)
+                    if (bName.Contains("Hips"))
                     {
-                        bw.boneIndex0 = leg; bw.weight0 = 0.8f; bw.boneIndex1 = upLeg; bw.weight1 = 0.2f;
+                        if (p.y > 0.016f && p.y < 0.026f && Mathf.Abs(p.x) < 0.0022f)
+                        {
+                            d *= 0.35f;
+                        }
                     }
-                    else
+
+                    // 4. Female skirt stability (Ira and Jessa)
+                    if (def.isFemale && (bName.Contains("UpLeg") || bName.Contains("Leg")))
                     {
-                        bw.boneIndex0 = foot; bw.weight0 = 0.9f; bw.boneIndex1 = leg; bw.weight1 = 0.1f;
+                        if (p.y > 0.015f && p.y < 0.024f)
+                        {
+                            d *= 1.7f;
+                        }
+                    }
+
+                    if (d < bestD0)
+                    {
+                        bestD1 = bestD0; bestB1 = bestB0;
+                        bestD0 = d;      bestB0 = b;
+                    }
+                    else if (d < bestD1)
+                    {
+                        bestD1 = d;      bestB1 = b;
                     }
                 }
-                weights[i] = bw;
+
+                float w0 = 1f / Mathf.Pow(bestD0 + 0.00025f, 4f);
+                float w1 = 1f / Mathf.Pow(bestD1 + 0.00025f, 4f);
+                float sum = w0 + w1;
+
+                weights[i] = new BoneWeight
+                {
+                    boneIndex0 = bestB0, weight0 = w0 / sum,
+                    boneIndex1 = bestB1, weight1 = w1 / sum
+                };
             }
 
             // 6. Build Mesh & Bindposes
@@ -375,10 +414,46 @@ public static class DeployAllProctorAnimations
             {
                 ai.enableProceduralWalk = false;
                 ai.walkSpeed = 1.4f;
+                ai.footstepClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/footsteps walking & running.mp3");
+                ai.footstepVolume = 0.20f;
+                ai.footstepMinDistance = 1.2f;
+                ai.footstepMaxDistance = 14.0f;
+                ai.enableCreepyStare = true;
+                ai.stareChance = 0.85f;
+                ai.stareMaxDistance = 11.0f;
+                ai.maxHeadTurnAngle = 95.0f;
+                ai.headTurnSpeed = 4.0f;
             }
 
+            // 13. Configure solid physical collider and kinematic Rigidbody (collides with player)
+            var col = npcGO.GetComponent<CapsuleCollider>();
+            if (col == null) col = npcGO.AddComponent<CapsuleCollider>();
+            col.isTrigger = false;
+            col.radius = 0.28f;
+            col.height = def.isFemale ? 1.64f : 1.72f;
+            col.center = new Vector3(0f, col.height * 0.5f, 0f);
+
+            var rb = npcGO.GetComponent<Rigidbody>();
+            if (rb == null) rb = npcGO.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity = false;
+
             EditorUtility.SetDirty(npcGO);
-            Debug.Log($"[DEPLOYED] {def.goName}: Rigged, Skinned, Scaled {SCALE}, Y={pos.y:F2}, AnimCtrl={animCtrl.name}");
+            Debug.Log($"[DEPLOYED] {def.goName}: Rigged, Skinned, Scaled {SCALE}, Y={pos.y:F2}, Solid Collider (h={col.height:F2}), AnimCtrl={animCtrl.name}");
+        }
+
+        // Ensure Player has NavMeshObstacle for NPC local avoidance
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            var obs = player.GetComponent<NavMeshObstacle>();
+            if (obs == null) obs = player.AddComponent<NavMeshObstacle>();
+            obs.shape = NavMeshObstacleShape.Capsule;
+            obs.radius = 0.35f;
+            obs.height = 1.8f;
+            obs.center = new Vector3(0f, 0.9f, 0f);
+            obs.carving = false;
+            EditorUtility.SetDirty(player);
         }
 
         UnityEditor.SceneManagement.EditorSceneManager.SaveOpenScenes();
