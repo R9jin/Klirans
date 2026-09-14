@@ -44,9 +44,14 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
     // ── Unity ─────────────────────────────────────────────────────────────────
     private void Awake()
     {
-        // Collider must be a trigger — NPCs must never block the player's path
+        // Solid physical collider — NPC collides with the player
         var col = GetComponent<Collider>();
-        if (col != null) col.isTrigger = true;
+        if (col != null) col.isTrigger = false;
+
+        var rb = GetComponent<Rigidbody>();
+        if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = false;
     }
 
     private void Start()
