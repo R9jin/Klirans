@@ -6,6 +6,10 @@ public class InventoryManager : SlotContainer
 {
     public static InventoryManager Instance { get; private set; }
 
+    [Header("Starting Items")]
+    [Tooltip("Items to add to the player's hotbar at game start (e.g. Blank_Paper clearance slip).")]
+    public InventoryItem[] startingItems;
+
     protected override void Awake()
     {
         if (Instance != null && Instance != this)
@@ -17,5 +21,19 @@ public class InventoryManager : SlotContainer
 
         size = 6; // matches the concept doc's 6-slot design - don't change this in the Inspector
         base.Awake();
+    }
+
+    private void Start()
+    {
+        if (startingItems != null)
+        {
+            foreach (var item in startingItems)
+            {
+                if (item != null && !HasItem(item))
+                {
+                    AddItem(item, 1);
+                }
+            }
+        }
     }
 }

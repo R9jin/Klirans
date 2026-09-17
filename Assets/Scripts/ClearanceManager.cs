@@ -64,7 +64,25 @@ public class ClearanceManager : MonoBehaviour
             var slipGO = GameObject.Find("ClearanceSlip");
             if (slipGO != null) clearanceSlipUI = slipGO.GetComponent<UnityEngine.UI.Image>();
         }
+
+        // Hide clearance slip UI at game start — player must piece together fragments first
+        if (clearanceSlipUI != null)
+        {
+            clearanceSlipUI.gameObject.SetActive(false);
+        }
+
         RefreshHeldPaperTexture();
+    }
+
+    /// <summary>
+    /// Toggle visibility of the HUD clearance slip UI.
+    /// </summary>
+    public void SetSlipVisible(bool visible)
+    {
+        if (clearanceSlipUI != null)
+        {
+            clearanceSlipUI.gameObject.SetActive(visible);
+        }
     }
 
     // ── Public API ─────────────────────────────────────────────────────────────

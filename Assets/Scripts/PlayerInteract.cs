@@ -5,7 +5,7 @@ public class PlayerInteract : MonoBehaviour
 {
     [Header("Interaction Settings")]
     [Tooltip("Maximum distance at which the player can interact with an object.")]
-    public float interactRange = 3f;
+    public float interactRange = 4.0f;
 
     [Tooltip("Radius of the interaction ray to make pointing at items more forgiving.")]
     public float interactRadius = 0.5f;
@@ -20,7 +20,7 @@ public class PlayerInteract : MonoBehaviour
     private Camera playerCamera;
 
     private PickupItem currentTarget;
-    private RaycastHit[] hitBuffer = new RaycastHit[10];
+    private RaycastHit[] hitBuffer = new RaycastHit[32];
 
     private void Start()
     {

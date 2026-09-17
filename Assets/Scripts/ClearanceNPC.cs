@@ -28,7 +28,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
 
     [Header("Interaction Range")]
     [Tooltip("Maximum distance (in meters) the player can be from the NPC to interact.")]
-    public float interactionRange = 2.5f;
+    public float interactionRange = 4.0f;
 
     [Header("Dialogue")]
     [TextArea(2, 3)]
@@ -71,16 +71,12 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             if (dist > interactionRange) return string.Empty;
         }
 
-        // Gate 1: player needs the blank slip — show nothing if they don't have it
-        if (!PlayerHasBlankSlip()) return string.Empty;
-
         // Already signed
         if (ClearanceManager.Instance != null &&
             ClearanceManager.Instance.HasSignature(signatureIndex))
-            return $"[{npcName}] Already signed";
-
-        // Gate 2: chronological order — previous NPC must already be signed
-        if (!PreviousNPCSigned()) return string.Empty;
+        {
+            return $"[{npcName}] Already signed (Press E to talk)";
+        }
 
         return $"Press E to talk to {npcName}";
     }
@@ -100,14 +96,30 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             return;
         }
 
-        // Gate 1: blank slip
-        if (!PlayerHasBlankSlip())
+        // Already signed
+        if (ClearanceManager.Instance.HasSignature(signatureIndex))
         {
-            Debug.Log($"[{npcName}] No clearance slip in inventory — blocked.");
+            ShowDialogue(alreadySignedDialogue);
             return;
         }
 
-        // Gate 2: order enforcement
+        // Gate 1: Check clearance slip in inventory
+        bool hasSlip = PlayerHasBlankSlip();
+        if (!hasSlip)
+        {
+            Debug.Log($"[{npcName}] No clearance slip in inventory — player must piece together fragments first.");
+            if (signatureIndex == 0)
+            {
+                ShowDialogue("Keep your voice down, this is the university library. Where is your clearance form? You need to find all 4 torn fragments of your clearance slip scattered around the building before I can sign anything for you.");
+            }
+            else
+            {
+                ShowDialogue("You cannot be cleared without an official clearance slip. Search the corridors for the 4 torn fragments first.");
+            }
+            return;
+        }
+
+        // Gate 2: Chronological order enforcement
         if (!PreviousNPCSigned())
         {
             Debug.Log($"[{npcName}] Previous signature not yet collected — blocked.");
@@ -132,6 +144,33 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    private void GiveBlankSlipToPlayer()
+    {
+        if (blankPaperItem == null)
+        {
+            blankPaperItem = Resources.Load<InventoryItem>("Blank_Paper");
+            if (blankPaperItem == null)
+            {
+#if UNITY_EDITOR
+                blankPaperItem = UnityEditor.AssetDatabase.LoadAssetAtPath<InventoryItem>("Assets/Items/Blank_Paper.asset");
+#endif
+            }
+        }
+
+        if (blankPaperItem != null)
+        {
+            if (InventoryManager.Instance != null)
+            {
+                InventoryManager.Instance.AddItem(blankPaperItem, 1);
+            }
+            else if (StorageManager.Instance != null)
+            {
+                StorageManager.Instance.AddItem(blankPaperItem, 1);
+            }
+            Debug.Log($"[{npcName}] Issued Blank_Paper clearance slip to player.");
+        }
+    }
 
     /// <summary>True if this is the first NPC (index 0) or the previous one is already signed.</summary>
     private bool PreviousNPCSigned()

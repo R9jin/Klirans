@@ -165,15 +165,12 @@ public class InventoryEquipController : MonoBehaviour
             return;
         }
 
-        // 2. Spawn 3D viewmodel for items with an itemPrefab or paper/fragment/lockpin items
-        bool isPaperOrFragment = (blankPaperItemData != null && item == blankPaperItemData) ||
-                                  itemNameLower.Contains("paper") ||
-                                  itemNameLower.Contains("fragment") ||
-                                  itemNameLower.Contains("clearance") ||
-                                  itemNameLower.Contains("slip");
+        // 2. Spawn 3D viewmodel for items with an itemPrefab or completed Blank_Paper
+        bool isCompletedPaper = (blankPaperItemData != null && item == blankPaperItemData) ||
+                                (itemNameLower.Contains("blank") && itemNameLower.Contains("paper"));
 
         GameObject prefabToSpawn = item.itemPrefab;
-        if (prefabToSpawn == null && isPaperOrFragment && heldPaperModelPrefab != null)
+        if (prefabToSpawn == null && isCompletedPaper && heldPaperModelPrefab != null)
             prefabToSpawn = heldPaperModelPrefab;
 
         if (prefabToSpawn != null && equipPoint != null)

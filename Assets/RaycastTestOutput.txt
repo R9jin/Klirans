@@ -1,0 +1,72 @@
+=== TEST RAYCAST TO STAFF ===
+
+Testing 'Signatory_Librarian' from (-78.20, 15.00, 44.15) to target (-76.00, 15.50, 44.15) (dist=2.26m):
+  SphereCastAll hit count: 6
+    Hit: 'ReturnStack' (Go: 'ReturnStack') at dist=1.02m, Layer=Default, HasInteractable=False
+    Hit: 'LibrarianDesk' (Go: 'LibrarianDesk') at dist=1.34m, Layer=Default, HasInteractable=False
+    Hit: 'Signatory_Librarian' (Go: 'Signatory_Librarian') at dist=1.54m, Layer=Default, HasInteractable=True
+    Hit: 'BackWall' (Go: 'BackWall') at dist=2.22m, Layer=Default, HasInteractable=False
+    Hit: 'WindowSet_1 (1)' (Go: 'WindowSet_1 (1)') at dist=2.38m, Layer=Default, HasInteractable=False
+    Hit: 'WindowSet_4 (1)' (Go: 'WindowSet_4 (1)') at dist=2.63m, Layer=Default, HasInteractable=False
+
+Testing 'Signatory_GuidanceCounselor' from (-87.00, 9.00, 42.20) to target (-89.50, 9.55, 42.20) (dist=2.56m):
+  SphereCastAll hit count: 8
+    Hit: 'Back' (Go: 'Back') at dist=0.35m, Layer=Default, HasInteractable=False
+    Hit: 'Seat' (Go: 'Seat') at dist=0.50m, Layer=Default, HasInteractable=False
+    Hit: 'Counter_TopLedge' (Go: 'Counter_TopLedge') at dist=1.06m, Layer=Default, HasInteractable=False
+    Hit: 'Counter_FrontPanel' (Go: 'Counter_FrontPanel') at dist=1.21m, Layer=Default, HasInteractable=False
+    Hit: 'Sign_Border' (Go: 'Sign_Border') at dist=1.35m, Layer=Default, HasInteractable=False
+    Hit: 'Sign_Face' (Go: 'Sign_Face') at dist=1.37m, Layer=Default, HasInteractable=False
+    Hit: 'Counter_WorkDesktop' (Go: 'Counter_WorkDesktop') at dist=1.43m, Layer=Default, HasInteractable=False
+    Hit: 'Signatory_GuidanceCounselor' (Go: 'Signatory_GuidanceCounselor') at dist=1.84m, Layer=Default, HasInteractable=True
+
+Testing 'Signatory_Registrar' from (-84.00, 3.00, 4.90) to target (-81.30, 3.55, 4.90) (dist=2.76m):
+  SphereCastAll hit count: 10
+    Hit: 'ServiceCounterLedge' (Go: 'ServiceCounterLedge') at dist=0.22m, Layer=Default, HasInteractable=False
+    Hit: 'LowerSpandrelWall' (Go: 'LowerSpandrelWall') at dist=0.61m, Layer=Default, HasInteractable=False
+    Hit: 'Glass_Upper_Bay2' (Go: 'Glass_Upper_Bay2') at dist=0.65m, Layer=Default, HasInteractable=False
+    Hit: 'SlotTrim_Right_Bay2' (Go: 'SlotTrim_Right_Bay2') at dist=0.67m, Layer=Default, HasInteractable=False
+    Hit: 'SlotTrim_Left_Bay2' (Go: 'SlotTrim_Left_Bay2') at dist=0.67m, Layer=Default, HasInteractable=False
+    Hit: 'SlotTrim_Top_Bay2' (Go: 'SlotTrim_Top_Bay2') at dist=0.67m, Layer=Default, HasInteractable=False
+    Hit: 'DocumentStack' (Go: 'DocumentStack') at dist=0.89m, Layer=Default, HasInteractable=False
+    Hit: 'InTray' (Go: 'InTray') at dist=1.17m, Layer=Default, HasInteractable=False
+    Hit: 'Workstation_Window_2' (Go: 'Workstation_Window_2') at dist=1.44m, Layer=Default, HasInteractable=False
+    Hit: 'Signatory_Registrar' (Go: 'Signatory_Registrar') at dist=2.04m, Layer=Default, HasInteractable=True
+
+Testing 'Signatory_CCSDean' from (-77.80, 9.00, -1.80) to target (-77.80, 9.55, -3.60) (dist=1.88m):
+  SphereCastAll hit count: 4
+    Hit: 'Signatory_CCSDean' (Go: 'Signatory_CCSDean') at dist=1.15m, Layer=Default, HasInteractable=True
+    Hit: 'LeftWall' (Go: 'LeftWall') at dist=1.31m, Layer=Default, HasInteractable=False
+    Hit: 'DepartmentWhiteboard_Frame' (Go: 'DepartmentWhiteboard_Frame') at dist=1.48m, Layer=Default, HasInteractable=False
+    Hit: 'DepartmentWhiteboard_Board' (Go: 'DepartmentWhiteboard_Board') at dist=1.50m, Layer=Default, HasInteractable=False
+
+Testing 'Signatory_Cashier' from (-84.00, 3.00, -7.10) to target (-81.30, 3.55, -7.10) (dist=2.76m):
+  SphereCastAll hit count: 10
+    Hit: 'ServiceCounterLedge' (Go: 'ServiceCounterLedge') at dist=0.22m, Layer=Default, HasInteractable=False
+    Hit: 'LowerSpandrelWall' (Go: 'LowerSpandrelWall') at dist=0.61m, Layer=Default, HasInteractable=False
+    Hit: 'Glass_Upper_Bay2' (Go: 'Glass_Upper_Bay2') at dist=0.65m, Layer=Default, HasInteractable=False
+    Hit: 'SlotTrim_Right_Bay2' (Go: 'SlotTrim_Right_Bay2') at dist=0.67m, Layer=Default, HasInteractable=False
+    Hit: 'SlotTrim_Left_Bay2' (Go: 'SlotTrim_Left_Bay2') at dist=0.67m, Layer=Default, HasInteractable=False
+    Hit: 'SlotTrim_Top_Bay2' (Go: 'SlotTrim_Top_Bay2') at dist=0.67m, Layer=Default, HasInteractable=False
+    Hit: 'DocumentStack' (Go: 'DocumentStack') at dist=0.89m, Layer=Default, HasInteractable=False
+    Hit: 'InTray' (Go: 'InTray') at dist=1.17m, Layer=Default, HasInteractable=False
+    Hit: 'Workstation_Window_2' (Go: 'Workstation_Window_2') at dist=1.44m, Layer=Default, HasInteractable=False
+    Hit: 'Signatory_Cashier' (Go: 'Signatory_Cashier') at dist=2.04m, Layer=Default, HasInteractable=True
+
+Testing 'Signatory_EVP' from (-88.50, 3.00, 5.80) to target (-88.50, 3.55, 7.80) (dist=2.07m):
+  SphereCastAll hit count: 15
+    Hit: 'Seat' (Go: 'Seat') at dist=0.00m, Layer=Default, HasInteractable=False
+    Hit: 'Seat' (Go: 'Seat') at dist=0.00m, Layer=Default, HasInteractable=False
+    Hit: 'Back' (Go: 'Back') at dist=0.00m, Layer=Default, HasInteractable=False
+    Hit: 'Back' (Go: 'Back') at dist=0.00m, Layer=Default, HasInteractable=False
+    Hit: 'VPDesk_Top' (Go: 'VPDesk_Top') at dist=0.47m, Layer=Default, HasInteractable=False
+    Hit: 'VPDesk_Modesty' (Go: 'VPDesk_Modesty') at dist=0.53m, Layer=Default, HasInteractable=False
+    Hit: 'VP_DeskBlotter' (Go: 'VP_DeskBlotter') at dist=0.63m, Layer=Default, HasInteractable=False
+    Hit: 'VPLaptop_Screen' (Go: 'VPLaptop_Screen') at dist=0.76m, Layer=Default, HasInteractable=False
+    Hit: 'VPLaptop_Base' (Go: 'VPLaptop_Base') at dist=0.78m, Layer=Default, HasInteractable=False
+    Hit: 'Signatory_EVP' (Go: 'Signatory_EVP') at dist=1.35m, Layer=Default, HasInteractable=True
+    Hit: 'ExecutiveCredenza' (Go: 'ExecutiveCredenza') at dist=2.11m, Layer=Default, HasInteractable=False
+    Hit: 'RightWall' (Go: 'RightWall') at dist=2.33m, Layer=Default, HasInteractable=False
+    Hit: 'LeftWall' (Go: 'LeftWall') at dist=2.42m, Layer=Default, HasInteractable=False
+    Hit: 'Lobby_SideWall_South' (Go: 'Lobby_SideWall_South') at dist=2.52m, Layer=Default, HasInteractable=False
+    Hit: '1stStair' (Go: '1stStair') at dist=2.55m, Layer=Default, HasInteractable=False
