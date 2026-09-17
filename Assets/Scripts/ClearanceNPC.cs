@@ -153,7 +153,88 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         return inHotbar || inStorage;
     }
 
-    private void ShowDialogue(string message) => Debug.Log($"[{npcName}] \"{message}\"");
+    private static Coroutine _activeDialogueCoroutine;
+
+    private void ShowDialogue(string message)
+    {
+        Debug.Log($"[{npcName}] \"{message}\"");
+
+        var staffAI = GetComponent<RoomStaffAI>();
+        if (staffAI != null) staffAI.SetTalkingState(true);
+
+        var proctorAI = GetComponent<ProctorAI>();
+        if (proctorAI != null) proctorAI.SetTalkingState(true);
+
+        // Find or setup on-screen dialogue UI on HudCanvas
+        GameObject hud = GameObject.Find("HudCanvas");
+        if (hud != null)
+        {
+            Transform diagTrans = hud.transform.Find("DialogueBox");
+            UnityEngine.UI.Text diagText = null;
+            if (diagTrans != null)
+            {
+                diagText = diagTrans.GetComponentInChildren<UnityEngine.UI.Text>();
+            }
+            else
+            {
+                // Create clean subtle dialogue panel
+                GameObject boxGO = new GameObject("DialogueBox", typeof(RectTransform));
+                boxGO.transform.SetParent(hud.transform, false);
+                RectTransform rt = boxGO.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0.15f, 0.08f);
+                rt.anchorMax = new Vector2(0.85f, 0.22f);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+
+                GameObject textGO = new GameObject("DialogueText", typeof(RectTransform), typeof(UnityEngine.UI.Text), typeof(UnityEngine.UI.Outline));
+                textGO.transform.SetParent(boxGO.transform, false);
+                RectTransform textRt = textGO.GetComponent<RectTransform>();
+                textRt.anchorMin = Vector2.zero;
+                textRt.anchorMax = Vector2.one;
+                textRt.offsetMin = new Vector2(12, 6);
+                textRt.offsetMax = new Vector2(-12, -6);
+
+                diagText = textGO.GetComponent<UnityEngine.UI.Text>();
+                diagText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                diagText.fontSize = 20;
+                diagText.alignment = TextAnchor.MiddleCenter;
+                diagText.color = new Color(1f, 0.95f, 0.8f, 1f); // Warm paper-white
+
+                var outline = textGO.GetComponent<UnityEngine.UI.Outline>();
+                outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+                outline.effectDistance = new Vector2(1.5f, -1.5f);
+
+                diagTrans = boxGO.transform;
+            }
+
+            if (diagText != null)
+            {
+                diagTrans.gameObject.SetActive(true);
+                diagText.text = $"<b>[{npcName}]</b>\n\"{message}\"";
+
+                if (_activeDialogueCoroutine != null)
+                {
+                    StopCoroutine(_activeDialogueCoroutine);
+                }
+                _activeDialogueCoroutine = StartCoroutine(HideDialogueRoutine(diagTrans.gameObject, 5.0f));
+            }
+        }
+    }
+
+    private System.Collections.IEnumerator HideDialogueRoutine(GameObject box, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (box != null)
+        {
+            box.SetActive(false);
+        }
+
+        var staffAI = GetComponent<RoomStaffAI>();
+        if (staffAI != null) staffAI.SetTalkingState(false);
+
+        var proctorAI = GetComponent<ProctorAI>();
+        if (proctorAI != null) proctorAI.SetTalkingState(false);
+    }
 
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()

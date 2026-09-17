@@ -1,0 +1,137 @@
+=== PATHING & WAYPOINT AUDIT ===
+
+[Student NPC] ClearanceNPC_Drei:
+  Position: (-80.94, 2.43, 9.38)
+  Agent: speed=1.4, angularSpeed=240, accel=8, stoppingDist=0.4, radius=0.28
+  ProctorAI: walkSpeed=1.4, tolerance=0.5, loopInOrder=True
+  Waypoints Count: 10
+    WP[0]: 'ClearanceNPC_Drei_WP_0' at (-80.94, 2.43, 9.38) (OnNavMesh=True, distToNav=0.00)
+    WP[1]: 'ClearanceNPC_Drei_WP_1' at (-84.00, 2.43, -2.00) (OnNavMesh=True, distToNav=0.00)
+    WP[2]: 'ClearanceNPC_Drei_WP_2' at (-84.00, 2.43, 6.00) (OnNavMesh=True, distToNav=0.00)
+    WP[3]: 'ClearanceNPC_Drei_WP_3' at (-85.50, 2.45, 12.65) (OnNavMesh=True, distToNav=0.00)
+    WP[4]: 'ClearanceNPC_Drei_WP_4' at (-85.50, 8.37, 20.63) (OnNavMesh=True, distToNav=0.00)
+    WP[5]: 'ClearanceNPC_Drei_WP_5' at (-84.00, 8.35, 30.00) (OnNavMesh=True, distToNav=0.00)
+    WP[6]: 'ClearanceNPC_Drei_WP_6' at (-84.00, 8.35, 0.00) (OnNavMesh=True, distToNav=0.00)
+    WP[7]: 'ClearanceNPC_Drei_WP_7' at (-85.50, 8.37, 20.63) (OnNavMesh=True, distToNav=0.00)
+    WP[8]: 'ClearanceNPC_Drei_WP_8' at (-85.50, 2.45, 12.65) (OnNavMesh=True, distToNav=0.00)
+    WP[9]: 'ClearanceNPC_Drei_WP_9' at (-80.94, 2.43, 9.38) (OnNavMesh=True, distToNav=0.00)
+
+[Student NPC] ClearanceNPC_Glad:
+  Position: (-77.34, 2.43, 20.00)
+  Agent: speed=1.4, angularSpeed=240, accel=8, stoppingDist=0.4, radius=0.28
+  ProctorAI: walkSpeed=1.4, tolerance=0.5, loopInOrder=True
+  Waypoints Count: 7
+    WP[0]: 'ClearanceNPC_Glad_WP_0' at (-77.34, 2.43, 20.00) (OnNavMesh=True, distToNav=0.00)
+    WP[1]: 'ClearanceNPC_Glad_WP_1' at (-77.34, 2.43, 13.00) (OnNavMesh=True, distToNav=0.00)
+    WP[2]: 'ClearanceNPC_Glad_WP_2' at (-80.94, 2.43, 9.38) (OnNavMesh=True, distToNav=0.00)
+    WP[3]: 'ClearanceNPC_Glad_WP_3' at (-84.00, 2.43, 5.00) (OnNavMesh=True, distToNav=0.00)
+    WP[4]: 'ClearanceNPC_Glad_WP_4' at (-84.00, 2.43, -5.00) (OnNavMesh=True, distToNav=0.00)
+    WP[5]: 'ClearanceNPC_Glad_WP_5' at (-84.00, 2.43, 15.00) (OnNavMesh=True, distToNav=0.00)
+    WP[6]: 'ClearanceNPC_Glad_WP_6' at (-84.00, 2.43, 26.00) (OnNavMesh=True, distToNav=0.00)
+
+[Student NPC] ClearanceNPC_Ira:
+  Position: (-84.00, 8.35, 25.00)
+  Agent: speed=1.4, angularSpeed=240, accel=8, stoppingDist=0.4, radius=0.28
+  ProctorAI: walkSpeed=1.4, tolerance=0.5, loopInOrder=True
+  Waypoints Count: 8
+    WP[0]: 'ClearanceNPC_Ira_WP_0' at (-84.00, 8.35, 30.00) (OnNavMesh=True, distToNav=0.00)
+    WP[1]: 'ClearanceNPC_Ira_WP_1' at (-84.00, 8.35, 18.00) (OnNavMesh=True, distToNav=0.00)
+    WP[2]: 'ClearanceNPC_Ira_WP_2' at (-85.50, 8.37, 12.65) (OnNavMesh=True, distToNav=0.00)
+    WP[3]: 'ClearanceNPC_Ira_WP_3' at (-85.50, 14.37, 20.63) (OnNavMesh=True, distToNav=0.00)
+    WP[4]: 'ClearanceNPC_Ira_WP_4' at (-84.00, 14.35, 30.00) (OnNavMesh=True, distToNav=0.00)
+    WP[5]: 'ClearanceNPC_Ira_WP_5' at (-84.00, 14.35, 42.00) (OnNavMesh=True, distToNav=0.00)
+    WP[6]: 'ClearanceNPC_Ira_WP_6' at (-85.50, 14.37, 20.63) (OnNavMesh=True, distToNav=0.00)
+    WP[7]: 'ClearanceNPC_Ira_WP_7' at (-85.50, 8.37, 12.65) (OnNavMesh=True, distToNav=0.00)
+
+[Student NPC] ClearanceNPC_Jessa:
+  Position: (-84.00, 8.35, 2.00)
+  Agent: speed=1.4, angularSpeed=240, accel=8, stoppingDist=0.4, radius=0.28
+  ProctorAI: walkSpeed=1.4, tolerance=0.5, loopInOrder=True
+  Waypoints Count: 8
+    WP[0]: 'ClearanceNPC_Jessa_WP_0' at (-84.00, 8.35, -5.00) (OnNavMesh=True, distToNav=0.00)
+    WP[1]: 'ClearanceNPC_Jessa_WP_1' at (-84.00, 8.35, 10.00) (OnNavMesh=True, distToNav=0.00)
+    WP[2]: 'ClearanceNPC_Jessa_WP_2' at (-85.50, 8.37, 20.63) (OnNavMesh=True, distToNav=0.00)
+    WP[3]: 'ClearanceNPC_Jessa_WP_3' at (-85.50, 2.45, 12.65) (OnNavMesh=True, distToNav=0.00)
+    WP[4]: 'ClearanceNPC_Jessa_WP_4' at (-80.94, 2.43, 9.38) (OnNavMesh=True, distToNav=0.00)
+    WP[5]: 'ClearanceNPC_Jessa_WP_5' at (-84.00, 2.43, -2.00) (OnNavMesh=True, distToNav=0.00)
+    WP[6]: 'ClearanceNPC_Jessa_WP_6' at (-85.50, 2.45, 12.65) (OnNavMesh=True, distToNav=0.00)
+    WP[7]: 'ClearanceNPC_Jessa_WP_7' at (-85.50, 8.37, 20.63) (OnNavMesh=True, distToNav=0.00)
+
+[Student NPC] ClearanceNPC_Josua:
+  Position: (-84.00, 14.35, 2.00)
+  Agent: speed=1.4, angularSpeed=240, accel=8, stoppingDist=0.4, radius=0.28
+  ProctorAI: walkSpeed=1.4, tolerance=0.5, loopInOrder=True
+  Waypoints Count: 7
+    WP[0]: 'ClearanceNPC_Josua_WP_0' at (-84.00, 14.35, -5.00) (OnNavMesh=True, distToNav=0.00)
+    WP[1]: 'ClearanceNPC_Josua_WP_1' at (-84.00, 14.35, 10.00) (OnNavMesh=True, distToNav=0.00)
+    WP[2]: 'ClearanceNPC_Josua_WP_2' at (-85.50, 14.37, 20.63) (OnNavMesh=True, distToNav=0.00)
+    WP[3]: 'ClearanceNPC_Josua_WP_3' at (-85.50, 8.37, 12.65) (OnNavMesh=True, distToNav=0.00)
+    WP[4]: 'ClearanceNPC_Josua_WP_4' at (-84.00, 8.35, 0.00) (OnNavMesh=True, distToNav=0.00)
+    WP[5]: 'ClearanceNPC_Josua_WP_5' at (-85.50, 8.37, 12.65) (OnNavMesh=True, distToNav=0.00)
+    WP[6]: 'ClearanceNPC_Josua_WP_6' at (-85.50, 14.37, 20.63) (OnNavMesh=True, distToNav=0.00)
+
+[Student NPC] ClearanceNPC_Niel:
+  Position: (-84.00, 14.35, 26.00)
+  Agent: speed=1.4, angularSpeed=240, accel=8, stoppingDist=0.4, radius=0.28
+  ProctorAI: walkSpeed=1.4, tolerance=0.5, loopInOrder=True
+  Waypoints Count: 6
+    WP[0]: 'ClearanceNPC_Niel_WP_0' at (-84.00, 14.35, 35.00) (OnNavMesh=True, distToNav=0.00)
+    WP[1]: 'ClearanceNPC_Niel_WP_1' at (-84.00, 14.35, 45.00) (OnNavMesh=True, distToNav=0.00)
+    WP[2]: 'ClearanceNPC_Niel_WP_2' at (-84.00, 14.35, 18.00) (OnNavMesh=True, distToNav=0.00)
+    WP[3]: 'ClearanceNPC_Niel_WP_3' at (-84.00, 14.35, -5.00) (OnNavMesh=True, distToNav=0.00)
+    WP[4]: 'ClearanceNPC_Niel_WP_4' at (-84.00, 14.35, -15.00) (OnNavMesh=True, distToNav=0.00)
+    WP[5]: 'ClearanceNPC_Niel_WP_5' at (-84.00, 14.35, 10.00) (OnNavMesh=True, distToNav=0.00)
+
+[Staff Member] Signatory_Librarian:
+  Position: (-76.00, 14.30, 44.15), Rotation: (0.00, 270.00, 0.00)
+  Has NavMeshAgent: False
+  StaffAI: role='Head Librarian', awarenessRadius=4, moveSpeed=1.2
+  Waypoints Count: 3
+    WP[0]: 'WP_0' at (-76.00, 14.30, 44.15), Parent: 'Waypoints'
+    WP[1]: 'WP_1' at (-78.50, 14.30, 44.15), Parent: 'Waypoints'
+    WP[2]: 'WP_2' at (-78.50, 14.30, 41.50), Parent: 'Waypoints'
+
+[Staff Member] Signatory_GuidanceCounselor:
+  Position: (-89.50, 8.35, 42.20), Rotation: (0.00, 90.00, 0.00)
+  Has NavMeshAgent: False
+  StaffAI: role='Guidance Counselor', awarenessRadius=4, moveSpeed=1.2
+  Waypoints Count: 3
+    WP[0]: 'WP_0' at (-89.50, 8.35, 42.20), Parent: 'Waypoints'
+    WP[1]: 'WP_1' at (-88.00, 8.35, 42.20), Parent: 'Waypoints'
+    WP[2]: 'WP_2' at (-89.50, 8.35, 39.50), Parent: 'Waypoints'
+
+[Staff Member] Signatory_Registrar:
+  Position: (-81.30, 2.35, 4.90), Rotation: (0.00, 270.00, 0.00)
+  Has NavMeshAgent: False
+  StaffAI: role='University Registrar', awarenessRadius=4, moveSpeed=1.2
+  Waypoints Count: 3
+    WP[0]: 'WP_0' at (-81.30, 2.35, 4.90), Parent: 'Waypoints'
+    WP[1]: 'WP_1' at (-81.30, 2.35, 3.10), Parent: 'Waypoints'
+    WP[2]: 'WP_2' at (-79.00, 2.35, 4.90), Parent: 'Waypoints'
+
+[Staff Member] Signatory_CCSDean:
+  Position: (-77.80, 8.35, -3.60), Rotation: (0.00, 180.00, 0.00)
+  Has NavMeshAgent: False
+  StaffAI: role='CCS Dean / Dept Head', awarenessRadius=4, moveSpeed=1.2
+  Waypoints Count: 3
+    WP[0]: 'WP_0' at (-77.80, 8.35, -3.60), Parent: 'Waypoints'
+    WP[1]: 'WP_1' at (-79.50, 8.35, -5.50), Parent: 'Waypoints'
+    WP[2]: 'WP_2' at (-77.80, 8.35, -7.50), Parent: 'Waypoints'
+
+[Staff Member] Signatory_Cashier:
+  Position: (-81.30, 2.35, -7.10), Rotation: (0.00, 270.00, 0.00)
+  Has NavMeshAgent: False
+  StaffAI: role='University Cashier', awarenessRadius=4, moveSpeed=1.2
+  Waypoints Count: 3
+    WP[0]: 'WP_0' at (-81.30, 2.35, -7.10), Parent: 'Waypoints'
+    WP[1]: 'WP_1' at (-81.30, 2.35, -5.30), Parent: 'Waypoints'
+    WP[2]: 'WP_2' at (-79.00, 2.35, -7.10), Parent: 'Waypoints'
+
+[Staff Member] Signatory_EVP:
+  Position: (-88.50, 2.35, 7.80), Rotation: (0.00, 180.00, 0.00)
+  Has NavMeshAgent: False
+  StaffAI: role='Executive Vice President', awarenessRadius=4, moveSpeed=1.2
+  Waypoints Count: 3
+    WP[0]: 'WP_0' at (-88.50, 2.35, 7.80), Parent: 'Waypoints'
+    WP[1]: 'WP_1' at (-88.50, 2.35, 4.50), Parent: 'Waypoints'
+    WP[2]: 'WP_2' at (-86.50, 2.35, 7.80), Parent: 'Waypoints'
