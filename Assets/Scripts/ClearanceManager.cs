@@ -36,6 +36,16 @@ public class ClearanceManager : MonoBehaviour
     [Tooltip("Assign the 6 signed textures in order.")]
     public Texture[] signedTextures = new Texture[6];
 
+    [Header("HUD Clearance Slip (UI Image on HudCanvas)")]
+    [Tooltip("UI Image for the on-screen clearance slip. Auto-found if unassigned.")]
+    public UnityEngine.UI.Image clearanceSlipUI;
+
+    [Tooltip("Blank sprite for the HUD slip (shown before any signatures).")]
+    public Sprite blankSprite;
+
+    [Tooltip("Signed sprites for the HUD slip (Index 0 = signed1 … Index 5 = signed6).")]
+    public Sprite[] signedSprites = new Sprite[6];
+
     // ── Runtime ────────────────────────────────────────────────────────────────
     private HashSet<int> _collectedSignatures = new HashSet<int>();
 
@@ -49,6 +59,11 @@ public class ClearanceManager : MonoBehaviour
     private void Start()
     {
         _collectedSignatures.Clear();
+        if (clearanceSlipUI == null)
+        {
+            var slipGO = GameObject.Find("ClearanceSlip");
+            if (slipGO != null) clearanceSlipUI = slipGO.GetComponent<UnityEngine.UI.Image>();
+        }
         RefreshHeldPaperTexture();
     }
 
@@ -83,27 +98,51 @@ public class ClearanceManager : MonoBehaviour
     // ── Private ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Swaps the held paper's main texture to reflect the highest signature
-    /// collected so far, giving a clear visual progression:
+    /// Swaps the held paper's main texture and HUD slip sprite to reflect the highest
+    /// signature collected so far, giving a clear visual progression:
     /// blank → signed1 → signed2 → … → signed6.
     /// </summary>
     private void RefreshHeldPaperTexture()
     {
-        if (heldPaperMaterial == null) return;
-
         int highest = -1;
         foreach (int idx in _collectedSignatures)
             if (idx > highest) highest = idx;
 
-        Texture target = null;
-        if (highest < 0)
-            target = blankTexture;
-        else if (signedTextures != null && highest < signedTextures.Length)
-            target = signedTextures[highest];
+        // 1. Update Held 3D viewmodel paper texture
+        if (heldPaperMaterial != null)
+        {
+            Texture target = null;
+            if (highest < 0)
+                target = blankTexture;
+            else if (signedTextures != null && highest < signedTextures.Length)
+                target = signedTextures[highest];
 
-        if (target != null)
-            heldPaperMaterial.mainTexture = target;
-        else
-            Debug.LogWarning($"[ClearanceManager] No texture for signedTextures[{highest}].");
+            if (target != null)
+                heldPaperMaterial.mainTexture = target;
+            else
+                Debug.LogWarning($"[ClearanceManager] No texture for signedTextures[{highest}].");
+        }
+
+        // 2. Update HUD on-screen clearance slip image
+        if (clearanceSlipUI != null)
+        {
+            Sprite targetSprite = null;
+            if (highest < 0)
+            {
+                if (blankSprite != null) targetSprite = blankSprite;
+                else if (blankTexture is Texture2D bTex) targetSprite = Sprite.Create(bTex, new Rect(0, 0, bTex.width, bTex.height), new Vector2(0.5f, 0.5f));
+            }
+            else if (signedSprites != null && highest < signedSprites.Length && signedSprites[highest] != null)
+            {
+                targetSprite = signedSprites[highest];
+            }
+            else if (signedTextures != null && highest < signedTextures.Length && signedTextures[highest] is Texture2D sTex)
+            {
+                targetSprite = Sprite.Create(sTex, new Rect(0, 0, sTex.width, sTex.height), new Vector2(0.5f, 0.5f));
+            }
+
+            if (targetSprite != null)
+                clearanceSlipUI.sprite = targetSprite;
+        }
     }
 }
