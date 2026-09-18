@@ -107,8 +107,8 @@ public static class SetupRoomStaff
                 position = new Vector3(-76.0f, 14.30f, 44.15f),
                 rotation = Quaternion.Euler(0f, -90f, 0f),
                 interactionRange = 2.8f,
-                unsignedDialogue = "Keep your voice down, this is the university library. Let me see your clearance slip... Very well, the library records are cleared. Next, report to Guidance and Counseling in Room 207 on the 2nd floor.",
-                alreadySignedDialogue = "You are already cleared here. Head to Guidance in Room 207 on the 2nd floor.",
+                unsignedDialogue = "Keep your voice down, this is the university library. Let me see your clearance slip... Very well, the library records are cleared. Next, report to the GUIDANCE OFFICE AND STUDENTS AFFAIRS AND SERVICES DEPARTMENT in Room 207 on the 2nd floor.",
+                alreadySignedDialogue = "You are already cleared here. Head to the GUIDANCE OFFICE AND STUDENTS AFFAIRS AND SERVICES DEPARTMENT in Room 207 on the 2nd floor.",
                 notYourTurnDialogue = "You must present an official clearance slip first.",
                 fbxPath = "Assets/NPC Assets/Animations/animateds/old_prof3/IdlePhil.fbx",
                 waypoints = new[]
@@ -127,9 +127,9 @@ public static class SetupRoomStaff
                 position = new Vector3(-89.5f, 8.35f, 42.20f),
                 rotation = Quaternion.Euler(0f, 90f, 0f),
                 interactionRange = 2.8f,
-                unsignedDialogue = "Welcome to Guidance. Have you reflected on your conduct this semester? Your behavioral records look satisfactory. Guidance is cleared. Proceed to the Registrar in Room 104 on the ground floor.",
-                alreadySignedDialogue = "Your guidance records are cleared. Go to the Registrar in Room 104 on the 1st floor.",
-                notYourTurnDialogue = "I cannot sign until the Library in Room 308 has signed your clearance slip first.",
+                unsignedDialogue = "Welcome to Guidance. Have you reflected on your conduct this semester? Your behavioral records look satisfactory. Guidance is cleared. Proceed to the COLLEGE OF COMPUTING STUDIES in Room 202 on the 2nd floor.",
+                alreadySignedDialogue = "Your guidance records are cleared. Go to the COLLEGE OF COMPUTING STUDIES in Room 202 on the 2nd floor.",
+                notYourTurnDialogue = "I cannot sign until the LIBRARY in Room 308 on the 3rd floor has signed your clearance slip first.",
                 fbxPath = "Assets/NPC Assets/Animations/animateds/rachel/IdleRachel.fbx",
                 waypoints = new[]
                 {
@@ -140,36 +140,16 @@ public static class SetupRoomStaff
             },
             new SignatoryConfig
             {
-                goName = "Signatory_Registrar",
-                roleTitle = "University Registrar",
-                signatureIndex = 2,
-                roomPath = "Rooms/1stFloor/Room 104",
-                position = new Vector3(-81.7f, 2.35f, 4.90f),
-                rotation = Quaternion.Euler(0f, 90f, 0f),
-                interactionRange = 3.5f, // Extended so player can interact through the glass reception window from hallway
-                unsignedDialogue = "Window 2, Evaluation and Records. Let me inspect your credentials... Grades verified, no incomplete deficiencies. Now head up to Room 202 on the 2nd floor for the College of Computing Studies.",
-                alreadySignedDialogue = "The Registrar's office has already signed. Go to Room 202 on the 2nd floor.",
-                notYourTurnDialogue = "You are missing the Guidance clearance. Return to Room 207 on the 2nd floor first.",
-                fbxPath = "Assets/NPC Assets/Animations/animateds/old_prof/IdleProf1.fbx",
-                waypoints = new[]
-                {
-                    new Vector3(-81.7f, 2.35f, 4.90f),
-                    new Vector3(-81.7f, 2.35f, 6.70f),
-                    new Vector3(-84.0f, 2.35f, 4.90f)
-                }
-            },
-            new SignatoryConfig
-            {
                 goName = "Signatory_CCSDean",
                 roleTitle = "CCS Dean / Dept Head",
-                signatureIndex = 3,
+                signatureIndex = 2,
                 roomPath = "Rooms/2ndFloor/Room 202",
                 position = new Vector3(-77.8f, 8.35f, -3.60f),
                 rotation = Quaternion.Euler(0f, 180f, 0f),
                 interactionRange = 2.8f,
-                unsignedDialogue = "College of Computing Studies clearance. Let's see your curriculum checklist... Approved. Take this down to the University Cashier in Room 102.",
-                alreadySignedDialogue = "CCS clearance is completed. Go to the Cashier in Room 102 on the 1st floor.",
-                notYourTurnDialogue = "The Registrar must verify your units before the Dean can sign. Check Room 104 first.",
+                unsignedDialogue = "College of Computing Studies clearance. Let's see your curriculum checklist... Approved. Take this down to the OFFICE OF THE UNIVERSITY REGISTRAR in Room 104 on the ground floor.",
+                alreadySignedDialogue = "CCS clearance is completed. Go to the OFFICE OF THE UNIVERSITY REGISTRAR in Room 104 on the ground floor.",
+                notYourTurnDialogue = "You need your Guidance clearance first. Check the GUIDANCE OFFICE AND STUDENTS AFFAIRS AND SERVICES DEPARTMENT in Room 207 on the 2nd floor first.",
                 fbxPath = "Assets/NPC Assets/Animations/animateds/renz/IdleRenz.fbx",
                 waypoints = new[]
                 {
@@ -180,16 +160,36 @@ public static class SetupRoomStaff
             },
             new SignatoryConfig
             {
+                goName = "Signatory_Registrar",
+                roleTitle = "University Registrar",
+                signatureIndex = 3,
+                roomPath = "Rooms/1stFloor/Room 104",
+                position = new Vector3(-81.7f, 2.35f, 4.90f),
+                rotation = Quaternion.Euler(0f, 90f, 0f),
+                interactionRange = 3.5f, // Extended so player can interact through the glass reception window from hallway
+                unsignedDialogue = "Window 2, Evaluation and Records. Let me inspect your credentials... Units verified, prerequisites cleared. Now proceed to the OFFICE OF THE UNIVERSITY CASHIER in Room 102 on the ground floor.",
+                alreadySignedDialogue = "The Registrar's office has already signed. Go to the OFFICE OF THE UNIVERSITY CASHIER in Room 102 on the ground floor.",
+                notYourTurnDialogue = "You must obtain your College Dean's signature first. Return to the COLLEGE OF COMPUTING STUDIES in Room 202 on the 2nd floor.",
+                fbxPath = "Assets/NPC Assets/Animations/animateds/old_prof/IdleProf1.fbx",
+                waypoints = new[]
+                {
+                    new Vector3(-81.7f, 2.35f, 4.90f),
+                    new Vector3(-81.7f, 2.35f, 6.70f),
+                    new Vector3(-84.0f, 2.35f, 4.90f)
+                }
+            },
+            new SignatoryConfig
+            {
                 goName = "Signatory_Cashier",
                 roleTitle = "University Cashier",
                 signatureIndex = 4,
                 roomPath = "Rooms/1stFloor/Room 102",
                 position = new Vector3(-81.7f, 2.35f, -7.10f),
                 rotation = Quaternion.Euler(0f, 90f, 0f),
-                interactionRange = 3.5f, // Extended for reception service window counter
-                unsignedDialogue = "Window 2, Cashier Department. Checking your assessment and fees... Zero balance, payment settled. You're almost done. Final sign-off is at the Executive Office in Room 103.",
-                alreadySignedDialogue = "Your fees are cleared. Head to Room 103 for the final Executive clearance.",
-                notYourTurnDialogue = "Assessment not verified. You need your College Dean's signature from Room 202 first.",
+                interactionRange = 3.5f, // Extended for reception service window counter (same as Room 104 treatment)
+                unsignedDialogue = "Window 2, Cashier Department. Checking your assessment and fees... Zero balance, payment settled. Proceed to the OFFICE OF THE VICE PRESIDENT FOR ACADEMIC AND STUDENT SERVICES AND OFFICE OF THE EXECUTIVE VICE PRESIDENT in Room 103 for your final signature.",
+                alreadySignedDialogue = "Your fees are cleared. Head to Room 103 for the Executive clearance.",
+                notYourTurnDialogue = "Assessment cannot be cleared yet. You need the REGISTRAR's signature from Room 104 first.",
                 fbxPath = "Assets/NPC Assets/Animations/animateds/old_prof2/IdleProf2.fbx",
                 waypoints = new[]
                 {
@@ -206,10 +206,10 @@ public static class SetupRoomStaff
                 roomPath = "Rooms/1stFloor/Room 103",
                 position = new Vector3(-88.5f, 2.35f, 7.80f),
                 rotation = Quaternion.Euler(0f, 180f, 0f),
-                interactionRange = 2.8f,
-                unsignedDialogue = "All prerequisite departments have signed... Outstanding. By the authority of the Executive Office, you are hereby CLEARED. May you finally find your exit.",
-                alreadySignedDialogue = "You are fully cleared. The campus can no longer hold you.",
-                notYourTurnDialogue = "This is the final clearance office. Settle your obligations with the Cashier in Room 102 first.",
+                interactionRange = 4.5f,
+                unsignedDialogue = "All prerequisite departments have signed... Outstanding. By the authority of the Executive Office, the sixth signature is granted. Now, return to the OFFICE OF THE UNIVERSITY REGISTRAR in Room 104 to officially submit and validate your completed clearance slip!",
+                alreadySignedDialogue = "You have all 6 signatures! Return to the OFFICE OF THE UNIVERSITY REGISTRAR in Room 104 to officially submit your slip and unlock the campus exit gate.",
+                notYourTurnDialogue = "This is the final clearance office. Settle your obligations with the OFFICE OF THE UNIVERSITY CASHIER in Room 102 first.",
                 fbxPath = "Assets/NPC Assets/Animations/animateds/old_prof/IdleProf1.fbx",
                 waypoints = new[]
                 {

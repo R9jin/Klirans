@@ -71,10 +71,19 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             if (dist > interactionRange) return string.Empty;
         }
 
-        // Already signed
+        // Already signed check
         if (ClearanceManager.Instance != null &&
             ClearanceManager.Instance.HasSignature(signatureIndex))
         {
+            // Special case: Registrar (signatureIndex 3) receives completed slip after all 6 signatures
+            if (signatureIndex == 3 && ClearanceManager.Instance.IsFullyClear())
+            {
+                if (!ClearanceManager.Instance.IsSlipSubmitted)
+                    return $"[{npcName}] Submit Completed Clearance Slip (Press E)";
+                else
+                    return $"[{npcName}] Clearance Slip Submitted (Press E to talk)";
+            }
+
             return $"[{npcName}] Already signed (Press E to talk)";
         }
 
@@ -94,6 +103,22 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         {
             Debug.LogError("[ClearanceNPC] ClearanceManager missing from scene!");
             return;
+        }
+
+        // Special case: Registrar (signatureIndex 3) handles slip submission after all 6 signatures are gathered
+        if (signatureIndex == 3 && ClearanceManager.Instance.IsFullyClear())
+        {
+            if (!ClearanceManager.Instance.IsSlipSubmitted)
+            {
+                ClearanceManager.Instance.SubmitSlipToRegistrar();
+                ShowDialogue("Let me verify your clearance slip... Library, Guidance & SAS, College of Computing Studies, Registrar, Cashier, and the Executive Vice President. All signatures confirmed and officially recorded! Your clearance is complete. The campus main gate at the lobby entrance is now unlocked for you. Have a safe journey!");
+                return;
+            }
+            else
+            {
+                ShowDialogue("Your clearance has already been submitted and officially recorded. Proceed to the campus main gate at the lobby entrance to exit.");
+                return;
+            }
         }
 
         // Already signed
@@ -212,35 +237,53 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             UnityEngine.UI.Text diagText = null;
             if (diagTrans != null)
             {
+                // Ensure existing scene DialogueBox is placed above the hotbar/inventory
+                RectTransform rt = diagTrans.GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0.15f, 0.23f);
+                    rt.anchorMax = new Vector2(0.85f, 0.37f);
+                    rt.offsetMin = Vector2.zero;
+                    rt.offsetMax = Vector2.zero;
+                }
+
+                // Add or configure subtle background panel if missing
+                var bgImage = diagTrans.GetComponent<UnityEngine.UI.Image>();
+                if (bgImage == null) bgImage = diagTrans.gameObject.AddComponent<UnityEngine.UI.Image>();
+                bgImage.color = new Color(0.05f, 0.05f, 0.08f, 0.82f);
+
                 diagText = diagTrans.GetComponentInChildren<UnityEngine.UI.Text>();
             }
             else
             {
-                // Create clean subtle dialogue panel
-                GameObject boxGO = new GameObject("DialogueBox", typeof(RectTransform));
+                // Create clean subtle dialogue panel above hotbar/inventory
+                GameObject boxGO = new GameObject("DialogueBox", typeof(RectTransform), typeof(UnityEngine.UI.Image));
                 boxGO.transform.SetParent(hud.transform, false);
                 RectTransform rt = boxGO.GetComponent<RectTransform>();
-                rt.anchorMin = new Vector2(0.15f, 0.08f);
-                rt.anchorMax = new Vector2(0.85f, 0.22f);
+                rt.anchorMin = new Vector2(0.15f, 0.23f);
+                rt.anchorMax = new Vector2(0.85f, 0.37f);
                 rt.offsetMin = Vector2.zero;
                 rt.offsetMax = Vector2.zero;
+
+                var bgImage = boxGO.GetComponent<UnityEngine.UI.Image>();
+                bgImage.color = new Color(0.05f, 0.05f, 0.08f, 0.82f);
 
                 GameObject textGO = new GameObject("DialogueText", typeof(RectTransform), typeof(UnityEngine.UI.Text), typeof(UnityEngine.UI.Outline));
                 textGO.transform.SetParent(boxGO.transform, false);
                 RectTransform textRt = textGO.GetComponent<RectTransform>();
                 textRt.anchorMin = Vector2.zero;
                 textRt.anchorMax = Vector2.one;
-                textRt.offsetMin = new Vector2(12, 6);
-                textRt.offsetMax = new Vector2(-12, -6);
+                textRt.offsetMin = new Vector2(16, 8);
+                textRt.offsetMax = new Vector2(-16, -8);
 
                 diagText = textGO.GetComponent<UnityEngine.UI.Text>();
                 diagText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 diagText.fontSize = 20;
                 diagText.alignment = TextAnchor.MiddleCenter;
-                diagText.color = new Color(1f, 0.95f, 0.8f, 1f); // Warm paper-white
+                diagText.color = new Color(1f, 0.96f, 0.85f, 1f); // Warm readable white
 
                 var outline = textGO.GetComponent<UnityEngine.UI.Outline>();
-                outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+                outline.effectColor = new Color(0f, 0f, 0f, 0.95f);
                 outline.effectDistance = new Vector2(1.5f, -1.5f);
 
                 diagTrans = boxGO.transform;

@@ -103,7 +103,7 @@ public class ClearancePiecesHUD : MonoBehaviour
             statusMessageText.text = "<color=#98FB98>All 4 fragments assembled into Official Clearance Slip!</color>";
 
         if (counterText != null)
-            counterText.text = "<b>Status: Ready for Department Signatures (Room 308 Library First)</b>";
+            counterText.text = "<b>Status: Ready for Department Signatures (LIBRARY on 3rd Floor First)</b>";
 
         if (_hideCoroutine != null) StopCoroutine(_hideCoroutine);
         _hideCoroutine = StartCoroutine(HideAfterDelay(6.0f));
