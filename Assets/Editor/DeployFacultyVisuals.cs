@@ -150,7 +150,39 @@ public static class DeployFacultyVisuals
 
         FacultyDef[] faculties = new[]
         {
-            // 1. Room 308 - Head Librarian (3F)
+            // 1. Room 202 - CCS Dean (2F) -> Male Professor 1 (old_prof)
+            new FacultyDef
+            {
+                goName = "Signatory_CCSDean",
+                roleTitle = "CCS Dean / Dept Head",
+                position = new Vector3(-77.8f, 8.35f, -3.60f),
+                rotation = Quaternion.Euler(0f, 180f, 0f),
+                modelAsset = "Assets/NPC Assets/Models/drei.fbx",
+                idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof/IdleProf1.fbx",
+                walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/CatwalkProf1.fbx",
+                talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/TalkingProf1.fbx",
+                texPath = "Assets/NPC Assets/Animations/Texture/old_prof_texture1.png",
+                matPath = "Assets/NPC Assets/Materials/CCSDean_Mat.mat",
+                ctrlPath = "Assets/NPC Assets/AnimatorControllers/Signatory_CCSDean_Ctrl.controller",
+                isFemale = false
+            },
+            // 2. Room 103 - Executive Vice President (1F) -> Male Professor 2 (old_prof2)
+            new FacultyDef
+            {
+                goName = "Signatory_EVP",
+                roleTitle = "Executive Vice President",
+                position = new Vector3(-88.5f, 2.35f, 7.80f),
+                rotation = Quaternion.Euler(0f, 180f, 0f),
+                modelAsset = "Assets/NPC Assets/Models/drei.fbx",
+                idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/IdleProf2.fbx",
+                walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/CatwalkProf2.fbx",
+                talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/TalkingProf2.fbx",
+                texPath = "Assets/NPC Assets/Animations/Texture/old_prof_texture2.png",
+                matPath = "Assets/NPC Assets/Materials/EVP_Mat.mat",
+                ctrlPath = "Assets/NPC Assets/AnimatorControllers/Signatory_EVP_Ctrl.controller",
+                isFemale = false
+            },
+            // 3. Room 308 - Head Librarian (3F) -> Male Professor 3 (old_prof3 / Phil)
             new FacultyDef
             {
                 goName = "Signatory_Librarian",
@@ -166,56 +198,23 @@ public static class DeployFacultyVisuals
                 ctrlPath = "Assets/NPC Assets/AnimatorControllers/Signatory_Librarian_Ctrl.controller",
                 isFemale = false
             },
-            // 2. Room 207 - Guidance Counselor (2F)
+            // 4. Room 207 - Guidance Counselor (2F) -> Female Professor 1 (female_prof1)
             new FacultyDef
             {
                 goName = "Signatory_GuidanceCounselor",
                 roleTitle = "Guidance Counselor",
                 position = new Vector3(-89.5f, 8.35f, 42.20f),
                 rotation = Quaternion.Euler(0f, 90f, 0f),
-                modelAsset = "Assets/NPC Assets/Models/ira.fbx",
-                idleFbx = "Assets/NPC Assets/Animations/animateds/rachel/IdleRachel.fbx",
-                walkFbx = "Assets/NPC Assets/Animations/animateds/rachel/WalkingRachel.fbx",
-                talkFbx = "Assets/NPC Assets/Animations/animateds/rachel/TalkingRachel.fbx",
-                texPath = "Assets/NPC Assets/Animations/Texture/rachel_texture.png",
+                modelAsset = "Assets/NPC Assets/Animations/Texture/female_prof1.fbx",
+                idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof/IdleProf1.fbx",
+                walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/CatwalkProf1.fbx",
+                talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/TalkingProf1.fbx",
+                texPath = "Assets/NPC Assets/Animations/Texture/female_prof_texture1.png",
                 matPath = "Assets/NPC Assets/Materials/GuidanceCounselor_Mat.mat",
                 ctrlPath = "Assets/NPC Assets/AnimatorControllers/Signatory_Guidance_Ctrl.controller",
                 isFemale = true
             },
-            // 3. Room 104 - University Registrar (1F)
-            // Behind service window workstation (-81.3, 2.35, 4.90), facing West (-X)
-            new FacultyDef
-            {
-                goName = "Signatory_Registrar",
-                roleTitle = "University Registrar",
-                position = new Vector3(-81.3f, 2.35f, 4.90f),
-                rotation = Quaternion.Euler(0f, 270f, 0f),
-                modelAsset = "Assets/NPC Assets/Models/drei.fbx",
-                idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof/IdleProf1.fbx",
-                walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/CatwalkProf1.fbx",
-                talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/TalkingProf1.fbx",
-                texPath = "Assets/NPC Assets/Animations/Texture/old_prof_texture1.png",
-                matPath = "Assets/NPC Assets/Materials/Registrar_Mat.mat",
-                ctrlPath = "Assets/NPC Assets/AnimatorControllers/Signatory_Registrar_Ctrl.controller",
-                isFemale = false
-            },
-            // 4. Room 202 - CCS Dean (2F)
-            new FacultyDef
-            {
-                goName = "Signatory_CCSDean",
-                roleTitle = "CCS Dean / Dept Head",
-                position = new Vector3(-77.8f, 8.35f, -3.60f),
-                rotation = Quaternion.Euler(0f, 180f, 0f),
-                modelAsset = "Assets/NPC Assets/Models/drei.fbx",
-                idleFbx = "Assets/NPC Assets/Animations/animateds/renz/IdleRenz.fbx",
-                walkFbx = "Assets/NPC Assets/Animations/animateds/renz/WalkingRenz.fbx",
-                talkFbx = "Assets/NPC Assets/Animations/animateds/renz/TalkingRenz.fbx",
-                texPath = "Assets/NPC Assets/Animations/Texture/renz_texture.png",
-                matPath = "Assets/NPC Assets/Materials/CCSDean_Mat.mat",
-                ctrlPath = "Assets/NPC Assets/AnimatorControllers/Signatory_CCSDean_Ctrl.controller",
-                isFemale = false
-            },
-            // 5. Room 102 - University Cashier (1F)
+            // 5. Room 102 - University Cashier (1F) -> Female Professor 2 (female_prof2)
             // Behind service window workstation (-81.3, 2.35, -7.10), facing West (-X)
             new FacultyDef
             {
@@ -223,30 +222,31 @@ public static class DeployFacultyVisuals
                 roleTitle = "University Cashier",
                 position = new Vector3(-81.3f, 2.35f, -7.10f),
                 rotation = Quaternion.Euler(0f, 270f, 0f),
-                modelAsset = "Assets/NPC Assets/Models/drei.fbx",
+                modelAsset = "Assets/NPC Assets/Animations/Texture/female_prof2.fbx",
                 idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/IdleProf2.fbx",
                 walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/CatwalkProf2.fbx",
                 talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/TalkingProf2.fbx",
-                texPath = "Assets/NPC Assets/Animations/Texture/old_prof_texture2.png",
+                texPath = "Assets/NPC Assets/Animations/Texture/female_prof_texture2.png",
                 matPath = "Assets/NPC Assets/Materials/Cashier_Mat.mat",
                 ctrlPath = "Assets/NPC Assets/AnimatorControllers/Signatory_Cashier_Ctrl.controller",
-                isFemale = false
+                isFemale = true
             },
-            // 6. Room 103 - Executive Vice President (1F)
+            // 6. Room 104 - University Registrar (1F) -> Female Professor 3 (female_prof3)
+            // Behind service window workstation (-81.3, 2.35, 4.90), facing West (-X)
             new FacultyDef
             {
-                goName = "Signatory_EVP",
-                roleTitle = "Executive Vice President",
-                position = new Vector3(-88.5f, 2.35f, 7.80f),
-                rotation = Quaternion.Euler(0f, 180f, 0f),
-                modelAsset = "Assets/NPC Assets/Models/drei.fbx",
+                goName = "Signatory_Registrar",
+                roleTitle = "University Registrar",
+                position = new Vector3(-81.3f, 2.35f, 4.90f),
+                rotation = Quaternion.Euler(0f, 270f, 0f),
+                modelAsset = "Assets/NPC Assets/Animations/Texture/female_prof3.fbx",
                 idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof/IdleProf1.fbx",
                 walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/CatwalkProf1.fbx",
                 talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/TalkingProf1.fbx",
-                texPath = "Assets/NPC Assets/Animations/Texture/old_prof_texture.png",
-                matPath = "Assets/NPC Assets/Materials/EVP_Mat.mat",
-                ctrlPath = "Assets/NPC Assets/AnimatorControllers/Signatory_EVP_Ctrl.controller",
-                isFemale = false
+                texPath = "Assets/NPC Assets/Animations/Texture/female_prof_texture3.png",
+                matPath = "Assets/NPC Assets/Materials/Registrar_Mat.mat",
+                ctrlPath = "Assets/NPC Assets/AnimatorControllers/Signatory_Registrar_Ctrl.controller",
+                isFemale = true
             }
         };
 
@@ -326,19 +326,37 @@ public static class DeployFacultyVisuals
             }
 
             // Align raw mesh vertices to skeleton space
-            Quaternion q = Quaternion.Euler(-90f, 90f, 0f);
             Vector3[] origVerts = meshAsset.vertices;
             Vector3[] origNorms = meshAsset.normals;
             Vector3[] alignedVerts = new Vector3[origVerts.Length];
             Vector3[] alignedNorms = new Vector3[origNorms.Length];
 
             float minY = float.MaxValue;
-            for (int i = 0; i < origVerts.Length; i++)
+            if (def.modelAsset.EndsWith(".obj"))
             {
-                Vector3 v = q * origVerts[i];
-                alignedVerts[i] = v;
-                alignedNorms[i] = q * origNorms[i];
-                if (v.y < minY) minY = v.y;
+                Vector3 min = origVerts[0], max = origVerts[0];
+                foreach (var v in origVerts) { min = Vector3.Min(min, v); max = Vector3.Max(max, v); }
+                Vector3 centerXZ = new Vector3((min.x + max.x) * 0.5f, min.y, (min.z + max.z) * 0.5f);
+                Quaternion rot = Quaternion.Euler(0f, -90f, 0f);
+
+                for (int i = 0; i < origVerts.Length; i++)
+                {
+                    Vector3 v = rot * ((origVerts[i] - centerXZ) * 0.01f);
+                    alignedVerts[i] = v;
+                    alignedNorms[i] = origNorms != null && origNorms.Length > i ? (rot * origNorms[i]) : Vector3.up;
+                    if (v.y < minY) minY = v.y;
+                }
+            }
+            else
+            {
+                Quaternion q = Quaternion.Euler(-90f, 90f, 0f);
+                for (int i = 0; i < origVerts.Length; i++)
+                {
+                    Vector3 v = q * origVerts[i];
+                    alignedVerts[i] = v;
+                    alignedNorms[i] = origNorms != null && origNorms.Length > i ? (q * origNorms[i]) : Vector3.up;
+                    if (v.y < minY) minY = v.y;
+                }
             }
 
             // Soles of shoes sit flush on the floor (Y = 0)
@@ -490,8 +508,15 @@ public static class DeployFacultyVisuals
             smr.sharedMaterial = mat;
             smr.updateWhenOffscreen = true;
 
-            // Scale Armature to match human height (~1.65m)
-            armature.transform.localScale = Vector3.one * SCALE;
+            // Scale Armature to match human height (~1.63m female, ~1.72m male)
+            float maxY = 0f;
+            for (int i = 0; i < alignedVerts.Length; i++)
+            {
+                if (alignedVerts[i].y > maxY) maxY = alignedVerts[i].y;
+            }
+            float targetHeight = def.isFemale ? 1.63f : 1.72f;
+            float charScale = (maxY > 0.001f) ? (targetHeight / maxY) : SCALE;
+            armature.transform.localScale = Vector3.one * charScale;
 
             // Configure Animator
             var anim = armature.GetComponent<Animator>();
