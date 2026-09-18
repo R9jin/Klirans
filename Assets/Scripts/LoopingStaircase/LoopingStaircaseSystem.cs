@@ -45,35 +45,23 @@ public class LoopingStaircaseSystem : MonoBehaviour
 
         // 1F → 2F (going up)
         new StaircaseConnection {
-            stairwellID = "MainStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 3, weight = 0.125f },
-                new AlternateOutcome { destinationFloor = 1, weight = 0.375f },
-            }
+            stairwellID = "MainStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
         // 2F → 3F (going up)
         new StaircaseConnection {
-            stairwellID = "MainStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 1, weight = 0.375f },
-                new AlternateOutcome { destinationFloor = 2, weight = 0.125f },
-            }
+            stairwellID = "MainStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
         // 3F → 2F (going down)
         new StaircaseConnection {
-            stairwellID = "MainStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 1, weight = 0.375f },
-                new AlternateOutcome { destinationFloor = 3, weight = 0.125f },
-            }
+            stairwellID = "MainStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
         // 2F → 1F (going down)
         new StaircaseConnection {
-            stairwellID = "MainStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 3, weight = 0.125f },
-                new AlternateOutcome { destinationFloor = 2, weight = 0.375f },
-            }
+            stairwellID = "MainStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
 
         // ─────────────────────────────────────────────────────────────────
@@ -81,32 +69,20 @@ public class LoopingStaircaseSystem : MonoBehaviour
         // ─────────────────────────────────────────────────────────────────
 
         new StaircaseConnection {
-            stairwellID = "RightStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 3, weight = 0.125f },
-                new AlternateOutcome { destinationFloor = 1, weight = 0.375f },
-            }
+            stairwellID = "RightStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
         new StaircaseConnection {
-            stairwellID = "RightStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 1, weight = 0.375f },
-                new AlternateOutcome { destinationFloor = 2, weight = 0.125f },
-            }
+            stairwellID = "RightStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
         new StaircaseConnection {
-            stairwellID = "RightStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 1, weight = 0.375f },
-                new AlternateOutcome { destinationFloor = 3, weight = 0.125f },
-            }
+            stairwellID = "RightStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
         new StaircaseConnection {
-            stairwellID = "RightStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 3, weight = 0.125f },
-                new AlternateOutcome { destinationFloor = 2, weight = 0.375f },
-            }
+            stairwellID = "RightStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
 
         // ─────────────────────────────────────────────────────────────────
@@ -114,32 +90,20 @@ public class LoopingStaircaseSystem : MonoBehaviour
         // ─────────────────────────────────────────────────────────────────
 
         new StaircaseConnection {
-            stairwellID = "LeftStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 3, weight = 0.125f },
-                new AlternateOutcome { destinationFloor = 1, weight = 0.375f },
-            }
+            stairwellID = "LeftStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
         new StaircaseConnection {
-            stairwellID = "LeftStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 1, weight = 0.375f },
-                new AlternateOutcome { destinationFloor = 2, weight = 0.125f },
-            }
+            stairwellID = "LeftStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
         new StaircaseConnection {
-            stairwellID = "LeftStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 1, weight = 0.375f },
-                new AlternateOutcome { destinationFloor = 3, weight = 0.125f },
-            }
+            stairwellID = "LeftStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
         new StaircaseConnection {
-            stairwellID = "LeftStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 0.50f,
-            alternateOutcomes = new [] {
-                new AlternateOutcome { destinationFloor = 3, weight = 0.125f },
-                new AlternateOutcome { destinationFloor = 2, weight = 0.375f },
-            }
+            stairwellID = "LeftStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[0]
         },
         
         // ─────────────────────────────────────────────────────────────────
@@ -187,14 +151,12 @@ public class LoopingStaircaseSystem : MonoBehaviour
     public float maxWaitForConcealment = 0.5f;
 
     [Tooltip("Always play a very brief screen blink on EVERY teleport, regardless of " +
-             "camera angle. Recommended ON — makes the transition imperceptible even " +
-             "when the player turns fast.")]
-    public bool alwaysBlink = true;
+             "camera angle. Set to false for seamless snappy transitions.")]
+    public bool alwaysBlink = false;
 
-    [Tooltip("Duration of the full-black micro-blink in seconds. Keep very short (0.1-0.2s) " +
-             "— long enough to hide the position change, short enough to feel like eye-blink.")]
-    [Range(0.05f, 0.5f)]
-    public float blinkDuration = 0.15f;
+    [Tooltip("Duration of the full-black micro-blink in seconds. Set to 0 for instantaneous snappy transition.")]
+    [Range(0f, 0.5f)]
+    public float blinkDuration = 0f;
 
     [Tooltip("Seconds of full-black emergency blink used if concealment window is never found. " +
              "Only used when alwaysBlink is OFF.")]
@@ -428,43 +390,32 @@ public class LoopingStaircaseSystem : MonoBehaviour
 
         CharacterController cc = playerObject.GetComponent<CharacterController>();
 
-        // ── Step 2: Blink screen to black (always, so no fast-turn reveal) ─
+        // Optional blink ONLY if explicitly enabled by developer
         if (alwaysBlink && blinkOverlay != null)
         {
-            // Instantly black out the screen
             yield return StartCoroutine(BlinkToBlack());
         }
-        else
-        {
-            // Fallback: wait for natural concealment window
-            float waitStart = Time.time;
-            bool concealmentFound = false;
-            while (Time.time - waitStart < maxWaitForConcealment)
-            {
-                if (IsCameraConcealed()) { concealmentFound = true; break; }
-                yield return null;
-            }
-            if (!concealmentFound && emergencyBlinkDuration > 0f && blinkOverlay != null)
-                yield return StartCoroutine(MicroBlink());
-        }
 
-        // ── Step 3: Perform teleport (screen is black) ────────────────────
+        // ── Step 2: Perform snappy, instantaneous teleport ────────────────
         PerformTeleport(cc, savedPlayerYaw, savedPitch, stairwellID, fromFloor, toFloor, targetSpawn);
 
-        // ── Step 4: One frame for physics to settle ───────────────────────
+        // ── Step 3: Single frame for physics update ───────────────────────
         yield return null;
 
-        // ── Step 5: Fade screen back in ───────────────────────────────────
         if (alwaysBlink && blinkOverlay != null)
+        {
             yield return StartCoroutine(FadeBlinkOut());
-        else if (blinkOverlay != null)
-            yield return StartCoroutine(FadeBlinkOut());
+        }
+        else if (blinkOverlay != null && blinkOverlay.gameObject.activeSelf)
+        {
+            blinkOverlay.gameObject.SetActive(false);
+        }
 
         lastTransitionTime = Time.time;
         firstTraversalDone = true;
         transitionInProgress = false;
 
-        Debug.Log($"[LoopingStaircase] Transition complete: {stairwellID} F{fromFloor}→F{toFloor}");
+        Debug.Log($"[LoopingStaircase] Snappy transition complete: {stairwellID} F{fromFloor}→F{toFloor}");
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -476,17 +427,28 @@ public class LoopingStaircaseSystem : MonoBehaviour
     {
         if (cc != null) cc.enabled = false;
 
-        // Move to target floor landing spawn point if available, otherwise relative shift
-        if (fallbackSpawn != null)
+        bool usedRelative = false;
+        float yDelta = GetVerticalFloorOffset(stairwellID, fromFloor, toFloor);
+
+        // Preferred: Relative vertical shift so player remains at exact step position on identical stairs
+        if (Mathf.Abs(yDelta) > 0.1f)
+        {
+            Vector3 testPos = playerObject.transform.position + new Vector3(0f, yDelta, 0f);
+            Vector3 p1 = testPos + Vector3.up * 0.20f;
+            Vector3 p2 = testPos + Vector3.up * 1.70f;
+            if (Physics.OverlapCapsule(p1, p2, 0.19f, ~0, QueryTriggerInteraction.Ignore).Length == 0)
+            {
+                playerObject.transform.position = testPos;
+                playerObject.transform.rotation = Quaternion.Euler(0f, savedPlayerYaw, 0f);
+                usedRelative = true;
+            }
+        }
+
+        // Safe Fallback: Move to verified open hallway landing spawn point
+        if (!usedRelative && fallbackSpawn != null)
         {
             playerObject.transform.position = fallbackSpawn.transform.position;
             playerObject.transform.rotation = Quaternion.Euler(0f, fallbackSpawn.spawnFacingYaw, 0f);
-        }
-        else
-        {
-            float yDelta = GetVerticalFloorOffset(stairwellID, fromFloor, toFloor);
-            playerObject.transform.position += new Vector3(0f, yDelta, 0f);
-            playerObject.transform.rotation = Quaternion.Euler(0f, savedPlayerYaw, 0f);
         }
 
         // Preserve exact camera pitch so head look angle doesn't snap
