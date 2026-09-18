@@ -22,7 +22,7 @@ public class ProctorAI : MonoBehaviour
     public Transform[] waypoints;
 
     [Tooltip("Arrival distance threshold.")]
-    public float waypointTolerance = 0.6f;
+    public float waypointTolerance = 1.1f;
 
     [Header("Patrol Behaviour")]
     public bool loopInOrder = true;
@@ -30,7 +30,7 @@ public class ProctorAI : MonoBehaviour
     public float maxIdleTime = 4f;
 
     [Header("Movement")]
-    public float walkSpeed = 1.4f;
+    public float walkSpeed = 1.15f;
     public string speedParam   = "Speed";
     public string talkingParam = "Talking";
 
@@ -112,7 +112,9 @@ public class ProctorAI : MonoBehaviour
         _talkingHash = Animator.StringToHash(talkingParam);
 
         _agent.speed = walkSpeed;
-        _agent.stoppingDistance = waypointTolerance;
+        _agent.stoppingDistance = 0.25f;
+        _agent.angularSpeed = 480.0f;
+        _agent.acceleration = 12.0f;
         _agent.autoBraking = true;
         _agent.updateRotation = true;
         _agent.autoTraverseOffMeshLink = false;
@@ -208,6 +210,9 @@ public class ProctorAI : MonoBehaviour
         GoToNextWaypoint();
     }
 
+    private float _stuckTimer           = 0f;
+    private Vector3 _lastSampledPos;
+
     private void Update()
     {
         if (!_patrolStarted || !_agent.isOnNavMesh) return;
@@ -248,24 +253,48 @@ public class ProctorAI : MonoBehaviour
         UpdateCreepyStareTimer();
 
         if (waypoints == null || waypoints.Length == 0) return;
-        if (_isIdling || _agent.pathPending) return;
+        if (_isIdling) return;
 
-        // Check if agent path is invalid (stale/partial) — skip to next waypoint
-        if (_agent.hasPath && _agent.pathStatus == NavMeshPathStatus.PathInvalid)
+        // Check arrival using both 2D distance and agent remainingDistance
+        bool arrived = false;
+        if (waypoints[_waypointIndex] != null)
         {
-            Debug.LogWarning($"[ProctorAI] '{name}' invalid path, skipping to next waypoint.");
+            Vector3 targetWP = waypoints[_waypointIndex].position;
+            Vector3 flatDiff = targetWP - transform.position;
+            flatDiff.y = 0f;
+            if (flatDiff.sqrMagnitude <= waypointTolerance * waypointTolerance)
+            {
+                arrived = true;
+            }
+        }
+
+        if (!arrived && _agent.hasPath && !_agent.pathPending)
+        {
+            if (_agent.remainingDistance <= waypointTolerance)
+            {
+                arrived = true;
+            }
+        }
+
+        if (arrived)
+        {
+            _stuckTimer = 0f;
+            ArrivedAtWaypoint();
+            return;
+        }
+
+        // Anti-orbit / stuck watchdog: if agent spends too long without reaching waypoint, advance
+        _stuckTimer += Time.deltaTime;
+        if (_stuckTimer >= 9.0f)
+        {
+            _stuckTimer = 0f;
             AdvanceWaypointIndex();
             GoToNextWaypoint();
             return;
         }
 
-        // Check arrival
-        if (_agent.hasPath && _agent.remainingDistance <= waypointTolerance)
-        {
-            ArrivedAtWaypoint();
-        }
-        // Failsafe: if stuck for too long without a path, try next waypoint
-        else if (!_agent.hasPath && !_agent.pathPending)
+        // Failsafe: if path became invalid or empty, set destination
+        if (!_agent.hasPath && !_agent.pathPending)
         {
             GoToNextWaypoint();
         }
@@ -419,28 +448,25 @@ public class ProctorAI : MonoBehaviour
     {
         if (_animator == null) return;
 
-        bool isMoving = !_agent.isStopped && _agent.isOnNavMesh && _agent.hasPath && (_agent.remainingDistance > waypointTolerance);
+        bool isMoving = !_agent.isStopped && _agent.isOnNavMesh && _agent.hasPath && (_agent.remainingDistance > 0.15f);
 
         if (!isMoving)
         {
-            _animator.SetFloat(_speedHash, 0f, 0.1f, Time.deltaTime);
+            _animator.SetFloat(_speedHash, 0f, 0.15f, Time.deltaTime);
         }
         else
         {
             float actualSpeed = _agent.velocity.magnitude;
-            // If physically blocked by the player or an obstacle, don't run in place
-            if (actualSpeed < 0.15f)
+            // If physically blocked, return to idle
+            if (actualSpeed < 0.10f)
             {
-                _animator.SetFloat(_speedHash, 0f, 0.12f, Time.deltaTime);
+                _animator.SetFloat(_speedHash, 0f, 0.15f, Time.deltaTime);
                 return;
             }
 
+            // Smooth linear mapping of actual ground movement to walk animation
             float normalizedSpeed = Mathf.Clamp01(actualSpeed / Mathf.Max(walkSpeed, 0.01f));
-            if (normalizedSpeed > 0.15f)
-            {
-                normalizedSpeed = Mathf.Max(normalizedSpeed, 0.85f);
-            }
-            _animator.SetFloat(_speedHash, normalizedSpeed, 0.08f, Time.deltaTime);
+            _animator.SetFloat(_speedHash, normalizedSpeed, 0.12f, Time.deltaTime);
         }
     }
 
@@ -509,28 +535,16 @@ public class ProctorAI : MonoBehaviour
         if (waypoints == null || waypoints.Length == 0) return;
         if (!_agent.isOnNavMesh) return;
 
-        // Validate the waypoint can be reached on the NavMesh
-        NavMeshPath path = new NavMeshPath();
         Vector3 targetPos = waypoints[_waypointIndex].position;
 
-        // Use SamplePosition to snap waypoint to nearest NavMesh point
+        // Snap waypoint to nearest NavMesh point
         NavMeshHit hit;
-        if (NavMesh.SamplePosition(targetPos, out hit, 2.0f, NavMesh.AllAreas))
+        if (NavMesh.SamplePosition(targetPos, out hit, 3.0f, NavMesh.AllAreas))
         {
             targetPos = hit.position;
         }
 
-        // Only set destination if a complete path exists
-        if (_agent.CalculatePath(targetPos, path) && path.status == NavMeshPathStatus.PathComplete)
-        {
-            _agent.SetDestination(targetPos);
-        }
-        else
-        {
-            // Skip this waypoint if path is partial or invalid
-            AdvanceWaypointIndex();
-            // Prevent infinite recursion with a simple counter
-        }
+        _agent.SetDestination(targetPos);
     }
 
     // ── Footstep Audio & Creepy Stare Implementation ──────────────────────────

@@ -28,7 +28,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
 
     [Header("Interaction Range")]
     [Tooltip("Maximum distance (in meters) the player can be from the NPC to interact.")]
-    public float interactionRange = 2.5f;
+    public float interactionRange = 4.0f;
 
     [Header("Dialogue")]
     [TextArea(2, 3)]
@@ -71,16 +71,12 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             if (dist > interactionRange) return string.Empty;
         }
 
-        // Gate 1: player needs the blank slip — show nothing if they don't have it
-        if (!PlayerHasBlankSlip()) return string.Empty;
-
         // Already signed
         if (ClearanceManager.Instance != null &&
             ClearanceManager.Instance.HasSignature(signatureIndex))
-            return $"[{npcName}] Already signed";
-
-        // Gate 2: chronological order — previous NPC must already be signed
-        if (!PreviousNPCSigned()) return string.Empty;
+        {
+            return $"[{npcName}] Already signed (Press E to talk)";
+        }
 
         return $"Press E to talk to {npcName}";
     }
@@ -100,14 +96,30 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             return;
         }
 
-        // Gate 1: blank slip
-        if (!PlayerHasBlankSlip())
+        // Already signed
+        if (ClearanceManager.Instance.HasSignature(signatureIndex))
         {
-            Debug.Log($"[{npcName}] No clearance slip in inventory — blocked.");
+            ShowDialogue(alreadySignedDialogue);
             return;
         }
 
-        // Gate 2: order enforcement
+        // Gate 1: Check clearance slip in inventory
+        bool hasSlip = PlayerHasBlankSlip();
+        if (!hasSlip)
+        {
+            Debug.Log($"[{npcName}] No clearance slip in inventory — player must piece together fragments first.");
+            if (signatureIndex == 0)
+            {
+                ShowDialogue("Keep your voice down, this is the university library. Where is your clearance form? You need to find all 4 torn fragments of your clearance slip scattered around the building before I can sign anything for you.");
+            }
+            else
+            {
+                ShowDialogue("You cannot be cleared without an official clearance slip. Search the corridors for the 4 torn fragments first.");
+            }
+            return;
+        }
+
+        // Gate 2: Chronological order enforcement
         if (!PreviousNPCSigned())
         {
             Debug.Log($"[{npcName}] Previous signature not yet collected — blocked.");
@@ -133,6 +145,33 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
+    private void GiveBlankSlipToPlayer()
+    {
+        if (blankPaperItem == null)
+        {
+            blankPaperItem = Resources.Load<InventoryItem>("Blank_Paper");
+            if (blankPaperItem == null)
+            {
+#if UNITY_EDITOR
+                blankPaperItem = UnityEditor.AssetDatabase.LoadAssetAtPath<InventoryItem>("Assets/Items/Blank_Paper.asset");
+#endif
+            }
+        }
+
+        if (blankPaperItem != null)
+        {
+            if (InventoryManager.Instance != null)
+            {
+                InventoryManager.Instance.AddItem(blankPaperItem, 1);
+            }
+            else if (StorageManager.Instance != null)
+            {
+                StorageManager.Instance.AddItem(blankPaperItem, 1);
+            }
+            Debug.Log($"[{npcName}] Issued Blank_Paper clearance slip to player.");
+        }
+    }
+
     /// <summary>True if this is the first NPC (index 0) or the previous one is already signed.</summary>
     private bool PreviousNPCSigned()
     {
@@ -153,7 +192,88 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         return inHotbar || inStorage;
     }
 
-    private void ShowDialogue(string message) => Debug.Log($"[{npcName}] \"{message}\"");
+    private static Coroutine _activeDialogueCoroutine;
+
+    private void ShowDialogue(string message)
+    {
+        Debug.Log($"[{npcName}] \"{message}\"");
+
+        var staffAI = GetComponent<RoomStaffAI>();
+        if (staffAI != null) staffAI.SetTalkingState(true);
+
+        var proctorAI = GetComponent<ProctorAI>();
+        if (proctorAI != null) proctorAI.SetTalkingState(true);
+
+        // Find or setup on-screen dialogue UI on HudCanvas
+        GameObject hud = GameObject.Find("HudCanvas");
+        if (hud != null)
+        {
+            Transform diagTrans = hud.transform.Find("DialogueBox");
+            UnityEngine.UI.Text diagText = null;
+            if (diagTrans != null)
+            {
+                diagText = diagTrans.GetComponentInChildren<UnityEngine.UI.Text>();
+            }
+            else
+            {
+                // Create clean subtle dialogue panel
+                GameObject boxGO = new GameObject("DialogueBox", typeof(RectTransform));
+                boxGO.transform.SetParent(hud.transform, false);
+                RectTransform rt = boxGO.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0.15f, 0.08f);
+                rt.anchorMax = new Vector2(0.85f, 0.22f);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+
+                GameObject textGO = new GameObject("DialogueText", typeof(RectTransform), typeof(UnityEngine.UI.Text), typeof(UnityEngine.UI.Outline));
+                textGO.transform.SetParent(boxGO.transform, false);
+                RectTransform textRt = textGO.GetComponent<RectTransform>();
+                textRt.anchorMin = Vector2.zero;
+                textRt.anchorMax = Vector2.one;
+                textRt.offsetMin = new Vector2(12, 6);
+                textRt.offsetMax = new Vector2(-12, -6);
+
+                diagText = textGO.GetComponent<UnityEngine.UI.Text>();
+                diagText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                diagText.fontSize = 20;
+                diagText.alignment = TextAnchor.MiddleCenter;
+                diagText.color = new Color(1f, 0.95f, 0.8f, 1f); // Warm paper-white
+
+                var outline = textGO.GetComponent<UnityEngine.UI.Outline>();
+                outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+                outline.effectDistance = new Vector2(1.5f, -1.5f);
+
+                diagTrans = boxGO.transform;
+            }
+
+            if (diagText != null)
+            {
+                diagTrans.gameObject.SetActive(true);
+                diagText.text = $"<b>[{npcName}]</b>\n\"{message}\"";
+
+                if (_activeDialogueCoroutine != null)
+                {
+                    StopCoroutine(_activeDialogueCoroutine);
+                }
+                _activeDialogueCoroutine = StartCoroutine(HideDialogueRoutine(diagTrans.gameObject, 5.0f));
+            }
+        }
+    }
+
+    private System.Collections.IEnumerator HideDialogueRoutine(GameObject box, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (box != null)
+        {
+            box.SetActive(false);
+        }
+
+        var staffAI = GetComponent<RoomStaffAI>();
+        if (staffAI != null) staffAI.SetTalkingState(false);
+
+        var proctorAI = GetComponent<ProctorAI>();
+        if (proctorAI != null) proctorAI.SetTalkingState(false);
+    }
 
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()

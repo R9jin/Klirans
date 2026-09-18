@@ -110,6 +110,10 @@ public class FragmentManager : MonoBehaviour
 
         // Show UI Status Notification
         ShowNotification($"Clearance Fragment Collected! ({currentCount}/{totalFragmentsRequired})");
+        if (ClearancePiecesHUD.Instance != null)
+        {
+            ClearancePiecesHUD.Instance.OnFragmentCollected(pieceID, currentCount, totalFragmentsRequired);
+        }
 
         // Check puzzle completion condition
         if (currentCount >= totalFragmentsRequired)
@@ -152,6 +156,11 @@ public class FragmentManager : MonoBehaviour
 
         // 2. Add the completed Blank_Paper Clearance Slip item to Inventory/Bag
         bool itemAdded = AddRewardToPlayerInventory();
+
+        if (ClearancePiecesHUD.Instance != null)
+        {
+            ClearancePiecesHUD.Instance.OnPuzzleCompleted();
+        }
 
         if (itemAdded)
         {
