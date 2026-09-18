@@ -113,6 +113,25 @@ public class ClearanceManager : MonoBehaviour
     public int  SignatureCount          => _collectedSignatures.Count;
     public bool HasSignature(int index) => _collectedSignatures.Contains(index);
 
+    /// <summary>True when the player has returned to the Registrar with all 6 signatures and submitted their slip.</summary>
+    public bool IsSlipSubmitted { get; private set; } = false;
+
+    /// <summary>
+    /// Called when the player hands the fully-signed clearance slip back to the University Registrar in Room 104.
+    /// </summary>
+    public bool SubmitSlipToRegistrar()
+    {
+        if (!IsFullyClear())
+        {
+            Debug.LogWarning("[ClearanceManager] Cannot submit slip before all 6 signatures are collected.");
+            return false;
+        }
+
+        IsSlipSubmitted = true;
+        Debug.Log("[ClearanceManager] Clearance slip officially submitted to Registrar! Campus main gate unlocked.");
+        return true;
+    }
+
     // ── Private ────────────────────────────────────────────────────────────────
 
     /// <summary>

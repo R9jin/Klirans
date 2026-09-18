@@ -5,20 +5,22 @@ namespace Klirans.Environment
     [ExecuteAlways]
     public class OutsideWorldController : MonoBehaviour
     {
-        [Header("Backdrop Renderers")]
+        [Header("Backdrop Renderers (Individual Window Quads)")]
         [SerializeField] private Renderer frontBackdrop;
         [SerializeField] private Renderer backBackdrop;
+        [SerializeField] private Renderer[] frontBackdrops;
+        [SerializeField] private Renderer[] backBackdrops;
 
         [Header("Textures")]
         [SerializeField] private Texture frontTexture;
         [SerializeField] private Texture backTexture;
 
         [Header("Tiling & Base Tint")]
-        [SerializeField] private Vector2 frontTiling = new Vector2(3f, 1f);
+        [SerializeField] private Vector2 frontTiling = new Vector2(1f, 1f);
         [SerializeField] private Vector2 frontOffset = Vector2.zero;
         [SerializeField] private Color frontBaseColor = new Color(0.92f, 0.92f, 0.96f, 1f);
 
-        [SerializeField] private Vector2 backTiling = new Vector2(3f, 1f);
+        [SerializeField] private Vector2 backTiling = new Vector2(1f, 1f);
         [SerializeField] private Vector2 backOffset = Vector2.zero;
         [SerializeField] private Color backBaseColor = new Color(0.85f, 0.88f, 0.95f, 1f);
 
@@ -103,51 +105,41 @@ namespace Klirans.Environment
                 camYOffset = (playerCameraTransform.position.y - 11f) * parallaxStrength * 0.05f;
             }
 
-            // Apply to Front
-            if (frontBackdrop != null)
+            // Apply to Front (West windows)
+            ApplyDynamicToRenderers(frontBackdrops, frontBackdrop, frontPropertyBlock, frontTexture, frontBaseColor, shimmer, frontTiling, frontOffset.x + camZOffset, frontOffset.y + camYOffset);
+
+            // Apply to Back (East windows)
+            ApplyDynamicToRenderers(backBackdrops, backBackdrop, backPropertyBlock, backTexture, backBaseColor, shimmer * 0.8f, backTiling, backOffset.x - camZOffset, backOffset.y + camYOffset);
+        }
+
+        private void ApplyDynamicToRenderers(Renderer[] rends, Renderer fallbackRend, MaterialPropertyBlock pb, Texture tex, Color baseCol, float shimmerVal, Vector2 tiling, float offsetX, float offsetY)
+        {
+            if (pb == null) pb = new MaterialPropertyBlock();
+
+            if (tex != null)
             {
-                if (frontPropertyBlock == null) frontPropertyBlock = new MaterialPropertyBlock();
-                frontBackdrop.GetPropertyBlock(frontPropertyBlock);
-
-                if (frontTexture != null)
-                {
-                    frontPropertyBlock.SetTexture("_BaseMap", frontTexture);
-                    frontPropertyBlock.SetTexture("_MainTex", frontTexture);
-                }
-
-                Color fCol = frontBaseColor * (1f + shimmer);
-                frontPropertyBlock.SetColor("_BaseColor", fCol);
-                frontPropertyBlock.SetColor("_Color", fCol);
-
-                Vector4 fScaleOffset = new Vector4(frontTiling.x, frontTiling.y, frontOffset.x + camZOffset, frontOffset.y + camYOffset);
-                frontPropertyBlock.SetVector("_BaseMap_ST", fScaleOffset);
-                frontPropertyBlock.SetVector("_MainTex_ST", fScaleOffset);
-
-                frontBackdrop.SetPropertyBlock(frontPropertyBlock);
+                pb.SetTexture("_BaseMap", tex);
+                pb.SetTexture("_MainTex", tex);
             }
 
-            // Apply to Back
-            if (backBackdrop != null)
+            Color col = baseCol * (1f + shimmerVal);
+            pb.SetColor("_BaseColor", col);
+            pb.SetColor("_Color", col);
+
+            Vector4 scaleOffset = new Vector4(tiling.x, tiling.y, offsetX, offsetY);
+            pb.SetVector("_BaseMap_ST", scaleOffset);
+            pb.SetVector("_MainTex_ST", scaleOffset);
+
+            if (rends != null && rends.Length > 0)
             {
-                if (backPropertyBlock == null) backPropertyBlock = new MaterialPropertyBlock();
-                backBackdrop.GetPropertyBlock(backPropertyBlock);
-
-                if (backTexture != null)
+                foreach (var r in rends)
                 {
-                    backPropertyBlock.SetTexture("_BaseMap", backTexture);
-                    backPropertyBlock.SetTexture("_MainTex", backTexture);
+                    if (r != null) r.SetPropertyBlock(pb);
                 }
-
-                // Subtle out-of-phase shimmer for back
-                Color bCol = backBaseColor * (1f + shimmer * 0.8f);
-                backPropertyBlock.SetColor("_BaseColor", bCol);
-                backPropertyBlock.SetColor("_Color", bCol);
-
-                Vector4 bScaleOffset = new Vector4(backTiling.x, backTiling.y, backOffset.x - camZOffset, backOffset.y + camYOffset);
-                backPropertyBlock.SetVector("_BaseMap_ST", bScaleOffset);
-                backPropertyBlock.SetVector("_MainTex_ST", bScaleOffset);
-
-                backBackdrop.SetPropertyBlock(backPropertyBlock);
+            }
+            else if (fallbackRend != null)
+            {
+                fallbackRend.SetPropertyBlock(pb);
             }
         }
 
@@ -156,36 +148,37 @@ namespace Klirans.Environment
         {
             InitializePropertyBlocks();
 
-            if (frontBackdrop != null)
+            ApplyStaticToRenderers(frontBackdrops, frontBackdrop, frontPropertyBlock, frontTexture, frontBaseColor, frontTiling, frontOffset);
+            ApplyStaticToRenderers(backBackdrops, backBackdrop, backPropertyBlock, backTexture, backBaseColor, backTiling, backOffset);
+        }
+
+        private void ApplyStaticToRenderers(Renderer[] rends, Renderer fallbackRend, MaterialPropertyBlock pb, Texture tex, Color baseCol, Vector2 tiling, Vector2 offset)
+        {
+            if (pb == null) pb = new MaterialPropertyBlock();
+
+            if (tex != null)
             {
-                frontBackdrop.GetPropertyBlock(frontPropertyBlock);
-                if (frontTexture != null)
-                {
-                    frontPropertyBlock.SetTexture("_BaseMap", frontTexture);
-                    frontPropertyBlock.SetTexture("_MainTex", frontTexture);
-                }
-                frontPropertyBlock.SetColor("_BaseColor", frontBaseColor);
-                frontPropertyBlock.SetColor("_Color", frontBaseColor);
-                Vector4 st = new Vector4(frontTiling.x, frontTiling.y, frontOffset.x, frontOffset.y);
-                frontPropertyBlock.SetVector("_BaseMap_ST", st);
-                frontPropertyBlock.SetVector("_MainTex_ST", st);
-                frontBackdrop.SetPropertyBlock(frontPropertyBlock);
+                pb.SetTexture("_BaseMap", tex);
+                pb.SetTexture("_MainTex", tex);
             }
 
-            if (backBackdrop != null)
+            pb.SetColor("_BaseColor", baseCol);
+            pb.SetColor("_Color", baseCol);
+
+            Vector4 st = new Vector4(tiling.x, tiling.y, offset.x, offset.y);
+            pb.SetVector("_BaseMap_ST", st);
+            pb.SetVector("_MainTex_ST", st);
+
+            if (rends != null && rends.Length > 0)
             {
-                backBackdrop.GetPropertyBlock(backPropertyBlock);
-                if (backTexture != null)
+                foreach (var r in rends)
                 {
-                    backPropertyBlock.SetTexture("_BaseMap", backTexture);
-                    backPropertyBlock.SetTexture("_MainTex", backTexture);
+                    if (r != null) r.SetPropertyBlock(pb);
                 }
-                backPropertyBlock.SetColor("_BaseColor", backBaseColor);
-                backPropertyBlock.SetColor("_Color", backBaseColor);
-                Vector4 st = new Vector4(backTiling.x, backTiling.y, backOffset.x, backOffset.y);
-                backPropertyBlock.SetVector("_BaseMap_ST", st);
-                backPropertyBlock.SetVector("_MainTex_ST", st);
-                backBackdrop.SetPropertyBlock(backPropertyBlock);
+            }
+            else if (fallbackRend != null)
+            {
+                fallbackRend.SetPropertyBlock(pb);
             }
         }
     }
