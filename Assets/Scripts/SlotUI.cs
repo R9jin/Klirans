@@ -18,21 +18,24 @@ public class SlotUI : MonoBehaviour,
 {
     [SerializeField] private Image iconImage;
     [SerializeField] private Text quantityText;
+    [SerializeField] private Text slotNumberText;
 
-    // Optional: assign the slot's background Image for hover highlight
+    // Optional: assign the slot's background Image for hover/active highlight
     [SerializeField] private Image slotBackground;
+
+    [Header("Border Color Styling")]
+    [SerializeField] private Color normalBorderColor = new Color(0.85f, 0.85f, 0.90f, 0.85f);
+    [SerializeField] private Color hoverBorderColor = new Color(1f, 1f, 1f, 1f);
+    [SerializeField] private Color activeBorderColor = new Color(1f, 0.85f, 0.35f, 1f);
 
     private InventorySlot boundSlot;
     private ISlotOwner owner;
     private CanvasGroup canvasGroup;
+    private bool isEquippedActive = false;
 
     // Time-based double-click (more reliable than eventData.clickCount)
     private float lastClickTime = -99f;
     private const float DoubleClickThreshold = 0.35f;
-
-    // Hover colours
-    private Color defaultBgColor;
-    private static readonly Color HoverColor = new Color(1f, 1f, 1f, 0.18f);
 
     // Public read-only access so InventoryDragHandler can query these
     public InventorySlot BoundSlot => boundSlot;
@@ -46,8 +49,29 @@ public class SlotUI : MonoBehaviour,
         canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
+        if (slotBackground == null)
+            slotBackground = GetComponent<Image>();
+
+        if (iconImage != null)
+            iconImage.preserveAspect = true;
+
         if (slotBackground != null)
-            defaultBgColor = slotBackground.color;
+            slotBackground.color = normalBorderColor;
+    }
+
+    public void SetActiveHighlight(bool isActive)
+    {
+        isEquippedActive = isActive;
+        if (slotBackground != null)
+        {
+            slotBackground.color = isActive ? activeBorderColor : normalBorderColor;
+        }
+    }
+
+    public void SetSlotNumber(string number)
+    {
+        if (slotNumberText != null)
+            slotNumberText.text = number;
     }
 
     // ─── Bind ────────────────────────────────────────────────────────
@@ -142,13 +166,15 @@ public class SlotUI : MonoBehaviour,
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (slotBackground != null)
-            slotBackground.color = HoverColor;
+        if (slotBackground != null && !isEquippedActive)
+            slotBackground.color = hoverBorderColor;
+
+        SlotMenu.Instance?.PingVisibility();
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (slotBackground != null)
-            slotBackground.color = defaultBgColor;
+        if (slotBackground != null && !isEquippedActive)
+            slotBackground.color = normalBorderColor;
     }
 }

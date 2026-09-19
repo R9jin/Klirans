@@ -115,9 +115,14 @@ public class FragmentManager : MonoBehaviour
             ClearancePiecesHUD.Instance.OnFragmentCollected(pieceID, currentCount, totalFragmentsRequired);
         }
 
+        ObjectiveHUD.HasDiscoveredExitLockdown = true;
+
         if (ObjectiveHUD.Instance != null && currentCount < totalFragmentsRequired)
         {
-            ObjectiveHUD.Instance.SetObjective("Find Clearance Fragments", $"Search the building corridors for the 4 torn clearance slip fragments ({currentCount}/{totalFragmentsRequired}).");
+            ObjectiveHUD.Instance.SetObjective(
+                $"Find Clearance Fragments ({currentCount}/{totalFragmentsRequired})",
+                $"Search the building corridors for the remaining torn clearance slip fragments ({currentCount}/{totalFragmentsRequired})."
+            );
         }
 
         // Check puzzle completion condition

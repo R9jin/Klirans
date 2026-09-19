@@ -35,6 +35,7 @@ public class ObjectiveHUD : MonoBehaviour
     public AudioClip updateSound;
 
     // Runtime tracking
+    public static bool HasDiscoveredExitLockdown = false;
     private string _currentTitle = string.Empty;
     private string _currentDetail = string.Empty;
     private Coroutine _animCoroutine;
@@ -42,6 +43,8 @@ public class ObjectiveHUD : MonoBehaviour
 
     private void Awake()
     {
+        HasDiscoveredExitLockdown = false;
+
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -63,7 +66,7 @@ public class ObjectiveHUD : MonoBehaviour
 
     private void Start()
     {
-        // If no objective has been set yet, initialize based on Clearance progress
+        // If no objective has been set yet, initialize based on game progress
         if (string.IsNullOrEmpty(_currentTitle))
         {
             EvaluateDefaultObjective();
@@ -77,13 +80,13 @@ public class ObjectiveHUD : MonoBehaviour
     {
         if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)
         {
-            SetObjective("Escape The Campus", "The main exit gates at the lobby entrance are unlocked. Escape the building!");
+            SetObjective("Escape The Campus", "Clearance officially validated. The campus main gates are unlocked—escape now!");
             return;
         }
 
         if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsFullyClear())
         {
-            SetObjective("Final Slip Submission", "Return to the University Registrar in Room 104 on the ground floor to submit your slip.");
+            SetObjective("Submit Clearance Slip (6/6)", "All 6 department signatures gathered. Return to the University Registrar in Room 104 on the ground floor to authorize gate release.");
             return;
         }
 
@@ -110,12 +113,24 @@ public class ObjectiveHUD : MonoBehaviour
         if (hasPaper)
         {
             SetObjective("Head Librarian Clearance (1/6)", "Report to the Head Librarian in Room 308 (3rd Floor) to obtain your first signature.");
+            return;
         }
-        else
+
+        int fragCount = FragmentManager.Instance != null ? FragmentManager.Instance.GetCollectedCount() : 0;
+        if (fragCount > 0)
         {
-            int fragCount = FragmentManager.Instance != null ? FragmentManager.Instance.GetCollectedCount() : 0;
-            SetObjective("Find Clearance Fragments", $"Search the building corridors for the 4 torn clearance slip fragments ({fragCount}/4).");
+            SetObjective($"Find Clearance Fragments ({fragCount}/4)", $"Search the building corridors for the remaining torn clearance slip fragments ({fragCount}/4).");
+            return;
         }
+
+        // Initial state before player discovers the exit lockdown:
+        if (!HasDiscoveredExitLockdown)
+        {
+            SetObjective("Find an Exit", "Search the ground floor lobby for a way out of the campus.");
+            return;
+        }
+
+        SetObjective("Find Clearance Fragments (0/4)", "The main exit gates are under security lockdown. Search the corridors for the 4 torn clearance slip fragments (0/4).");
     }
 
     /// <summary>
@@ -130,8 +145,35 @@ public class ObjectiveHUD : MonoBehaviour
 
         if (panelRoot != null) panelRoot.SetActive(true);
 
-        if (_animCoroutine != null) StopCoroutine(_animCoroutine);
-        _animCoroutine = StartCoroutine(AnimateObjectiveUpdate(title, detail));
+        // Immediate text assignment
+        if (headerText != null)
+        {
+            headerText.text = "OBJECTIVE:";
+            headerText.color = headerColor;
+        }
+
+        if (titleText != null)
+        {
+            titleText.text = title;
+            titleText.color = titleColor;
+        }
+
+        if (detailText != null)
+        {
+            detailText.text = detail;
+            detailText.color = detailColor;
+            detailText.gameObject.SetActive(!string.IsNullOrEmpty(detail));
+        }
+
+        if (Application.isPlaying)
+        {
+            if (_animCoroutine != null) StopCoroutine(_animCoroutine);
+            _animCoroutine = StartCoroutine(AnimateObjectiveUpdate(title, detail));
+        }
+        else
+        {
+            if (canvasGroup != null) canvasGroup.alpha = 1f;
+        }
     }
 
     /// <summary>

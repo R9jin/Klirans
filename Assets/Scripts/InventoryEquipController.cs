@@ -98,6 +98,15 @@ public class InventoryEquipController : MonoBehaviour
         else if (Input.GetKeyDown(KeyCode.Alpha4)) SelectSlot(3);
         else if (Input.GetKeyDown(KeyCode.Alpha5)) SelectSlot(4);
         else if (Input.GetKeyDown(KeyCode.Alpha6)) SelectSlot(5);
+
+        // Mouse scroll wheel slot cycling (forward/backward through 6 slots)
+        float scroll = Input.mouseScrollDelta.y;
+        if (Mathf.Abs(scroll) > 0.05f)
+        {
+            int current = (activeSlotIndex >= 0) ? activeSlotIndex : 0;
+            int next = (scroll < 0f) ? (current + 1) % 6 : (current - 1 + 6) % 6;
+            SelectSlot(next);
+        }
     }
 
     /// <summary>
@@ -116,6 +125,7 @@ public class InventoryEquipController : MonoBehaviour
         if (activeSlotIndex == slotIndex)
         {
             UnequipCurrentItem();
+            SlotMenu.Instance?.UpdateActiveSlotHighlight(-1);
             return;
         }
 
@@ -130,6 +140,7 @@ public class InventoryEquipController : MonoBehaviour
             // Selected empty slot -> Unequip current item
             UnequipCurrentItem();
             activeSlotIndex = slotIndex;
+            SlotMenu.Instance?.UpdateActiveSlotHighlight(activeSlotIndex);
             Debug.Log($"[InventoryEquipController] Selected empty slot {slotIndex + 1}.");
             return;
         }
@@ -137,6 +148,7 @@ public class InventoryEquipController : MonoBehaviour
         // Slot contains item -> Equip item
         EquipItem(targetSlot.item);
         activeSlotIndex = slotIndex;
+        SlotMenu.Instance?.UpdateActiveSlotHighlight(activeSlotIndex);
     }
 
     /// <summary>
@@ -234,6 +246,7 @@ public class InventoryEquipController : MonoBehaviour
         }
 
         activeSlotIndex = -1;
+        SlotMenu.Instance?.UpdateActiveSlotHighlight(-1);
     }
 
     /// <summary>
