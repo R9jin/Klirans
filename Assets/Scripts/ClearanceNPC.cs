@@ -174,6 +174,10 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         if (ClearanceManager.Instance.HasSignature(signatureIndex))
         {
             ShowDialogue(alreadySignedDialogue);
+            if (ObjectiveHUD.Instance != null && signatureIndex + 1 <= 5)
+            {
+                ObjectiveHUD.Instance.SetObjectiveForSignature(signatureIndex + 1);
+            }
             return;
         }
 
@@ -247,6 +251,48 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             }
         }
 
+        // Gate 5: University Registrar (signatureIndex 3) requires solving the Document Sort Puzzle
+        if (signatureIndex == 3)
+        {
+            var sortPuzzle = RegistrarDocumentSortPuzzle.Instance ?? FindObjectOfType<RegistrarDocumentSortPuzzle>(true);
+            if (sortPuzzle != null && !sortPuzzle.IsSolved)
+            {
+                ShowDialogue("Window 2, University Registrar. Before I can evaluate and stamp your clearance slip, our archival desk is backed up with disorganized student grade sheets. Sort this stack of official documents into their correct archival trays so our records remain in order.");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Registrar Document Sorting", "Sort the stack of student grade records into the correct trays at Window 2 of the University Registrar in Room 104.");
+                }
+                sortPuzzle.OpenPuzzle();
+                return;
+            }
+            else if (sortPuzzle == null)
+            {
+                Debug.LogError("[ClearanceNPC] RegistrarDocumentSortPuzzle could not be found in scene!");
+                return;
+            }
+        }
+
+        // Gate 6: University Cashier (signatureIndex 4) requires solving the Balance Sheet Math Puzzle
+        if (signatureIndex == 4)
+        {
+            var cashierPuzzle = CashierBalancePuzzle.Instance ?? FindObjectOfType<CashierBalancePuzzle>(true);
+            if (cashierPuzzle != null && !cashierPuzzle.IsSolved)
+            {
+                ShowDialogue("Window 2, Cashier Department. Before I can clear and stamp your clearance slip, our records show pending unsettled fees. I have slid your assessment balance sheet through the window slot. Calculate the exact total due and submit it to clear your payment status.");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Cashier Balance Sheet", "Calculate and submit the unsettled balance total at Window 2 of the University Cashier in Room 102.");
+                }
+                cashierPuzzle.OpenPuzzle();
+                return;
+            }
+            else if (cashierPuzzle == null)
+            {
+                Debug.LogError("[ClearanceNPC] CashierBalancePuzzle could not be found in scene!");
+                return;
+            }
+        }
+
         bool isNew = ClearanceManager.Instance.GrantSignature(signatureIndex);
 
         if (isNew)
@@ -280,6 +326,46 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         {
             Debug.Log($"[ClearanceNPC] Guidance Counselor signed. ({ClearanceManager.Instance.SignatureCount}/6)");
             ShowDialogue("Remarkable... Your commitment to our institutional pillars has been verified. Your guidance clearance is granted.");
+
+            if (ObjectiveHUD.Instance != null)
+            {
+                ObjectiveHUD.Instance.SetObjectiveForSignature(signatureIndex + 1);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Called by RegistrarDocumentSortPuzzle when the player successfully sorts the stack of student grade records.
+    /// </summary>
+    public void OnRegistrarPuzzleCompleted()
+    {
+        if (signatureIndex != 3) return;
+
+        bool isNew = ClearanceManager.Instance != null && ClearanceManager.Instance.GrantSignature(signatureIndex);
+        if (isNew)
+        {
+            Debug.Log($"[ClearanceNPC] Registrar signed. ({ClearanceManager.Instance.SignatureCount}/6)");
+            ShowDialogue("All grade sheets properly filed and archived. Your registrar clearance is officially approved. Proceed to the UNIVERSITY CASHIER in Room 102 on the ground floor to settle any outstanding balances.");
+
+            if (ObjectiveHUD.Instance != null)
+            {
+                ObjectiveHUD.Instance.SetObjectiveForSignature(signatureIndex + 1);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Called by CashierBalancePuzzle when the player successfully calculates and clears the balance sheet fees.
+    /// </summary>
+    public void OnCashierPuzzleCompleted()
+    {
+        if (signatureIndex != 4) return;
+
+        bool isNew = ClearanceManager.Instance != null && ClearanceManager.Instance.GrantSignature(signatureIndex);
+        if (isNew)
+        {
+            Debug.Log($"[ClearanceNPC] Cashier signed. ({ClearanceManager.Instance.SignatureCount}/6)");
+            ShowDialogue("Payment cleared in full! Your official assessment is marked zero balance. Proceed to the OFFICE OF THE EXECUTIVE VICE PRESIDENT in Room 103 for your final clearance signature.");
 
             if (ObjectiveHUD.Instance != null)
             {

@@ -199,7 +199,7 @@ public class ObjectiveHUD : MonoBehaviour
                 SetObjective("Cashier Clearance (5/6)", "Report to Window 2 of the University Cashier in Room 102 (Ground Floor).");
                 break;
             case 5:
-                SetObjective("Executive VP Clearance (6/6)", "Report to the Executive Vice President in Room 103 (Ground Floor).");
+                SetObjective("Executive Office Clearance (6/6)", "Report to the Office of the Executive Vice President in Room 103 — Executive Office (Ground Floor).");
                 break;
             default:
                 SetObjective("Final Slip Submission", "Return to the University Registrar in Room 104 to officially submit your clearance slip.");
