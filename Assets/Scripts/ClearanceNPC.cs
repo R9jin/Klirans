@@ -41,8 +41,13 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
     [TextArea(2, 3)]
     public string notYourTurnDialogue   = "Someone else needs to sign before me.";
 
+    [Header("Voice & Audio")]
+    [Tooltip("Crazy mumbles audio clip played when talking to this clearance NPC.")]
+    public AudioClip mumbleAudioClip;
+
     // ── Runtime cache ──────────────────────────────────────────────────────────
     private Transform _playerTransform;
+    private AudioSource _dialogueAudioSource;
 
     // ── Unity ─────────────────────────────────────────────────────────────────
     private void Awake()
@@ -55,6 +60,43 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
         rb.isKinematic = true;
         rb.useGravity = false;
+
+        EnsureVoiceAudioSource();
+    }
+
+    private void EnsureVoiceAudioSource()
+    {
+        if (_dialogueAudioSource == null)
+        {
+            Transform existing = transform.Find("DialogueVoiceAudio");
+            if (existing != null)
+            {
+                _dialogueAudioSource = existing.GetComponent<AudioSource>();
+            }
+            else
+            {
+                GameObject voiceObj = new GameObject("DialogueVoiceAudio");
+                voiceObj.transform.SetParent(transform, false);
+                _dialogueAudioSource = voiceObj.AddComponent<AudioSource>();
+            }
+
+            _dialogueAudioSource.spatialBlend = 0.45f;
+            _dialogueAudioSource.minDistance = 2f;
+            _dialogueAudioSource.maxDistance = 16f;
+            _dialogueAudioSource.playOnAwake = false;
+            _dialogueAudioSource.volume = 0.85f;
+        }
+
+        if (mumbleAudioClip == null)
+        {
+            mumbleAudioClip = Resources.Load<AudioClip>("freesound_community-human_male_crazy-mumbles_1-30950");
+#if UNITY_EDITOR
+            if (mumbleAudioClip == null)
+            {
+                mumbleAudioClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/freesound_community-human_male_crazy-mumbles_1-30950.mp3");
+            }
+#endif
+        }
     }
 
     private void Start()
@@ -184,6 +226,27 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             }
         }
 
+        // Gate 4: Guidance Counselor (signatureIndex 1) requires solving the Core Values Scrambled Word Puzzle
+        if (signatureIndex == 1)
+        {
+            var puzzle = GuidanceWordPuzzle.Instance ?? FindObjectOfType<GuidanceWordPuzzle>(true);
+            if (puzzle != null && !puzzle.IsSolved)
+            {
+                ShowDialogue("Welcome to Guidance and Counseling. To clear your moral conduct standing, you must demonstrate alignment with our sacred institutional pillars. Unscramble the core value letters on this evaluation sheet... or your journey ends here.");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Guidance Core Values Puzzle", "Unscramble the PnC Core Value letters on the guidance assessment sheet in Room 207.");
+                }
+                puzzle.OpenPuzzle(0);
+                return;
+            }
+            else if (puzzle == null)
+            {
+                Debug.LogError("[ClearanceNPC] GuidanceWordPuzzle could not be found in scene!");
+                return;
+            }
+        }
+
         bool isNew = ClearanceManager.Instance.GrantSignature(signatureIndex);
 
         if (isNew)
@@ -202,6 +265,26 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         else
         {
             ShowDialogue(alreadySignedDialogue);
+        }
+    }
+
+    /// <summary>
+    /// Called by GuidanceWordPuzzle when the player successfully unscrambles the PnC Core Value word.
+    /// </summary>
+    public void OnGuidancePuzzleCompleted()
+    {
+        if (signatureIndex != 1) return;
+
+        bool isNew = ClearanceManager.Instance != null && ClearanceManager.Instance.GrantSignature(signatureIndex);
+        if (isNew)
+        {
+            Debug.Log($"[ClearanceNPC] Guidance Counselor signed. ({ClearanceManager.Instance.SignatureCount}/6)");
+            ShowDialogue("Remarkable... Your commitment to our institutional pillars has been verified. Your guidance clearance is granted.");
+
+            if (ObjectiveHUD.Instance != null)
+            {
+                ObjectiveHUD.Instance.SetObjectiveForSignature(signatureIndex + 1);
+            }
         }
     }
 
@@ -348,6 +431,19 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
                 diagTrans.gameObject.SetActive(true);
                 diagText.text = $"<b>[{npcName}]</b>\n\"{message}\"";
 
+                // Play crazy mumble voice audio when speaking
+                EnsureVoiceAudioSource();
+                if (_dialogueAudioSource != null && mumbleAudioClip != null)
+                {
+                    _dialogueAudioSource.clip = mumbleAudioClip;
+                    _dialogueAudioSource.pitch = 0.85f + (signatureIndex % 6) * 0.08f;
+                    float maxStart = Mathf.Max(0f, mumbleAudioClip.length - 4.5f);
+                    _dialogueAudioSource.time = Random.Range(0f, maxStart);
+                    _dialogueAudioSource.volume = 0.85f;
+                    _dialogueAudioSource.loop = true;
+                    _dialogueAudioSource.Play();
+                }
+
                 if (_activeDialogueCoroutine != null)
                 {
                     StopCoroutine(_activeDialogueCoroutine);
@@ -363,6 +459,11 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         if (box != null)
         {
             box.SetActive(false);
+        }
+
+        if (_dialogueAudioSource != null && _dialogueAudioSource.isPlaying)
+        {
+            _dialogueAudioSource.Stop();
         }
 
         var staffAI = GetComponent<RoomStaffAI>();

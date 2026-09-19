@@ -69,10 +69,26 @@ public class LibraryPrinterInteract : MonoBehaviour, IInteractable
         if (_audioSource == null)
         {
             _audioSource = gameObject.AddComponent<AudioSource>();
-            _audioSource.spatialBlend = 1f; // 3D sound at printer
-            _audioSource.minDistance = 2f;
-            _audioSource.maxDistance = 18f;
-            _audioSource.playOnAwake = false;
+        }
+        _audioSource.spatialBlend = 0.25f; // Clear direct presence with subtle 3D direction
+        _audioSource.minDistance = 4f;
+        _audioSource.maxDistance = 25f;
+        _audioSource.volume = 1.0f;
+        _audioSource.playOnAwake = false;
+
+        if (printerAudioClip == null)
+        {
+            printerAudioClip = Resources.Load<AudioClip>("xeroxSoundEffect_Print");
+#if UNITY_EDITOR
+            if (printerAudioClip == null)
+            {
+                printerAudioClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/xeroxSoundEffect_Print.wav");
+                if (printerAudioClip == null)
+                {
+                    printerAudioClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/xeroxSoundEffect.mp3");
+                }
+            }
+#endif
         }
     }
 
@@ -236,19 +252,28 @@ public class LibraryPrinterInteract : MonoBehaviour, IInteractable
         currentState = PrinterState.Printing;
         UpdateStatusVisuals();
 
+        float duration = printDuration;
+
         // 1. Play mechanical printer audio
         if (_audioSource != null && printerAudioClip != null)
         {
             _audioSource.clip = printerAudioClip;
+            _audioSource.volume = 1.0f;
             _audioSource.loop = false;
             _audioSource.Play();
+            duration = printerAudioClip.length;
+            Debug.Log($"[LibraryPrinter] Playing printer sound: {printerAudioClip.name}, duration: {duration:F1}s");
+        }
+        else
+        {
+            Debug.LogWarning("[LibraryPrinter] _audioSource or printerAudioClip is missing!");
         }
 
-        // 2. Trigger ceiling lights flicker horror effect
-        Coroutine flickerRoutine = StartCoroutine(FlickerLightsRoutine(printDuration));
+        // 2. Trigger ceiling lights flicker horror effect for the full print duration
+        Coroutine flickerRoutine = StartCoroutine(FlickerLightsRoutine(duration));
 
         // 3. Wait for print job to complete
-        yield return new WaitForSeconds(printDuration);
+        yield return new WaitForSeconds(duration);
 
         if (flickerRoutine != null) StopCoroutine(flickerRoutine);
         RestoreCeilingLights();
