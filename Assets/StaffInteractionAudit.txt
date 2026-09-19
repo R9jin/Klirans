@@ -1,6 +1,6 @@
 === INSPECT STAFF INTERACTION ===
 Player: 'Player' at (-91.00, 2.35, 16.65)
-  interactRange: 3
+  interactRange: 4
   interactRadius: 0.5
   interactableLayer mask: 1 (Names: Default)
   promptText: InteractPrompt
@@ -11,9 +11,9 @@ Staff 'Signatory_Librarian':
     Col 'Signatory_Librarian' (CapsuleCollider): enabled=True, isTrigger=False, layer=Default (0), bounds=Center: (-76.00, 15.16, 44.15), Extents: (0.30, 0.86, 0.30)
   ClearanceNPC: npcName='Head Librarian', sigIndex=0, range=2.8
   blankPaperItem: Blank_Paper
-  unsignedDialogue: "Keep your voice down, this is the university library. Let me see your clearance slip... Very well, the library records are cleared. Next, report to Guidance and Counseling in Room 207 on the 2nd floor."
+  unsignedDialogue: "Keep your voice down, this is the university library. Let me see your clearance slip... Very well, the library records are cleared. Next, report to the GUIDANCE OFFICE AND STUDENTS AFFAIRS AND SERVICES DEPARTMENT in Room 207 on the 2nd floor."
   notYourTurnDialogue: "You must present an official clearance slip first."
-  Current GetPrompt() returns: ''
+  Current GetPrompt() returns: 'Press E to talk to Head Librarian'
 
 Staff 'Signatory_GuidanceCounselor':
   Position: (-89.50, 8.35, 42.20), Layer: Default (0)
@@ -21,46 +21,46 @@ Staff 'Signatory_GuidanceCounselor':
     Col 'Signatory_GuidanceCounselor' (CapsuleCollider): enabled=True, isTrigger=False, layer=Default (0), bounds=Center: (-89.50, 9.17, 42.20), Extents: (0.30, 0.82, 0.30)
   ClearanceNPC: npcName='Guidance Counselor', sigIndex=1, range=2.8
   blankPaperItem: Blank_Paper
-  unsignedDialogue: "Welcome to Guidance. Have you reflected on your conduct this semester? Your behavioral records look satisfactory. Guidance is cleared. Proceed to the Registrar in Room 104 on the ground floor."
-  notYourTurnDialogue: "I cannot sign until the Library in Room 308 has signed your clearance slip first."
-  Current GetPrompt() returns: ''
+  unsignedDialogue: "Welcome to Guidance. Have you reflected on your conduct this semester? Your behavioral records look satisfactory. Guidance is cleared. Proceed to the COLLEGE OF COMPUTING STUDIES in Room 202 on the 2nd floor."
+  notYourTurnDialogue: "I cannot sign until the LIBRARY in Room 308 on the 3rd floor has signed your clearance slip first."
+  Current GetPrompt() returns: 'Press E to talk to Guidance Counselor'
 
 Staff 'Signatory_Registrar':
   Position: (-81.30, 2.35, 4.90), Layer: Default (0)
   Colliders count in self and children: 1
-    Col 'Signatory_Registrar' (CapsuleCollider): enabled=True, isTrigger=False, layer=Default (0), bounds=Center: (-81.30, 3.21, 4.90), Extents: (0.30, 0.86, 0.30)
-  ClearanceNPC: npcName='University Registrar', sigIndex=2, range=3.5
+    Col 'Signatory_Registrar' (CapsuleCollider): enabled=True, isTrigger=False, layer=Default (0), bounds=Center: (-81.30, 3.17, 4.90), Extents: (0.30, 0.82, 0.30)
+  ClearanceNPC: npcName='University Registrar', sigIndex=3, range=3.5
   blankPaperItem: Blank_Paper
-  unsignedDialogue: "Window 2, Evaluation and Records. Let me inspect your credentials... Grades verified, no incomplete deficiencies. Now head up to Room 202 on the 2nd floor for the College of Computing Studies."
-  notYourTurnDialogue: "You are missing the Guidance clearance. Return to Room 207 on the 2nd floor first."
-  Current GetPrompt() returns: ''
+  unsignedDialogue: "Window 2, Evaluation and Records. Let me inspect your credentials... Units verified, prerequisites cleared. Now proceed to the OFFICE OF THE UNIVERSITY CASHIER in Room 102 on the ground floor."
+  notYourTurnDialogue: "You must obtain your College Dean's signature first. Return to the COLLEGE OF COMPUTING STUDIES in Room 202 on the 2nd floor."
+  Current GetPrompt() returns: 'Press E to talk to University Registrar'
 
 Staff 'Signatory_CCSDean':
   Position: (-77.80, 8.35, -3.60), Layer: Default (0)
   Colliders count in self and children: 1
     Col 'Signatory_CCSDean' (CapsuleCollider): enabled=True, isTrigger=False, layer=Default (0), bounds=Center: (-77.80, 9.21, -3.60), Extents: (0.30, 0.86, 0.30)
-  ClearanceNPC: npcName='CCS Dean / Dept Head', sigIndex=3, range=2.8
+  ClearanceNPC: npcName='CCS Dean / Dept Head', sigIndex=2, range=2.8
   blankPaperItem: Blank_Paper
-  unsignedDialogue: "College of Computing Studies clearance. Let's see your curriculum checklist... Approved. Take this down to the University Cashier in Room 102."
-  notYourTurnDialogue: "The Registrar must verify your units before the Dean can sign. Check Room 104 first."
-  Current GetPrompt() returns: ''
+  unsignedDialogue: "College of Computing Studies clearance. Let's see your curriculum checklist... Approved. Take this down to the OFFICE OF THE UNIVERSITY REGISTRAR in Room 104 on the ground floor."
+  notYourTurnDialogue: "You need your Guidance clearance first. Check the GUIDANCE OFFICE AND STUDENTS AFFAIRS AND SERVICES DEPARTMENT in Room 207 on the 2nd floor first."
+  Current GetPrompt() returns: 'Press E to talk to CCS Dean / Dept Head'
 
 Staff 'Signatory_Cashier':
   Position: (-81.30, 2.35, -7.10), Layer: Default (0)
   Colliders count in self and children: 1
-    Col 'Signatory_Cashier' (CapsuleCollider): enabled=True, isTrigger=False, layer=Default (0), bounds=Center: (-81.30, 3.21, -7.10), Extents: (0.30, 0.86, 0.30)
+    Col 'Signatory_Cashier' (CapsuleCollider): enabled=True, isTrigger=False, layer=Default (0), bounds=Center: (-81.30, 3.17, -7.10), Extents: (0.30, 0.82, 0.30)
   ClearanceNPC: npcName='University Cashier', sigIndex=4, range=3.5
   blankPaperItem: Blank_Paper
-  unsignedDialogue: "Window 2, Cashier Department. Checking your assessment and fees... Zero balance, payment settled. You're almost done. Final sign-off is at the Executive Office in Room 103."
-  notYourTurnDialogue: "Assessment not verified. You need your College Dean's signature from Room 202 first."
-  Current GetPrompt() returns: ''
+  unsignedDialogue: "Window 2, Cashier Department. Checking your assessment and fees... Zero balance, payment settled. Proceed to the OFFICE OF THE VICE PRESIDENT FOR ACADEMIC AND STUDENT SERVICES AND OFFICE OF THE EXECUTIVE VICE PRESIDENT in Room 103 for your final signature."
+  notYourTurnDialogue: "Assessment cannot be cleared yet. You need the REGISTRAR's signature from Room 104 first."
+  Current GetPrompt() returns: 'Press E to talk to University Cashier'
 
 Staff 'Signatory_EVP':
   Position: (-88.50, 2.35, 7.80), Layer: Default (0)
   Colliders count in self and children: 1
     Col 'Signatory_EVP' (CapsuleCollider): enabled=True, isTrigger=False, layer=Default (0), bounds=Center: (-88.50, 3.21, 7.80), Extents: (0.30, 0.86, 0.30)
-  ClearanceNPC: npcName='Executive Vice President', sigIndex=5, range=2.8
+  ClearanceNPC: npcName='Executive Vice President', sigIndex=5, range=4.5
   blankPaperItem: Blank_Paper
-  unsignedDialogue: "All prerequisite departments have signed... Outstanding. By the authority of the Executive Office, you are hereby CLEARED. May you finally find your exit."
-  notYourTurnDialogue: "This is the final clearance office. Settle your obligations with the Cashier in Room 102 first."
-  Current GetPrompt() returns: ''
+  unsignedDialogue: "All prerequisite departments have signed... Outstanding. By the authority of the Executive Office, the sixth signature is granted. Now, return to the OFFICE OF THE UNIVERSITY REGISTRAR in Room 104 to officially submit and validate your completed clearance slip!"
+  notYourTurnDialogue: "This is the final clearance office. Settle your obligations with the OFFICE OF THE UNIVERSITY CASHIER in Room 102 first."
+  Current GetPrompt() returns: 'Press E to talk to Executive Vice President'

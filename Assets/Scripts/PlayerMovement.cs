@@ -50,6 +50,10 @@ public class PlayerMovement : MonoBehaviour
     public Image vignetteImage;
     public float maxVignetteAlpha = 0.25f;
 
+    [Header("Dialogue Camera Override")]
+    public bool isDialogueCameraOverride = false;
+    public float dialogueTargetFOV = 38f;
+
     private Vector3 moveDirection = Vector3.zero;
     private float rotationX = 0f;
     private float headBobTimer = 0f;
@@ -255,7 +259,11 @@ public class PlayerMovement : MonoBehaviour
         }
 
         // 2. Breathing Effects & Vignette
-        if (staminaSystem != null)
+        if (isDialogueCameraOverride)
+        {
+            targetFOV = dialogueTargetFOV;
+        }
+        else if (staminaSystem != null)
         {
             fatigue = 1f - (staminaSystem.currentStamina / staminaSystem.maxStamina);
             float breathingWave = Mathf.Sin(Time.time * breathingSpeed);
@@ -299,7 +307,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleMouseLook()
     {
-        if (!canMove || PauseMenu.GameIsPaused) return;
+        if (!canMove || PauseMenu.GameIsPaused || isDialogueCameraOverride) return;
 
         rotationX += -Input.GetAxis("Mouse Y") * lookSpeed;
         rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);

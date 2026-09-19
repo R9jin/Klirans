@@ -26,6 +26,9 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
              "Player must carry this before ANY NPC interaction is unlocked.")]
     public InventoryItem blankPaperItem;
 
+    [Tooltip("Optional voucher required for Head Librarian (signatureIndex 0).")]
+    public InventoryItem libraryVoucherItem;
+
     [Header("Interaction Range")]
     [Tooltip("Maximum distance (in meters) the player can be from the NPC to interact.")]
     public float interactionRange = 4.0f;
@@ -38,8 +41,13 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
     [TextArea(2, 3)]
     public string notYourTurnDialogue   = "Someone else needs to sign before me.";
 
+    [Header("Voice & Audio")]
+    [Tooltip("Crazy mumbles audio clip played when talking to this clearance NPC.")]
+    public AudioClip mumbleAudioClip;
+
     // ── Runtime cache ──────────────────────────────────────────────────────────
     private Transform _playerTransform;
+    private AudioSource _dialogueAudioSource;
 
     // ── Unity ─────────────────────────────────────────────────────────────────
     private void Awake()
@@ -52,6 +60,43 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
         rb.isKinematic = true;
         rb.useGravity = false;
+
+        EnsureVoiceAudioSource();
+    }
+
+    private void EnsureVoiceAudioSource()
+    {
+        if (_dialogueAudioSource == null)
+        {
+            Transform existing = transform.Find("DialogueVoiceAudio");
+            if (existing != null)
+            {
+                _dialogueAudioSource = existing.GetComponent<AudioSource>();
+            }
+            else
+            {
+                GameObject voiceObj = new GameObject("DialogueVoiceAudio");
+                voiceObj.transform.SetParent(transform, false);
+                _dialogueAudioSource = voiceObj.AddComponent<AudioSource>();
+            }
+
+            _dialogueAudioSource.spatialBlend = 0.45f;
+            _dialogueAudioSource.minDistance = 2f;
+            _dialogueAudioSource.maxDistance = 16f;
+            _dialogueAudioSource.playOnAwake = false;
+            _dialogueAudioSource.volume = 0.85f;
+        }
+
+        if (mumbleAudioClip == null)
+        {
+            mumbleAudioClip = Resources.Load<AudioClip>("freesound_community-human_male_crazy-mumbles_1-30950");
+#if UNITY_EDITOR
+            if (mumbleAudioClip == null)
+            {
+                mumbleAudioClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/freesound_community-human_male_crazy-mumbles_1-30950.mp3");
+            }
+#endif
+        }
     }
 
     private void Start()
@@ -112,6 +157,10 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             {
                 ClearanceManager.Instance.SubmitSlipToRegistrar();
                 ShowDialogue("Let me verify your clearance slip... Library, Guidance & SAS, College of Computing Studies, Registrar, Cashier, and the Executive Vice President. All signatures confirmed and officially recorded! Your clearance is complete. The campus main gate at the lobby entrance is now unlocked for you. Have a safe journey!");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Escape The Campus", "The campus main gate at the lobby entrance is now unlocked. Escape the building!");
+                }
                 return;
             }
             else
@@ -125,6 +174,10 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         if (ClearanceManager.Instance.HasSignature(signatureIndex))
         {
             ShowDialogue(alreadySignedDialogue);
+            if (ObjectiveHUD.Instance != null && signatureIndex + 1 <= 5)
+            {
+                ObjectiveHUD.Instance.SetObjectiveForSignature(signatureIndex + 1);
+            }
             return;
         }
 
@@ -152,6 +205,94 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             return;
         }
 
+        // Gate 3: Head Librarian (signatureIndex 0) requires Library Clearance Voucher from printer
+        if (signatureIndex == 0 && libraryVoucherItem != null)
+        {
+            bool hasVoucher = PlayerHasItem(libraryVoucherItem);
+            if (!hasVoucher)
+            {
+                if (LibraryPrinterInteract.Instance != null)
+                {
+                    LibraryPrinterInteract.Instance.UnlockPrinterQuest();
+                }
+                ShowDialogue("Keep your voice down, this is the university library. You want your clearance signed? The database flags your student number with an UNRESOLVED OVERDUE BORROWING VIOLATION from 1994. You must print your official Library Clearance Voucher at the workstation printer across the room. Bring me the printed voucher, or your clearance ends here.");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Clear Library Overdue Record", "Print your Library Clearance Voucher from the printer station in Room 308.");
+                }
+                return;
+            }
+            else
+            {
+                // Take the voucher from player
+                RemoveItemFromPlayer(libraryVoucherItem, 1);
+                Debug.Log("[ClearanceNPC] Librarian accepted the Library Clearance Voucher!");
+            }
+        }
+
+        // Gate 4: Guidance Counselor (signatureIndex 1) requires solving the Core Values Scrambled Word Puzzle
+        if (signatureIndex == 1)
+        {
+            var puzzle = GuidanceWordPuzzle.Instance ?? FindObjectOfType<GuidanceWordPuzzle>(true);
+            if (puzzle != null && !puzzle.IsSolved)
+            {
+                ShowDialogue("Welcome to Guidance and Counseling. To clear your moral conduct standing, you must demonstrate alignment with our sacred institutional pillars. Unscramble the core value letters on this evaluation sheet... or your journey ends here.");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Guidance Core Values Puzzle", "Unscramble the PnC Core Value letters on the guidance assessment sheet in Room 207.");
+                }
+                puzzle.OpenPuzzle(0);
+                return;
+            }
+            else if (puzzle == null)
+            {
+                Debug.LogError("[ClearanceNPC] GuidanceWordPuzzle could not be found in scene!");
+                return;
+            }
+        }
+
+        // Gate 5: University Registrar (signatureIndex 3) requires solving the Document Sort Puzzle
+        if (signatureIndex == 3)
+        {
+            var sortPuzzle = RegistrarDocumentSortPuzzle.Instance ?? FindObjectOfType<RegistrarDocumentSortPuzzle>(true);
+            if (sortPuzzle != null && !sortPuzzle.IsSolved)
+            {
+                ShowDialogue("Window 2, University Registrar. Before I can evaluate and stamp your clearance slip, our archival desk is backed up with disorganized student grade sheets. Sort this stack of official documents into their correct archival trays so our records remain in order.");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Registrar Document Sorting", "Sort the stack of student grade records into the correct trays at Window 2 of the University Registrar in Room 104.");
+                }
+                sortPuzzle.OpenPuzzle();
+                return;
+            }
+            else if (sortPuzzle == null)
+            {
+                Debug.LogError("[ClearanceNPC] RegistrarDocumentSortPuzzle could not be found in scene!");
+                return;
+            }
+        }
+
+        // Gate 6: University Cashier (signatureIndex 4) requires solving the Balance Sheet Math Puzzle
+        if (signatureIndex == 4)
+        {
+            var cashierPuzzle = CashierBalancePuzzle.Instance ?? FindObjectOfType<CashierBalancePuzzle>(true);
+            if (cashierPuzzle != null && !cashierPuzzle.IsSolved)
+            {
+                ShowDialogue("Window 2, Cashier Department. Before I can clear and stamp your clearance slip, our records show pending unsettled fees. I have slid your assessment balance sheet through the window slot. Calculate the exact total due and submit it to clear your payment status.");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Cashier Balance Sheet", "Calculate and submit the unsettled balance total at Window 2 of the University Cashier in Room 102.");
+                }
+                cashierPuzzle.OpenPuzzle();
+                return;
+            }
+            else if (cashierPuzzle == null)
+            {
+                Debug.LogError("[ClearanceNPC] CashierBalancePuzzle could not be found in scene!");
+                return;
+            }
+        }
+
         bool isNew = ClearanceManager.Instance.GrantSignature(signatureIndex);
 
         if (isNew)
@@ -159,12 +300,77 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             Debug.Log($"[ClearanceNPC] {npcName} signed. ({ClearanceManager.Instance.SignatureCount}/6)");
             ShowDialogue(unsignedDialogue);
 
+            if (ObjectiveHUD.Instance != null)
+            {
+                ObjectiveHUD.Instance.SetObjectiveForSignature(signatureIndex + 1);
+            }
+
             if (ClearanceManager.Instance.IsFullyClear())
                 Debug.Log("[ClearanceNPC] All 6 signatures! Clearance complete!");
         }
         else
         {
             ShowDialogue(alreadySignedDialogue);
+        }
+    }
+
+    /// <summary>
+    /// Called by GuidanceWordPuzzle when the player successfully unscrambles the PnC Core Value word.
+    /// </summary>
+    public void OnGuidancePuzzleCompleted()
+    {
+        if (signatureIndex != 1) return;
+
+        bool isNew = ClearanceManager.Instance != null && ClearanceManager.Instance.GrantSignature(signatureIndex);
+        if (isNew)
+        {
+            Debug.Log($"[ClearanceNPC] Guidance Counselor signed. ({ClearanceManager.Instance.SignatureCount}/6)");
+            ShowDialogue("Remarkable... Your commitment to our institutional pillars has been verified. Your guidance clearance is granted.");
+
+            if (ObjectiveHUD.Instance != null)
+            {
+                ObjectiveHUD.Instance.SetObjectiveForSignature(signatureIndex + 1);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Called by RegistrarDocumentSortPuzzle when the player successfully sorts the stack of student grade records.
+    /// </summary>
+    public void OnRegistrarPuzzleCompleted()
+    {
+        if (signatureIndex != 3) return;
+
+        bool isNew = ClearanceManager.Instance != null && ClearanceManager.Instance.GrantSignature(signatureIndex);
+        if (isNew)
+        {
+            Debug.Log($"[ClearanceNPC] Registrar signed. ({ClearanceManager.Instance.SignatureCount}/6)");
+            ShowDialogue("All grade sheets properly filed and archived. Your registrar clearance is officially approved. Proceed to the UNIVERSITY CASHIER in Room 102 on the ground floor to settle any outstanding balances.");
+
+            if (ObjectiveHUD.Instance != null)
+            {
+                ObjectiveHUD.Instance.SetObjectiveForSignature(signatureIndex + 1);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Called by CashierBalancePuzzle when the player successfully calculates and clears the balance sheet fees.
+    /// </summary>
+    public void OnCashierPuzzleCompleted()
+    {
+        if (signatureIndex != 4) return;
+
+        bool isNew = ClearanceManager.Instance != null && ClearanceManager.Instance.GrantSignature(signatureIndex);
+        if (isNew)
+        {
+            Debug.Log($"[ClearanceNPC] Cashier signed. ({ClearanceManager.Instance.SignatureCount}/6)");
+            ShowDialogue("Payment cleared in full! Your official assessment is marked zero balance. Proceed to the OFFICE OF THE EXECUTIVE VICE PRESIDENT in Room 103 for your final clearance signature.");
+
+            if (ObjectiveHUD.Instance != null)
+            {
+                ObjectiveHUD.Instance.SetObjectiveForSignature(signatureIndex + 1);
+            }
         }
     }
 
@@ -208,13 +414,30 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
     /// <summary>True if the player is carrying the assembled Blank_Paper slip.</summary>
     private bool PlayerHasBlankSlip()
     {
-        if (blankPaperItem == null) return true; // no item assigned → gate open (testing)
+        return PlayerHasItem(blankPaperItem);
+    }
 
-        bool inHotbar  = InventoryManager.Instance != null &&
-                         InventoryManager.Instance.HasItem(blankPaperItem);
-        bool inStorage = StorageManager.Instance  != null &&
-                         StorageManager.Instance.HasItem(blankPaperItem);
+    /// <summary>True if the player is carrying the specified item in hotbar or bag storage.</summary>
+    private bool PlayerHasItem(InventoryItem item)
+    {
+        if (item == null) return true;
+        bool inHotbar = InventoryManager.Instance != null && InventoryManager.Instance.HasItem(item);
+        bool inStorage = StorageManager.Instance != null && StorageManager.Instance.HasItem(item);
         return inHotbar || inStorage;
+    }
+
+    /// <summary>Removes item from hotbar or bag storage.</summary>
+    private void RemoveItemFromPlayer(InventoryItem item, int amount = 1)
+    {
+        if (item == null) return;
+        if (InventoryManager.Instance != null && InventoryManager.Instance.HasItem(item))
+        {
+            InventoryManager.Instance.RemoveItem(item, amount);
+        }
+        else if (StorageManager.Instance != null && StorageManager.Instance.HasItem(item))
+        {
+            StorageManager.Instance.RemoveItem(item, amount);
+        }
     }
 
     private static Coroutine _activeDialogueCoroutine;
@@ -229,86 +452,31 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         var proctorAI = GetComponent<ProctorAI>();
         if (proctorAI != null) proctorAI.SetTalkingState(true);
 
-        // Find or setup on-screen dialogue UI on HudCanvas
-        GameObject hud = GameObject.Find("HudCanvas");
-        if (hud != null)
+        // Play crazy mumble voice audio when speaking
+        EnsureVoiceAudioSource();
+        if (_dialogueAudioSource != null && mumbleAudioClip != null)
         {
-            Transform diagTrans = hud.transform.Find("DialogueBox");
-            UnityEngine.UI.Text diagText = null;
-            if (diagTrans != null)
-            {
-                // Ensure existing scene DialogueBox is placed above the hotbar/inventory
-                RectTransform rt = diagTrans.GetComponent<RectTransform>();
-                if (rt != null)
-                {
-                    rt.anchorMin = new Vector2(0.15f, 0.23f);
-                    rt.anchorMax = new Vector2(0.85f, 0.37f);
-                    rt.offsetMin = Vector2.zero;
-                    rt.offsetMax = Vector2.zero;
-                }
+            _dialogueAudioSource.clip = mumbleAudioClip;
+            _dialogueAudioSource.pitch = 0.85f + (signatureIndex % 6) * 0.08f;
+            float maxStart = Mathf.Max(0f, mumbleAudioClip.length - 4.5f);
+            _dialogueAudioSource.time = Random.Range(0f, maxStart);
+            _dialogueAudioSource.volume = 0.85f;
+            _dialogueAudioSource.loop = true;
+            _dialogueAudioSource.Play();
+        }
 
-                // Add or configure subtle background panel if missing
-                var bgImage = diagTrans.GetComponent<UnityEngine.UI.Image>();
-                if (bgImage == null) bgImage = diagTrans.gameObject.AddComponent<UnityEngine.UI.Image>();
-                bgImage.color = new Color(0.05f, 0.05f, 0.08f, 0.82f);
-
-                diagText = diagTrans.GetComponentInChildren<UnityEngine.UI.Text>();
-            }
-            else
-            {
-                // Create clean subtle dialogue panel above hotbar/inventory
-                GameObject boxGO = new GameObject("DialogueBox", typeof(RectTransform), typeof(UnityEngine.UI.Image));
-                boxGO.transform.SetParent(hud.transform, false);
-                RectTransform rt = boxGO.GetComponent<RectTransform>();
-                rt.anchorMin = new Vector2(0.15f, 0.23f);
-                rt.anchorMax = new Vector2(0.85f, 0.37f);
-                rt.offsetMin = Vector2.zero;
-                rt.offsetMax = Vector2.zero;
-
-                var bgImage = boxGO.GetComponent<UnityEngine.UI.Image>();
-                bgImage.color = new Color(0.05f, 0.05f, 0.08f, 0.82f);
-
-                GameObject textGO = new GameObject("DialogueText", typeof(RectTransform), typeof(UnityEngine.UI.Text), typeof(UnityEngine.UI.Outline));
-                textGO.transform.SetParent(boxGO.transform, false);
-                RectTransform textRt = textGO.GetComponent<RectTransform>();
-                textRt.anchorMin = Vector2.zero;
-                textRt.anchorMax = Vector2.one;
-                textRt.offsetMin = new Vector2(16, 8);
-                textRt.offsetMax = new Vector2(-16, -8);
-
-                diagText = textGO.GetComponent<UnityEngine.UI.Text>();
-                diagText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                diagText.fontSize = 20;
-                diagText.alignment = TextAnchor.MiddleCenter;
-                diagText.color = new Color(1f, 0.96f, 0.85f, 1f); // Warm readable white
-
-                var outline = textGO.GetComponent<UnityEngine.UI.Outline>();
-                outline.effectColor = new Color(0f, 0f, 0f, 0.95f);
-                outline.effectDistance = new Vector2(1.5f, -1.5f);
-
-                diagTrans = boxGO.transform;
-            }
-
-            if (diagText != null)
-            {
-                diagTrans.gameObject.SetActive(true);
-                diagText.text = $"<b>[{npcName}]</b>\n\"{message}\"";
-
-                if (_activeDialogueCoroutine != null)
-                {
-                    StopCoroutine(_activeDialogueCoroutine);
-                }
-                _activeDialogueCoroutine = StartCoroutine(HideDialogueRoutine(diagTrans.gameObject, 5.0f));
-            }
+        var diagSystem = NPCDialogueSystem.Instance ?? FindObjectOfType<NPCDialogueSystem>();
+        if (diagSystem != null)
+        {
+            diagSystem.StartDialogue(this, message);
         }
     }
 
-    private System.Collections.IEnumerator HideDialogueRoutine(GameObject box, float delay)
+    public void StopVoiceAudio()
     {
-        yield return new WaitForSeconds(delay);
-        if (box != null)
+        if (_dialogueAudioSource != null && _dialogueAudioSource.isPlaying)
         {
-            box.SetActive(false);
+            _dialogueAudioSource.Stop();
         }
 
         var staffAI = GetComponent<RoomStaffAI>();

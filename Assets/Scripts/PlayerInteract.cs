@@ -51,7 +51,10 @@ public class PlayerInteract : MonoBehaviour
 
     private void Update()
     {
-        if (playerCamera == null || PauseMenu.GameIsPaused)
+        if (playerCamera == null || PauseMenu.GameIsPaused || 
+            (GuidanceWordPuzzle.Instance != null && GuidanceWordPuzzle.Instance.IsOpen) ||
+            (CashierBalancePuzzle.Instance != null && CashierBalancePuzzle.Instance.IsOpen) ||
+            (RegistrarDocumentSortPuzzle.Instance != null && RegistrarDocumentSortPuzzle.Instance.IsOpen))
         {
             if (promptText != null) promptText.gameObject.SetActive(false);
             return;

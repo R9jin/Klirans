@@ -36,6 +36,13 @@ namespace Klirans.Environment
         {
             if (_isEscaping) return string.Empty;
 
+            // Trigger objective update when player looks at/reads the exit gate prompt
+            if (!ObjectiveHUD.HasDiscoveredExitLockdown)
+            {
+                ObjectiveHUD.HasDiscoveredExitLockdown = true;
+                TriggerDiscoveredLockdownObjective();
+            }
+
             if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)
             {
                 return "Press E to Exit Campus (Clearance Validated)";
@@ -64,8 +71,8 @@ namespace Klirans.Environment
                     _audioSource.PlayOneShot(exitLockedSound);
                 }
 
-                int count = ClearanceManager.Instance != null ? ClearanceManager.Instance.SignatureCount : 0;
-                ShowExitNotice($"The campus main gates are locked. You only have {count}/6 required clearance signatures. Finish collecting all department signatures before attempting to leave.");
+                ObjectiveHUD.HasDiscoveredExitLockdown = true;
+                TriggerDiscoveredLockdownObjective();
                 return;
             }
 
@@ -76,7 +83,13 @@ namespace Klirans.Environment
                     _audioSource.PlayOneShot(exitLockedSound);
                 }
 
-                ShowExitNotice("All 6 signatures collected, but your slip is not yet submitted! Return to the Office of the University Registrar in Room 104 to officially submit and validate your clearance.");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective(
+                        "Submit Clearance Slip (6/6)",
+                        "All 6 department signatures gathered. Return to the University Registrar in Room 104 on the ground floor to authorize gate release."
+                    );
+                }
                 return;
             }
 
@@ -93,7 +106,64 @@ namespace Klirans.Environment
                 {
                     StartCoroutine(EscapeRoutine());
                 }
+                else if (!ObjectiveHUD.HasDiscoveredExitLockdown)
+                {
+                    ObjectiveHUD.HasDiscoveredExitLockdown = true;
+                    TriggerDiscoveredLockdownObjective();
+                }
             }
+        }
+
+        /// <summary>
+        /// Updates the Objective HUD based on current clearance progress upon approaching the exit gate.
+        /// </summary>
+        private void TriggerDiscoveredLockdownObjective()
+        {
+            var hud = ObjectiveHUD.Instance ?? FindObjectOfType<ObjectiveHUD>();
+            if (hud == null) return;
+
+            if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)
+            {
+                hud.SetObjective("Escape The Campus", "Clearance officially validated. The campus main gates are unlocked—escape now!");
+                return;
+            }
+
+            if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsFullyClear())
+            {
+                hud.SetObjective("Submit Clearance Slip (6/6)", "All 6 department signatures gathered. Return to the University Registrar in Room 104 on the ground floor to authorize gate release.");
+                return;
+            }
+
+            int count = ClearanceManager.Instance != null ? ClearanceManager.Instance.SignatureCount : 0;
+            if (count > 0)
+            {
+                hud.SetObjectiveForSignature(count);
+                return;
+            }
+
+            bool hasPaper = false;
+            var blankItem = Resources.Load<InventoryItem>("Blank_Paper");
+#if UNITY_EDITOR
+            if (blankItem == null)
+                blankItem = UnityEditor.AssetDatabase.LoadAssetAtPath<InventoryItem>("Assets/Items/Blank_Paper.asset");
+#endif
+            if (blankItem != null)
+            {
+                if (InventoryManager.Instance != null && InventoryManager.Instance.HasItem(blankItem)) hasPaper = true;
+                if (StorageManager.Instance != null && StorageManager.Instance.HasItem(blankItem)) hasPaper = true;
+            }
+
+            if (hasPaper)
+            {
+                hud.SetObjective("Head Librarian Clearance (1/6)", "Report to the Head Librarian in Room 308 (3rd Floor) to obtain your first signature.");
+                return;
+            }
+
+            int fragCount = FragmentManager.Instance != null ? FragmentManager.Instance.GetCollectedCount() : 0;
+            hud.SetObjective(
+                $"Find Clearance Fragments ({fragCount}/4)",
+                $"The main exit gates are under security lockdown. Search the building corridors for the 4 torn clearance slip fragments ({fragCount}/4)."
+            );
         }
 
         private IEnumerator EscapeRoutine()
@@ -106,40 +176,17 @@ namespace Klirans.Environment
                 _audioSource.PlayOneShot(exitUnlockedSound);
             }
 
-            ShowExitNotice("Clearance Verified. Escaping campus...");
+            if (ObjectiveHUD.Instance != null)
+            {
+                ObjectiveHUD.Instance.SetObjective(
+                    "Escape The Campus",
+                    "Clearance officially validated. The main gates are open—escaping school grounds..."
+                );
+            }
 
             yield return new WaitForSeconds(exitDelay);
 
             SceneManager.LoadScene(winSceneName);
-        }
-
-        private void ShowExitNotice(string message)
-        {
-            GameObject hud = GameObject.Find("HudCanvas");
-            if (hud != null)
-            {
-                Transform diagTrans = hud.transform.Find("DialogueBox");
-                if (diagTrans != null)
-                {
-                    diagTrans.gameObject.SetActive(true);
-                    var txt = diagTrans.GetComponentInChildren<UnityEngine.UI.Text>();
-                    if (txt != null)
-                    {
-                        txt.text = $"<b>[CAMPUS SECURITY EXIT]</b>\n\"{message}\"";
-                    }
-
-                    StartCoroutine(HideNoticeRoutine(diagTrans.gameObject, 5.0f));
-                }
-            }
-        }
-
-        private IEnumerator HideNoticeRoutine(GameObject box, float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            if (box != null && !_isEscaping)
-            {
-                box.SetActive(false);
-            }
         }
     }
 }

@@ -115,6 +115,16 @@ public class FragmentManager : MonoBehaviour
             ClearancePiecesHUD.Instance.OnFragmentCollected(pieceID, currentCount, totalFragmentsRequired);
         }
 
+        ObjectiveHUD.HasDiscoveredExitLockdown = true;
+
+        if (ObjectiveHUD.Instance != null && currentCount < totalFragmentsRequired)
+        {
+            ObjectiveHUD.Instance.SetObjective(
+                $"Find Clearance Fragments ({currentCount}/{totalFragmentsRequired})",
+                $"Search the building corridors for the remaining torn clearance slip fragments ({currentCount}/{totalFragmentsRequired})."
+            );
+        }
+
         // Check puzzle completion condition
         if (currentCount >= totalFragmentsRequired)
         {
@@ -160,6 +170,11 @@ public class FragmentManager : MonoBehaviour
         if (ClearancePiecesHUD.Instance != null)
         {
             ClearancePiecesHUD.Instance.OnPuzzleCompleted();
+        }
+
+        if (ObjectiveHUD.Instance != null)
+        {
+            ObjectiveHUD.Instance.SetObjective("Head Librarian Clearance (1/6)", "Report to the Head Librarian in Room 308 (3rd Floor) to obtain your first signature.");
         }
 
         if (itemAdded)
