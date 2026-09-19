@@ -26,6 +26,9 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
              "Player must carry this before ANY NPC interaction is unlocked.")]
     public InventoryItem blankPaperItem;
 
+    [Tooltip("Optional voucher required for Head Librarian (signatureIndex 0).")]
+    public InventoryItem libraryVoucherItem;
+
     [Header("Interaction Range")]
     [Tooltip("Maximum distance (in meters) the player can be from the NPC to interact.")]
     public float interactionRange = 4.0f;
@@ -112,6 +115,10 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             {
                 ClearanceManager.Instance.SubmitSlipToRegistrar();
                 ShowDialogue("Let me verify your clearance slip... Library, Guidance & SAS, College of Computing Studies, Registrar, Cashier, and the Executive Vice President. All signatures confirmed and officially recorded! Your clearance is complete. The campus main gate at the lobby entrance is now unlocked for you. Have a safe journey!");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Escape The Campus", "The campus main gate at the lobby entrance is now unlocked. Escape the building!");
+                }
                 return;
             }
             else
@@ -152,12 +159,42 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             return;
         }
 
+        // Gate 3: Head Librarian (signatureIndex 0) requires Library Clearance Voucher from printer
+        if (signatureIndex == 0 && libraryVoucherItem != null)
+        {
+            bool hasVoucher = PlayerHasItem(libraryVoucherItem);
+            if (!hasVoucher)
+            {
+                if (LibraryPrinterInteract.Instance != null)
+                {
+                    LibraryPrinterInteract.Instance.UnlockPrinterQuest();
+                }
+                ShowDialogue("Keep your voice down, this is the university library. You want your clearance signed? The database flags your student number with an UNRESOLVED OVERDUE BORROWING VIOLATION from 1994. You must print your official Library Clearance Voucher at the workstation printer across the room. Bring me the printed voucher, or your clearance ends here.");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Clear Library Overdue Record", "Print your Library Clearance Voucher from the printer station in Room 308.");
+                }
+                return;
+            }
+            else
+            {
+                // Take the voucher from player
+                RemoveItemFromPlayer(libraryVoucherItem, 1);
+                Debug.Log("[ClearanceNPC] Librarian accepted the Library Clearance Voucher!");
+            }
+        }
+
         bool isNew = ClearanceManager.Instance.GrantSignature(signatureIndex);
 
         if (isNew)
         {
             Debug.Log($"[ClearanceNPC] {npcName} signed. ({ClearanceManager.Instance.SignatureCount}/6)");
             ShowDialogue(unsignedDialogue);
+
+            if (ObjectiveHUD.Instance != null)
+            {
+                ObjectiveHUD.Instance.SetObjectiveForSignature(signatureIndex + 1);
+            }
 
             if (ClearanceManager.Instance.IsFullyClear())
                 Debug.Log("[ClearanceNPC] All 6 signatures! Clearance complete!");
@@ -208,13 +245,30 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
     /// <summary>True if the player is carrying the assembled Blank_Paper slip.</summary>
     private bool PlayerHasBlankSlip()
     {
-        if (blankPaperItem == null) return true; // no item assigned → gate open (testing)
+        return PlayerHasItem(blankPaperItem);
+    }
 
-        bool inHotbar  = InventoryManager.Instance != null &&
-                         InventoryManager.Instance.HasItem(blankPaperItem);
-        bool inStorage = StorageManager.Instance  != null &&
-                         StorageManager.Instance.HasItem(blankPaperItem);
+    /// <summary>True if the player is carrying the specified item in hotbar or bag storage.</summary>
+    private bool PlayerHasItem(InventoryItem item)
+    {
+        if (item == null) return true;
+        bool inHotbar = InventoryManager.Instance != null && InventoryManager.Instance.HasItem(item);
+        bool inStorage = StorageManager.Instance != null && StorageManager.Instance.HasItem(item);
         return inHotbar || inStorage;
+    }
+
+    /// <summary>Removes item from hotbar or bag storage.</summary>
+    private void RemoveItemFromPlayer(InventoryItem item, int amount = 1)
+    {
+        if (item == null) return;
+        if (InventoryManager.Instance != null && InventoryManager.Instance.HasItem(item))
+        {
+            InventoryManager.Instance.RemoveItem(item, amount);
+        }
+        else if (StorageManager.Instance != null && StorageManager.Instance.HasItem(item))
+        {
+            StorageManager.Instance.RemoveItem(item, amount);
+        }
     }
 
     private static Coroutine _activeDialogueCoroutine;
