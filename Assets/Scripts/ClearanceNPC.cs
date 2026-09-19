@@ -452,101 +452,28 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         var proctorAI = GetComponent<ProctorAI>();
         if (proctorAI != null) proctorAI.SetTalkingState(true);
 
-        // Find or setup on-screen dialogue UI on HudCanvas
-        GameObject hud = GameObject.Find("HudCanvas");
-        if (hud != null)
+        // Play crazy mumble voice audio when speaking
+        EnsureVoiceAudioSource();
+        if (_dialogueAudioSource != null && mumbleAudioClip != null)
         {
-            Transform diagTrans = hud.transform.Find("DialogueBox");
-            UnityEngine.UI.Text diagText = null;
-            if (diagTrans != null)
-            {
-                // Ensure existing scene DialogueBox is placed above the hotbar/inventory
-                RectTransform rt = diagTrans.GetComponent<RectTransform>();
-                if (rt != null)
-                {
-                    rt.anchorMin = new Vector2(0.15f, 0.23f);
-                    rt.anchorMax = new Vector2(0.85f, 0.37f);
-                    rt.offsetMin = Vector2.zero;
-                    rt.offsetMax = Vector2.zero;
-                }
+            _dialogueAudioSource.clip = mumbleAudioClip;
+            _dialogueAudioSource.pitch = 0.85f + (signatureIndex % 6) * 0.08f;
+            float maxStart = Mathf.Max(0f, mumbleAudioClip.length - 4.5f);
+            _dialogueAudioSource.time = Random.Range(0f, maxStart);
+            _dialogueAudioSource.volume = 0.85f;
+            _dialogueAudioSource.loop = true;
+            _dialogueAudioSource.Play();
+        }
 
-                // Add or configure subtle background panel if missing
-                var bgImage = diagTrans.GetComponent<UnityEngine.UI.Image>();
-                if (bgImage == null) bgImage = diagTrans.gameObject.AddComponent<UnityEngine.UI.Image>();
-                bgImage.color = new Color(0.05f, 0.05f, 0.08f, 0.82f);
-
-                diagText = diagTrans.GetComponentInChildren<UnityEngine.UI.Text>();
-            }
-            else
-            {
-                // Create clean subtle dialogue panel above hotbar/inventory
-                GameObject boxGO = new GameObject("DialogueBox", typeof(RectTransform), typeof(UnityEngine.UI.Image));
-                boxGO.transform.SetParent(hud.transform, false);
-                RectTransform rt = boxGO.GetComponent<RectTransform>();
-                rt.anchorMin = new Vector2(0.15f, 0.23f);
-                rt.anchorMax = new Vector2(0.85f, 0.37f);
-                rt.offsetMin = Vector2.zero;
-                rt.offsetMax = Vector2.zero;
-
-                var bgImage = boxGO.GetComponent<UnityEngine.UI.Image>();
-                bgImage.color = new Color(0.05f, 0.05f, 0.08f, 0.82f);
-
-                GameObject textGO = new GameObject("DialogueText", typeof(RectTransform), typeof(UnityEngine.UI.Text), typeof(UnityEngine.UI.Outline));
-                textGO.transform.SetParent(boxGO.transform, false);
-                RectTransform textRt = textGO.GetComponent<RectTransform>();
-                textRt.anchorMin = Vector2.zero;
-                textRt.anchorMax = Vector2.one;
-                textRt.offsetMin = new Vector2(16, 8);
-                textRt.offsetMax = new Vector2(-16, -8);
-
-                diagText = textGO.GetComponent<UnityEngine.UI.Text>();
-                diagText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                diagText.fontSize = 20;
-                diagText.alignment = TextAnchor.MiddleCenter;
-                diagText.color = new Color(1f, 0.96f, 0.85f, 1f); // Warm readable white
-
-                var outline = textGO.GetComponent<UnityEngine.UI.Outline>();
-                outline.effectColor = new Color(0f, 0f, 0f, 0.95f);
-                outline.effectDistance = new Vector2(1.5f, -1.5f);
-
-                diagTrans = boxGO.transform;
-            }
-
-            if (diagText != null)
-            {
-                diagTrans.gameObject.SetActive(true);
-                diagText.text = $"<b>[{npcName}]</b>\n\"{message}\"";
-
-                // Play crazy mumble voice audio when speaking
-                EnsureVoiceAudioSource();
-                if (_dialogueAudioSource != null && mumbleAudioClip != null)
-                {
-                    _dialogueAudioSource.clip = mumbleAudioClip;
-                    _dialogueAudioSource.pitch = 0.85f + (signatureIndex % 6) * 0.08f;
-                    float maxStart = Mathf.Max(0f, mumbleAudioClip.length - 4.5f);
-                    _dialogueAudioSource.time = Random.Range(0f, maxStart);
-                    _dialogueAudioSource.volume = 0.85f;
-                    _dialogueAudioSource.loop = true;
-                    _dialogueAudioSource.Play();
-                }
-
-                if (_activeDialogueCoroutine != null)
-                {
-                    StopCoroutine(_activeDialogueCoroutine);
-                }
-                _activeDialogueCoroutine = StartCoroutine(HideDialogueRoutine(diagTrans.gameObject, 5.0f));
-            }
+        var diagSystem = NPCDialogueSystem.Instance ?? FindObjectOfType<NPCDialogueSystem>();
+        if (diagSystem != null)
+        {
+            diagSystem.StartDialogue(this, message);
         }
     }
 
-    private System.Collections.IEnumerator HideDialogueRoutine(GameObject box, float delay)
+    public void StopVoiceAudio()
     {
-        yield return new WaitForSeconds(delay);
-        if (box != null)
-        {
-            box.SetActive(false);
-        }
-
         if (_dialogueAudioSource != null && _dialogueAudioSource.isPlaying)
         {
             _dialogueAudioSource.Stop();
