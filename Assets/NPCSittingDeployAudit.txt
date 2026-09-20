@@ -1,0 +1,14 @@
+=== DEPLOY ALL NPC SITTING & STAND-ON-INTERACTION AUDIT ===
+Deployed NPCSitController on Signatory_GuidanceCounselor: Seated at (-89.50, 8.35, 42.20) (rot=(0.00, 90.00, 0.00)), Standing at (-89.15, 8.35, 42.20)
+Deployed NPCSitController on Signatory_Cashier: Seated at (-81.75, 2.35, -7.14) (rot=(0.00, 270.00, 0.00)), Standing at (-81.30, 2.35, -7.10)
+Deployed NPCSitController on Signatory_Registrar: Seated at (-81.75, 2.35, 4.86) (rot=(0.00, 270.00, 0.00)), Standing at (-81.30, 2.35, 4.90)
+Deployed NPCSitController on Signatory_Librarian: Seated at (-76.15, 14.30, 44.15) (rot=(0.00, 270.00, 0.00)), Standing at (-76.60, 14.30, 44.15)
+Deployed NPCSitController on Signatory_CCSDean: Seated at (-77.80, 8.35, -3.75) (rot=(0.00, 180.00, 0.00)), Standing at (-77.80, 8.35, -4.10)
+Deployed NPCSitController on Signatory_EVP: Seated at (-88.50, 2.35, 7.75) (rot=(0.00, 180.00, 0.00)), Standing at (-88.50, 2.35, 7.40)
+Deployed NPCSitController on Security_Guard_NPC: Seated at (-75.75, 2.36, 15.95) (rot=(0.00, 270.00, 0.00)), Standing at (-76.15, 2.36, 15.95)
+Verified roamer 'ClearanceNPC_Drei' is walking/patrolling only (NPCSitController excluded).
+Verified roamer 'ClearanceNPC_Glad' is walking/patrolling only (NPCSitController excluded).
+Verified roamer 'ClearanceNPC_Ira' is walking/patrolling only (NPCSitController excluded).
+Verified roamer 'ClearanceNPC_Jessa' is walking/patrolling only (NPCSitController excluded).
+Verified roamer 'ClearanceNPC_Josua' is walking/patrolling only (NPCSitController excluded).
+Verified roamer 'ClearanceNPC_Niel' is walking/patrolling only (NPCSitController excluded).

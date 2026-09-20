@@ -452,6 +452,9 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         var proctorAI = GetComponent<ProctorAI>();
         if (proctorAI != null) proctorAI.SetTalkingState(true);
 
+        var sitCtrl = GetComponent<NPCSitController>();
+        if (sitCtrl != null) sitCtrl.OnInteract();
+
         // Play crazy mumble voice audio when speaking
         EnsureVoiceAudioSource();
         if (_dialogueAudioSource != null && mumbleAudioClip != null)
@@ -484,6 +487,9 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
 
         var proctorAI = GetComponent<ProctorAI>();
         if (proctorAI != null) proctorAI.SetTalkingState(false);
+
+        var sitCtrl = GetComponent<NPCSitController>();
+        if (sitCtrl != null) sitCtrl.OnEndInteract();
     }
 
 #if UNITY_EDITOR

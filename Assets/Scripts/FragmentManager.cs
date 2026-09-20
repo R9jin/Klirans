@@ -120,8 +120,8 @@ public class FragmentManager : MonoBehaviour
         if (ObjectiveHUD.Instance != null && currentCount < totalFragmentsRequired)
         {
             ObjectiveHUD.Instance.SetObjective(
-                $"Find Clearance Fragments ({currentCount}/{totalFragmentsRequired})",
-                $"Search the building corridors for the remaining torn clearance slip fragments ({currentCount}/{totalFragmentsRequired})."
+                $"Find or Craft Clearance Slip ({currentCount}/{totalFragmentsRequired})",
+                $"Corridor fragments collected ({currentCount}/{totalFragmentsRequired}). Find the remaining torn pieces to craft your clearance paper."
             );
         }
 

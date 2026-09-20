@@ -85,6 +85,8 @@ public class NPCDialogueSystem : MonoBehaviour
         }
     }
 
+    private System.Action _onDialogueClosedCallback;
+
     /// <summary>
     /// Starts dialogue with an NPC: zooms to their face and types out message.
     /// </summary>
@@ -96,6 +98,7 @@ public class NPCDialogueSystem : MonoBehaviour
         _targetNPC = npc != null ? npc.transform : null;
         _currentFullMessage = message;
         _isDialogueActive = true;
+        _onDialogueClosedCallback = null;
 
         // Cache Player & Camera
         if (_playerMovement == null) _playerMovement = FindObjectOfType<PlayerMovement>();
@@ -136,6 +139,49 @@ public class NPCDialogueSystem : MonoBehaviour
         _typewriterCoroutine = StartCoroutine(TypewriterRoutine(message));
     }
 
+    /// <summary>
+    /// Overload for generic NPCs (e.g. Security Guard) without ClearanceNPC.
+    /// </summary>
+    public void StartDialogue(Transform targetNPC, string npcTitle, string message, string locationSubtitle = "", System.Action onClose = null)
+    {
+        EnsureDialogueUI();
+
+        _activeNPC = null;
+        _targetNPC = targetNPC;
+        _currentFullMessage = message;
+        _isDialogueActive = true;
+        _onDialogueClosedCallback = onClose;
+
+        if (_playerMovement == null) _playerMovement = FindObjectOfType<PlayerMovement>();
+        if (_playerCam == null) _playerCam = Camera.main;
+        if (_playerCam == null && _playerMovement != null) _playerCam = _playerMovement.playerCamera;
+
+        if (_playerMovement != null)
+        {
+            _playerMovement.SetControlsEnabled(false);
+            _playerMovement.isDialogueCameraOverride = true;
+            _playerMovement.dialogueTargetFOV = dialogueFOV;
+            _savedFOV = _playerMovement.normalFOV > 0 ? _playerMovement.normalFOV : 60f;
+        }
+
+        if (_npcNameText != null)
+        {
+            _npcNameText.text = $"[ {npcTitle.ToUpper()} ]";
+        }
+        if (_npcDeptText != null)
+        {
+            _npcDeptText.text = locationSubtitle;
+        }
+
+        if (_dialoguePanel != null) _dialoguePanel.SetActive(true);
+
+        if (_cameraZoomCoroutine != null) StopCoroutine(_cameraZoomCoroutine);
+        _cameraZoomCoroutine = StartCoroutine(CameraZoomInRoutine());
+
+        if (_typewriterCoroutine != null) StopCoroutine(_typewriterCoroutine);
+        _typewriterCoroutine = StartCoroutine(TypewriterRoutine(message));
+    }
+
     private string GetDepartmentSubtitle(int sigIndex)
     {
         switch (sigIndex)
@@ -150,47 +196,106 @@ public class NPCDialogueSystem : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Locates the head transform on an NPC (checking humanoid bones or mixamo bone hierarchy).
+    /// </summary>
+    public static Transform FindNPCHeadTransform(Transform root)
+    {
+        if (root == null) return null;
+
+        var anim = root.GetComponentInChildren<Animator>();
+        if (anim != null && anim.isHuman)
+        {
+            var h = anim.GetBoneTransform(HumanBodyBones.Head);
+            if (h != null) return h;
+        }
+
+        var allTransforms = root.GetComponentsInChildren<Transform>();
+        Transform candidate = null;
+        foreach (var t in allTransforms)
+        {
+            string lower = t.name.ToLower();
+            if (lower.EndsWith(":head") || lower == "head")
+            {
+                return t;
+            }
+            if (candidate == null && lower.Contains("head"))
+            {
+                candidate = t;
+            }
+        }
+        return candidate;
+    }
+
     private IEnumerator CameraZoomInRoutine()
     {
         if (_playerCam == null || _targetNPC == null) yield break;
 
-        Vector3 headPos = _targetNPC.position + Vector3.up * npcHeadHeight;
-        float elapsed = 0f;
-        float duration = 0.45f;
+        Transform headBone = FindNPCHeadTransform(_targetNPC);
 
+        float elapsed = 0f;
+        float duration = 0.40f;
         float startFOV = _playerCam.fieldOfView;
         Quaternion startPlayerRot = _playerMovement != null ? _playerMovement.transform.rotation : transform.rotation;
         Quaternion startCamLocalRot = _playerCam.transform.localRotation;
 
-        Vector3 toNpc = (headPos - _playerCam.transform.position);
-        float targetYaw = Mathf.Atan2(toNpc.x, toNpc.z) * Mathf.Rad2Deg;
-        float distH = Mathf.Sqrt(toNpc.x * toNpc.x + toNpc.z * toNpc.z);
-        float targetPitch = Mathf.Clamp(-Mathf.Atan2(toNpc.y, distH) * Mathf.Rad2Deg, -60f, 60f);
-
-        Quaternion targetPlayerRot = Quaternion.Euler(0f, targetYaw, 0f);
-        Quaternion targetCamLocalRot = Quaternion.Euler(targetPitch, 0f, 0f);
-
+        // Initial smooth transition to NPC's head
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
 
-            if (_playerMovement != null)
-            {
-                _playerMovement.transform.rotation = Quaternion.Slerp(startPlayerRot, targetPlayerRot, t);
-            }
-            _playerCam.transform.localRotation = Quaternion.Slerp(startCamLocalRot, targetCamLocalRot, t);
-            _playerCam.fieldOfView = Mathf.Lerp(startFOV, dialogueFOV, t);
+            Vector3 headPos = headBone != null ? headBone.position : (_targetNPC.position + Vector3.up * 1.45f);
+            Vector3 toHead = headPos - _playerCam.transform.position;
+            float distH = Mathf.Sqrt(toHead.x * toHead.x + toHead.z * toHead.z);
 
+            if (distH > 0.01f)
+            {
+                float targetYaw = Mathf.Atan2(toHead.x, toHead.z) * Mathf.Rad2Deg;
+                float targetPitch = Mathf.Clamp(-Mathf.Atan2(toHead.y, distH) * Mathf.Rad2Deg, -60f, 60f);
+
+                Quaternion targetPlayerRot = Quaternion.Euler(0f, targetYaw, 0f);
+                Quaternion targetCamRot = Quaternion.Euler(targetPitch, 0f, 0f);
+
+                if (_playerMovement != null)
+                {
+                    _playerMovement.transform.rotation = Quaternion.Slerp(startPlayerRot, targetPlayerRot, t);
+                }
+                _playerCam.transform.localRotation = Quaternion.Slerp(startCamLocalRot, targetCamRot, t);
+            }
+
+            _playerCam.fieldOfView = Mathf.Lerp(startFOV, dialogueFOV, t);
             yield return null;
         }
 
-        if (_playerMovement != null)
-        {
-            _playerMovement.transform.rotation = targetPlayerRot;
-        }
-        _playerCam.transform.localRotation = targetCamLocalRot;
         _playerCam.fieldOfView = dialogueFOV;
+
+        // Continuous tracking loop: locks directly on the NPC's head for the remainder of dialogue
+        while (_isDialogueActive)
+        {
+            if (_playerCam == null || _targetNPC == null) yield break;
+
+            Vector3 headPos = headBone != null ? headBone.position : (_targetNPC.position + Vector3.up * 1.45f);
+            Vector3 toHead = headPos - _playerCam.transform.position;
+            float distH = Mathf.Sqrt(toHead.x * toHead.x + toHead.z * toHead.z);
+
+            if (distH > 0.01f)
+            {
+                float targetYaw = Mathf.Atan2(toHead.x, toHead.z) * Mathf.Rad2Deg;
+                float targetPitch = Mathf.Clamp(-Mathf.Atan2(toHead.y, distH) * Mathf.Rad2Deg, -60f, 60f);
+
+                Quaternion targetPlayerRot = Quaternion.Euler(0f, targetYaw, 0f);
+                Quaternion targetCamRot = Quaternion.Euler(targetPitch, 0f, 0f);
+
+                if (_playerMovement != null)
+                {
+                    _playerMovement.transform.rotation = Quaternion.Slerp(_playerMovement.transform.rotation, targetPlayerRot, Time.deltaTime * 10f);
+                }
+                _playerCam.transform.localRotation = Quaternion.Slerp(_playerCam.transform.localRotation, targetCamRot, Time.deltaTime * 10f);
+            }
+
+            yield return null;
+        }
     }
 
     private IEnumerator TypewriterRoutine(string fullText)
@@ -238,6 +343,13 @@ public class NPCDialogueSystem : MonoBehaviour
             _activeNPC.StopVoiceAudio();
         }
 
+        if (_onDialogueClosedCallback != null)
+        {
+            var cb = _onDialogueClosedCallback;
+            _onDialogueClosedCallback = null;
+            cb.Invoke();
+        }
+
         // Camera restore
         if (_cameraZoomCoroutine != null) StopCoroutine(_cameraZoomCoroutine);
         _cameraZoomCoroutine = StartCoroutine(CameraZoomOutRoutine());
@@ -262,9 +374,12 @@ public class NPCDialogueSystem : MonoBehaviour
 
         _playerCam.fieldOfView = _savedFOV;
 
-        // Restore player movement controls and camera override
+        // Restore player movement controls and camera override with smooth pitch sync
         if (_playerMovement != null)
         {
+            float curPitch = _playerCam.transform.localEulerAngles.x;
+            if (curPitch > 180f) curPitch -= 360f;
+            _playerMovement.SyncPitch(curPitch);
             _playerMovement.isDialogueCameraOverride = false;
             _playerMovement.SetControlsEnabled(true);
         }
@@ -280,12 +395,11 @@ public class NPCDialogueSystem : MonoBehaviour
     }
 
     /// <summary>
-    /// Builds or styles the horror-themed dialogue box on HudCanvas.
+    /// Builds or styles the paper-themed horror dialogue box on HudCanvas.
+    /// Positioned low on screen so it never obstructs NPCs or environments.
     /// </summary>
     public void EnsureDialogueUI()
     {
-        if (_dialoguePanel != null) return;
-
         var hud = GameObject.Find("HudCanvas");
         if (hud == null) return;
 
@@ -293,6 +407,15 @@ public class NPCDialogueSystem : MonoBehaviour
 #if UNITY_EDITOR
         if (horrorFont == null)
             horrorFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Main Menu/watch people die.ttf");
+#endif
+
+        var standardFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") 
+                        ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        Sprite paperSprite = Resources.Load<Sprite>("ScrambledPaper_HUD");
+#if UNITY_EDITOR
+        if (paperSprite == null)
+            paperSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/ScrambledPaper_HUD.png");
 #endif
 
         // Find or create DialogueBox root
@@ -307,90 +430,114 @@ public class NPCDialogueSystem : MonoBehaviour
             _dialoguePanel.transform.SetParent(hud.transform, false);
         }
 
-        // RectTransform: centered lower screen, comfortably above hotbar
+        // RectTransform: positioned comfortably at the bottom of the screen with generous room for large readable text
         var rt = _dialoguePanel.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.18f, 0.20f);
-        rt.anchorMax = new Vector2(0.82f, 0.38f);
+        rt.anchorMin = new Vector2(0.08f, 0.02f);
+        rt.anchorMax = new Vector2(0.92f, 0.26f);
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
 
-        // Background image
+        // Aged paper background
         _panelBg = _dialoguePanel.GetComponent<Image>() ?? _dialoguePanel.AddComponent<Image>();
-        _panelBg.color = new Color(0.06f, 0.05f, 0.07f, 0.94f); // deep weathered slate
+        if (paperSprite != null)
+        {
+            _panelBg.sprite = paperSprite;
+            _panelBg.type = Image.Type.Simple;
+            _panelBg.color = new Color(0.98f, 0.96f, 0.92f, 0.98f);
+        }
+        else
+        {
+            _panelBg.color = new Color(0.92f, 0.88f, 0.82f, 0.96f);
+        }
 
-        // Crimson Top Accent Bar
-        GameObject barGO = CreateUIChild("TopBar", _dialoguePanel.transform);
-        var barRt = barGO.GetComponent<RectTransform>();
-        barRt.anchorMin = new Vector2(0f, 0.96f);
-        barRt.anchorMax = new Vector2(1f, 1f);
-        barRt.offsetMin = Vector2.zero;
-        barRt.offsetMax = Vector2.zero;
-        var barImg = barGO.GetComponent<Image>() ?? barGO.AddComponent<Image>();
-        barImg.color = new Color(0.85f, 0.12f, 0.12f, 1f); // blood red trim
+        // Disable legacy neon TopBar if present (authentic paper has torn/tape edges)
+        Transform topBarT = _dialoguePanel.transform.Find("TopBar");
+        if (topBarT != null)
+        {
+            topBarT.gameObject.SetActive(false);
+        }
 
-        // NPC Title Text
+        // NPC Title Text (Crimson Stamped Ink - Large & Prominent)
         GameObject nameGO = CreateUIChild("NPCNameText", _dialoguePanel.transform);
         var nameRt = nameGO.GetComponent<RectTransform>();
-        nameRt.anchorMin = new Vector2(0.03f, 0.72f);
-        nameRt.anchorMax = new Vector2(0.60f, 0.94f);
+        nameRt.anchorMin = new Vector2(0.05f, 0.68f);
+        nameRt.anchorMax = new Vector2(0.55f, 0.94f);
         nameRt.offsetMin = Vector2.zero;
         nameRt.offsetMax = Vector2.zero;
 
         _npcNameText = nameGO.GetComponent<Text>() ?? nameGO.AddComponent<Text>();
         if (horrorFont != null) _npcNameText.font = horrorFont;
-        _npcNameText.fontSize = 24;
-        _npcNameText.color = new Color(0.95f, 0.20f, 0.20f, 1f); // vivid crimson horror
+        _npcNameText.fontSize = 32;
+        _npcNameText.color = new Color(0.72f, 0.06f, 0.06f, 1f); // stamped crimson horror ink
         _npcNameText.alignment = TextAnchor.MiddleLeft;
+        _npcNameText.verticalOverflow = VerticalWrapMode.Overflow;
 
-        // Department / Room Location Subtitle
+        var typewriterFont = Resources.Load<Font>("Fonts/Typewriter_Bold");
+        if (typewriterFont == null) typewriterFont = Resources.Load<Font>("Typewriter_Bold");
+#if UNITY_EDITOR
+        if (typewriterFont == null)
+            typewriterFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Typewriter_Bold.ttf");
+#endif
+        if (typewriterFont == null)
+            typewriterFont = standardFont;
+
+        // Department / Room Location Subtitle (Crisp Weathered Charcoal Typewriter)
         GameObject deptGO = CreateUIChild("DeptSubtitle", _dialoguePanel.transform);
         var deptRt = deptGO.GetComponent<RectTransform>();
-        deptRt.anchorMin = new Vector2(0.40f, 0.72f);
-        deptRt.anchorMax = new Vector2(0.97f, 0.94f);
+        deptRt.anchorMin = new Vector2(0.50f, 0.68f);
+        deptRt.anchorMax = new Vector2(0.95f, 0.94f);
         deptRt.offsetMin = Vector2.zero;
         deptRt.offsetMax = Vector2.zero;
 
         _npcDeptText = deptGO.GetComponent<Text>() ?? deptGO.AddComponent<Text>();
-        _npcDeptText.fontSize = 12;
+        _npcDeptText.font = typewriterFont;
+        _npcDeptText.fontSize = 16;
         _npcDeptText.fontStyle = FontStyle.Bold;
-        _npcDeptText.color = new Color(0.68f, 0.64f, 0.60f, 0.9f);
+        _npcDeptText.color = new Color(0.25f, 0.20f, 0.20f, 1f);
         _npcDeptText.alignment = TextAnchor.MiddleRight;
+        _npcDeptText.verticalOverflow = VerticalWrapMode.Overflow;
 
-        // Body Text
+        // Body Text (Large Bold Typewriter Ink on Paper - Highly Readable & Thematic)
         GameObject bodyGO = CreateUIChild("DialogueText", _dialoguePanel.transform);
         var bodyRt = bodyGO.GetComponent<RectTransform>();
-        bodyRt.anchorMin = new Vector2(0.03f, 0.12f);
-        bodyRt.anchorMax = new Vector2(0.97f, 0.70f);
+        bodyRt.anchorMin = new Vector2(0.05f, 0.16f);
+        bodyRt.anchorMax = new Vector2(0.95f, 0.66f);
         bodyRt.offsetMin = Vector2.zero;
         bodyRt.offsetMax = Vector2.zero;
 
         _bodyText = bodyGO.GetComponent<Text>() ?? bodyGO.AddComponent<Text>();
-        _bodyText.fontSize = 18;
-        _bodyText.lineSpacing = 1.15f;
-        _bodyText.color = new Color(0.96f, 0.94f, 0.90f, 1f); // warm legible off-white
+        _bodyText.font = typewriterFont;
+        _bodyText.fontSize = 24;
+        _bodyText.fontStyle = FontStyle.Bold;
+        _bodyText.lineSpacing = 1.25f;
+        _bodyText.color = new Color(0.06f, 0.04f, 0.04f, 1f); // solid rich black ink
         _bodyText.alignment = TextAnchor.UpperLeft;
         _bodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
-        _bodyText.verticalOverflow = VerticalWrapMode.Truncate;
+        _bodyText.verticalOverflow = VerticalWrapMode.Overflow;
 
-        // Subtle Drop Shadow on Text
-        var shadow = bodyGO.GetComponent<Shadow>() ?? bodyGO.AddComponent<Shadow>();
-        shadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
-        shadow.effectDistance = new Vector2(1.5f, -1.5f);
+        var shadow = bodyGO.GetComponent<Shadow>();
+        if (shadow != null) Destroy(shadow);
 
-        // Blinking Continue Indicator
+        // Continue Indicator
         GameObject promptGO = CreateUIChild("PromptIndicator", _dialoguePanel.transform);
         var promptRt = promptGO.GetComponent<RectTransform>();
-        promptRt.anchorMin = new Vector2(0.70f, 0.02f);
-        promptRt.anchorMax = new Vector2(0.98f, 0.18f);
+        promptRt.anchorMin = new Vector2(0.65f, 0.03f);
+        promptRt.anchorMax = new Vector2(0.95f, 0.18f);
         promptRt.offsetMin = Vector2.zero;
         promptRt.offsetMax = Vector2.zero;
 
         _promptIndicator = promptGO.GetComponent<Text>() ?? promptGO.AddComponent<Text>();
-        _promptIndicator.text = "▼ [E: Continue / Close]";
-        _promptIndicator.fontSize = 12;
-        _promptIndicator.color = new Color(0.95f, 0.25f, 0.25f, 1f);
+        _promptIndicator.text = "▼ [E / Space: Continue]";
+        _promptIndicator.font = typewriterFont;
+        _promptIndicator.fontSize = 15;
+        _promptIndicator.fontStyle = FontStyle.Bold;
+        _promptIndicator.color = new Color(0.70f, 0.08f, 0.08f, 1f);
         _promptIndicator.alignment = TextAnchor.LowerRight;
+        _promptIndicator.verticalOverflow = VerticalWrapMode.Overflow;
 
-        _dialoguePanel.SetActive(false);
+        if (!_isDialogueActive)
+        {
+            _dialoguePanel.SetActive(false);
+        }
     }
 }
