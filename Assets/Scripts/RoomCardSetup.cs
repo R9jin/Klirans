@@ -53,8 +53,7 @@ public class RoomCardSetup : MonoBehaviour
         }
 
         // Kill Plaque_XXX objects that live as children of door GameObjects
-        var allGOs = Object.FindObjectsByType<GameObject>(
-            FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var allGOs = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
         foreach (var go in allGOs)
         {
             if (go == null) continue;
@@ -68,8 +67,7 @@ public class RoomCardSetup : MonoBehaviour
     // ----------------------------------------------------------------
     private void CreateNewCards()
     {
-        var doors = Object.FindObjectsByType<DoorInteract>(
-            FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var doors = Object.FindObjectsByType<DoorInteract>(FindObjectsInactive.Include);
 
         if (doors == null || doors.Length == 0)
         {
@@ -260,7 +258,7 @@ public static class RoomCardEditorMenu
     [UnityEditor.MenuItem("Tools/Room Cards/Regenerate All Room Cards")]
     public static void RegenerateFromMenu()
     {
-        var setup = Object.FindFirstObjectByType<RoomCardSetup>();
+        var setup = Object.FindAnyObjectByType<RoomCardSetup>();
         if (setup == null)
         {
             UnityEditor.EditorUtility.DisplayDialog("Room Cards",

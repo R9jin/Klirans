@@ -1,0 +1,49 @@
+=== NPC AND CHAIR AUDIT ===
+
+Total NPCs found: 4
+
+NPC: 'Security_Guard_NPC' at (-75.95, 2.36, 16.50), rot=(0.00, 270.00, 0.00)
+  Animator: Armature (runtimeController=SecurityGuard_Ctrl)
+  ClearanceNPC: NO
+  RoomStaffAI: NO
+  ProctorAI: NO
+  Closest Chair: 'Chair_Post' at (-75.75, 2.58, 15.95), dist=0.63m (dxz=0.59m, dy=-0.22m)
+
+NPC: 'Signatory_EVP' at (-88.10, 2.37, 9.15), rot=(0.00, 180.00, 0.00)
+  Animator: Armature (runtimeController=Signatory_EVP_Ctrl)
+  ClearanceNPC: NO
+  RoomStaffAI: NO
+  ProctorAI: NO
+  Closest Chair: 'VP_ExecutiveChair' at (-88.10, 2.77, 9.08), dist=0.40m (dxz=0.07m, dy=-0.40m)
+
+NPC: 'Signatory_Registrar' at (-82.02, 2.37, 5.17), rot=(0.00, 270.00, 0.00)
+  Animator: Armature (runtimeController=Signatory_Registrar_Ctrl)
+  ClearanceNPC: NO
+  RoomStaffAI: NO
+  ProctorAI: NO
+  Closest Chair: 'StaffChair' at (-82.63, 2.79, 5.12), dist=0.74m (dxz=0.61m, dy=-0.42m)
+
+NPC: 'ClearanceNPC_Drei' at (-80.94, 2.43, 9.38), rot=(0.00, 0.00, 0.00)
+  Animator: Armature (runtimeController=ClearanceNPC_Drei_AnimCtrl)
+  ClearanceNPC: NO
+  RoomStaffAI: NO
+  ProctorAI: NO
+  Closest Chair: 'StaffChair' at (-81.88, 2.81, 8.71), dist=1.21m (dxz=1.16m, dy=-0.37m)
+
+Total Chair objects in scene: 24
+  Chair: 'Seat' (parent='VP_VisitorChair_0') pos=(-88.79, 2.93, 7.03), rot=(0.00, 0.00, 0.00)
+  Chair: 'StaffChair' (parent='Workstation_1') pos=(-87.62, 2.77, 4.29), rot=(0.00, 270.00, 0.00)
+  Chair: 'Chair_Seat' (parent='04_Security_Station') pos=(-75.75, 2.81, 15.95), rot=(0.00, 0.00, 0.00)
+  Chair: 'StaffChair' (parent='Workstation_Lobby_2') pos=(-79.41, 2.79, 8.50), rot=(0.00, 64.97, 0.00)
+  Chair: 'Seat' (parent='VP_VisitorChair_1') pos=(-87.42, 2.93, 7.03), rot=(0.00, 0.00, 0.00)
+  Chair: 'StaffChair' (parent='Workstation_Lobby_3') pos=(-76.88, 2.81, 8.52), rot=(0.00, 58.66, 0.00)
+  Chair: 'StaffChair' (parent='Workstation_Lobby_1') pos=(-81.88, 2.81, 8.71), rot=(0.00, 47.70, 0.00)
+  Chair: 'Chair_Back' (parent='04_Security_Station') pos=(-75.55, 3.07, 15.95), rot=(0.00, 0.00, 0.00)
+  Chair: 'VP_VisitorChair_1' (parent='ExecutiveSuite_Private') pos=(-87.42, 2.33, 7.03), rot=(0.00, 0.00, 0.00)
+  Chair: 'VP_ExecutiveChair' (parent='ExecutiveSuite_Private') pos=(-88.10, 2.77, 9.08), rot=(0.00, 270.00, 0.00)
+  Chair: 'StaffChair' (parent='Workstation_Window_1') pos=(-82.84, 2.81, 2.67), rot=(0.00, 317.70, 0.00)
+  Chair: 'VP_VisitorChair_0' (parent='ExecutiveSuite_Private') pos=(-88.79, 2.33, 7.03), rot=(0.00, 0.00, 0.00)
+  Chair: 'StaffChair' (parent='Workstation_2') pos=(-90.09, 2.77, 4.29), rot=(0.00, 270.00, 0.00)
+  Chair: 'StaffChair' (parent='Workstation_Window_2') pos=(-82.63, 2.79, 5.12), rot=(0.00, 334.97, 0.00)
+  Chair: 'Chair_Post' (parent='04_Security_Station') pos=(-75.75, 2.58, 15.95), rot=(0.00, 0.00, 0.00)
+  Chair: 'StaffChair' (parent='Workstation_Window_3') pos=(-82.65, 2.81, 7.63), rot=(0.00, 328.66, 0.00)

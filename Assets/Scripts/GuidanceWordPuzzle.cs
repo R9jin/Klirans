@@ -23,7 +23,7 @@ public class GuidanceWordPuzzle : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<GuidanceWordPuzzle>(true);
+                _instance = FindAnyObjectByType<GuidanceWordPuzzle>(FindObjectsInactive.Include);
             }
             return _instance;
         }
@@ -212,7 +212,7 @@ public class GuidanceWordPuzzle : MonoBehaviour
         }
 
         // Immediately suppress interaction prompt so "Press E..." does not overlap
-        PlayerInteract playerInteract = FindObjectOfType<PlayerInteract>();
+        PlayerInteract playerInteract = FindAnyObjectByType<PlayerInteract>();
         if (playerInteract != null && playerInteract.promptText != null)
         {
             playerInteract.promptText.gameObject.SetActive(false);
@@ -244,7 +244,7 @@ public class GuidanceWordPuzzle : MonoBehaviour
         Cursor.visible = true;
 
         // Freeze player movement while evaluation sheet is open
-        var playerMovement = FindObjectOfType<PlayerMovement>();
+        var playerMovement = FindAnyObjectByType<PlayerMovement>();
         if (playerMovement != null) playerMovement.SetControlsEnabled(false);
 
         // Start ambient murmurs
@@ -277,7 +277,7 @@ public class GuidanceWordPuzzle : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        var playerMovement = FindObjectOfType<PlayerMovement>();
+        var playerMovement = FindAnyObjectByType<PlayerMovement>();
         if (playerMovement != null) playerMovement.SetControlsEnabled(true);
 
         if (_murmurLoopSource != null && _murmurLoopSource.isPlaying)
@@ -432,7 +432,7 @@ public class GuidanceWordPuzzle : MonoBehaviour
         ClosePuzzle();
 
         // Notify ClearanceNPC for Guidance Counselor (signature 1)
-        var npcs = FindObjectsOfType<ClearanceNPC>();
+        var npcs = FindObjectsByType<ClearanceNPC>(FindObjectsInactive.Include);
         foreach (var npc in npcs)
         {
             if (npc.signatureIndex == 1)

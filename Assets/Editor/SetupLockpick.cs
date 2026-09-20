@@ -162,7 +162,7 @@ public class SetupLockpick
         Debug.Log($"[SetupLockpick] 3D LockpinPickup positioned at {pickupObj.transform.position} with FloatingItemAnimation.");
 
         // 7. Find closest door to Player spawn and lock it!
-        DoorInteract[] doors = Object.FindObjectsByType<DoorInteract>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        DoorInteract[] doors = Object.FindObjectsByType<DoorInteract>(FindObjectsInactive.Exclude);
         if (doors != null && doors.Length > 0)
         {
             DoorInteract closestDoor = null;

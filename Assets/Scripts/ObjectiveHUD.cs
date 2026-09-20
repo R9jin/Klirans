@@ -62,14 +62,87 @@ public class ObjectiveHUD : MonoBehaviour
             _audioSource.playOnAwake = false;
             _audioSource.spatialBlend = 0f; // 2D UI sound
         }
+
+        EnforcePaperUIStyling();
     }
 
     private void Start()
     {
+        EnforcePaperUIStyling();
+
         // If no objective has been set yet, initialize based on game progress
         if (string.IsNullOrEmpty(_currentTitle))
         {
             EvaluateDefaultObjective();
+        }
+    }
+
+    /// <summary>
+    /// Enforces sharp typography, paper panel sizing, and non-clipping margins on the top-left HUD.
+    /// Unifies title and detail into a large, bold, high-contrast display that never blurs.
+    /// </summary>
+    public void EnforcePaperUIStyling()
+    {
+        var typewriterFont = Resources.Load<Font>("Fonts/Typewriter_Bold");
+        if (typewriterFont == null) typewriterFont = Resources.Load<Font>("Typewriter_Bold");
+#if UNITY_EDITOR
+        if (typewriterFont == null)
+            typewriterFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Typewriter_Bold.ttf");
+#endif
+        if (typewriterFont == null)
+            typewriterFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") 
+                          ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        // Ensure Canvas is in ScreenSpaceOverlay so 3D world geometry can NEVER occlude or clip the HUD
+        Canvas parentCanvas = GetComponentInParent<Canvas>();
+        if (parentCanvas != null && parentCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
+        {
+            parentCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        }
+
+        if (panelRoot != null)
+        {
+            var prt = panelRoot.GetComponent<RectTransform>();
+            if (prt != null)
+            {
+                prt.sizeDelta = new Vector2(460f, 155f);
+                prt.localRotation = Quaternion.Euler(0f, 0f, -1.8f);
+            }
+        }
+
+        // Hide legacy separate headerText to give full space to the main objective
+        if (headerText != null)
+        {
+            headerText.gameObject.SetActive(false);
+        }
+
+        // Main unified objective text (Large, bold typewriter ink)
+        if (titleText != null)
+        {
+            titleText.gameObject.SetActive(true);
+            var trt = titleText.GetComponent<RectTransform>();
+            if (trt != null)
+            {
+                trt.anchorMin = new Vector2(0f, 0f);
+                trt.anchorMax = new Vector2(1f, 1f);
+                trt.offsetMin = new Vector2(35f, 18f);
+                trt.offsetMax = new Vector2(-35f, -22f);
+            }
+            titleText.font = typewriterFont;
+            titleText.fontSize = 20;
+            titleText.fontStyle = FontStyle.Bold;
+            titleText.lineSpacing = 1.25f;
+            titleText.alignment = TextAnchor.MiddleCenter;
+            titleText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            titleText.verticalOverflow = VerticalWrapMode.Overflow;
+            titleText.supportRichText = true;
+            titleText.color = new Color(0.06f, 0.04f, 0.04f, 1f); // solid dark ink
+        }
+
+        // Hide detailText as a separate element since titleText formats title + detail together
+        if (detailText != null)
+        {
+            detailText.gameObject.SetActive(false);
         }
     }
 
@@ -80,13 +153,13 @@ public class ObjectiveHUD : MonoBehaviour
     {
         if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)
         {
-            SetObjective("Escape The Campus", "Clearance officially validated. The campus main gates are unlocked—escape now!");
+            SetObjective("Escape The Campus", "Campus main gates unlocked. Exit through Lobby!");
             return;
         }
 
         if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsFullyClear())
         {
-            SetObjective("Submit Clearance Slip (6/6)", "All 6 department signatures gathered. Return to the University Registrar in Room 104 on the ground floor to authorize gate release.");
+            SetObjective("Submit Clearance Slip (6/6)", "Return to University Registrar in Room 104");
             return;
         }
 
@@ -112,25 +185,25 @@ public class ObjectiveHUD : MonoBehaviour
 
         if (hasPaper)
         {
-            SetObjective("Head Librarian Clearance (1/6)", "Report to the Head Librarian in Room 308 (3rd Floor) to obtain your first signature.");
+            SetObjective("Head Librarian Clearance (1/6)", "Report to Room 308 on the 3rd Floor");
             return;
         }
 
         int fragCount = FragmentManager.Instance != null ? FragmentManager.Instance.GetCollectedCount() : 0;
         if (fragCount > 0)
         {
-            SetObjective($"Find Clearance Fragments ({fragCount}/4)", $"Search the building corridors for the remaining torn clearance slip fragments ({fragCount}/4).");
+            SetObjective(
+                $"Find or Craft Clearance Slip ({fragCount}/4)",
+                $"Search corridors for 4 torn fragments ({fragCount}/4)"
+            );
             return;
         }
 
-        // Initial state before player discovers the exit lockdown:
-        if (!HasDiscoveredExitLockdown)
-        {
-            SetObjective("Find an Exit", "Search the ground floor lobby for a way out of the campus.");
-            return;
-        }
-
-        SetObjective("Find Clearance Fragments (0/4)", "The main exit gates are under security lockdown. Search the corridors for the 4 torn clearance slip fragments (0/4).");
+        // Initial starting objective: clearly directs the player from the very start
+        SetObjective(
+            "Find or Craft Clearance Slip (0/4)",
+            "Search corridors for 4 torn fragments"
+        );
     }
 
     /// <summary>
@@ -145,25 +218,24 @@ public class ObjectiveHUD : MonoBehaviour
 
         if (panelRoot != null) panelRoot.SetActive(true);
 
-        // Immediate text assignment
-        if (headerText != null)
-        {
-            headerText.text = "OBJECTIVE:";
-            headerText.color = headerColor;
-        }
+        EnforcePaperUIStyling();
 
+        // Unified large text formatting
         if (titleText != null)
         {
-            titleText.text = title;
-            titleText.color = titleColor;
+            if (string.IsNullOrEmpty(detail))
+            {
+                titleText.text = title.ToUpper();
+            }
+            else
+            {
+                titleText.text = $"{title.ToUpper()}\n<size=15><color=#551111>• {detail}</color></size>";
+            }
+            titleText.color = new Color(0.06f, 0.04f, 0.04f, 1f);
         }
 
-        if (detailText != null)
-        {
-            detailText.text = detail;
-            detailText.color = detailColor;
-            detailText.gameObject.SetActive(!string.IsNullOrEmpty(detail));
-        }
+        if (detailText != null) detailText.gameObject.SetActive(false);
+        if (headerText != null) headerText.gameObject.SetActive(false);
 
         if (Application.isPlaying)
         {
@@ -184,25 +256,25 @@ public class ObjectiveHUD : MonoBehaviour
         switch (sigIndex)
         {
             case 0:
-                SetObjective("Head Librarian Clearance (1/6)", "Report to the Head Librarian in Room 308 (3rd Floor) to obtain your first signature.");
+                SetObjective("Head Librarian Clearance (1/6)", "Report to Room 308 on the 3rd Floor");
                 break;
             case 1:
-                SetObjective("Guidance Clearance (2/6)", "Report to the Guidance Counselor in Room 207 (2nd Floor).");
+                SetObjective("Guidance Clearance (2/6)", "Report to Room 207 on the 2nd Floor");
                 break;
             case 2:
-                SetObjective("CCS Dean Clearance (3/6)", "Report to the College of Computing Studies Dean in Room 202 (2nd Floor).");
+                SetObjective("CCS Dean Clearance (3/6)", "Report to Room 202 on the 2nd Floor");
                 break;
             case 3:
-                SetObjective("Registrar Clearance (4/6)", "Report to Window 2 of the University Registrar in Room 104 (Ground Floor).");
+                SetObjective("Registrar Clearance (4/6)", "Report to Room 104 Window 2 on Ground Floor");
                 break;
             case 4:
-                SetObjective("Cashier Clearance (5/6)", "Report to Window 2 of the University Cashier in Room 102 (Ground Floor).");
+                SetObjective("Cashier Clearance (5/6)", "Report to Room 102 Window 2 on Ground Floor");
                 break;
             case 5:
-                SetObjective("Executive Office Clearance (6/6)", "Report to the Office of the Executive Vice President in Room 103 — Executive Office (Ground Floor).");
+                SetObjective("Executive Office Clearance (6/6)", "Report to Room 103 on Ground Floor");
                 break;
             default:
-                SetObjective("Final Slip Submission", "Return to the University Registrar in Room 104 to officially submit your clearance slip.");
+                SetObjective("Submit Clearance Slip (6/6)", "Return to Registrar in Room 104 to unlock gates");
                 break;
         }
     }
@@ -227,24 +299,21 @@ public class ObjectiveHUD : MonoBehaviour
             }
         }
 
-        if (headerText != null)
-        {
-            headerText.text = "OBJECTIVE:";
-            headerText.color = headerColor;
-        }
-
         if (titleText != null)
         {
-            titleText.text = title;
-            titleText.color = titleColor;
+            if (string.IsNullOrEmpty(detail))
+            {
+                titleText.text = title.ToUpper();
+            }
+            else
+            {
+                titleText.text = $"{title.ToUpper()}\n<size=15><color=#551111>• {detail}</color></size>";
+            }
+            titleText.color = new Color(0.06f, 0.04f, 0.04f, 1f);
         }
 
-        if (detailText != null)
-        {
-            detailText.text = detail;
-            detailText.color = detailColor;
-            detailText.gameObject.SetActive(!string.IsNullOrEmpty(detail));
-        }
+        if (detailText != null) detailText.gameObject.SetActive(false);
+        if (headerText != null) headerText.gameObject.SetActive(false);
 
         if (canvasGroup != null)
         {

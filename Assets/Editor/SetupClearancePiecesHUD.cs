@@ -23,7 +23,7 @@ public static class SetupClearancePiecesHUD
         }
 
         // 2. Clear startingItems on InventoryManager
-        var inv = GameObject.FindObjectOfType<InventoryManager>();
+        var inv = Object.FindAnyObjectByType<InventoryManager>();
         if (inv != null)
         {
             inv.startingItems = new InventoryItem[0];

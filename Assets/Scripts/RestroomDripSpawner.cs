@@ -31,8 +31,7 @@ public class RestroomDripSpawner : MonoBehaviour
             return;
         }
 
-        var all = Object.FindObjectsByType<GameObject>(
-            FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var all = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
 
         int created = 0;
         foreach (var go in all)
@@ -55,8 +54,7 @@ public class RestroomDripSpawner : MonoBehaviour
     [ContextMenu("Remove All Drip Emitters")]
     public void RemoveAll()
     {
-        var emitters = Object.FindObjectsByType<RestroomDripAudio>(
-            FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var emitters = Object.FindObjectsByType<RestroomDripAudio>(FindObjectsInactive.Include);
         foreach (var e in emitters)
         {
             // Remove the whole host GameObject if we made it, else just the component

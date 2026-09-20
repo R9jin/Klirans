@@ -9,7 +9,7 @@ public class CreatePauseMenuUI : EditorWindow
     public static void CreateUI()
     {
         // 1. EventSystem
-        if (Object.FindObjectOfType<EventSystem>() == null)
+        if (Object.FindAnyObjectByType<EventSystem>() == null)
         {
             GameObject esObj = new GameObject("EventSystem");
             esObj.AddComponent<EventSystem>();

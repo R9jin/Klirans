@@ -22,7 +22,7 @@ public class RegistrarDocumentSortPuzzle : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<RegistrarDocumentSortPuzzle>(true);
+                _instance = FindAnyObjectByType<RegistrarDocumentSortPuzzle>(FindObjectsInactive.Include);
             }
             return _instance;
         }
@@ -271,10 +271,11 @@ public class RegistrarDocumentSortPuzzle : MonoBehaviour
         {
             documentCardTransform.anchoredPosition = _docCardInitialPos;
             documentCardTransform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(-1.2f, 1.2f));
+            SetupDragHandlers();
         }
 
         // Suppress player interaction prompt so "Press E..." does not overlap
-        PlayerInteract playerInteract = FindObjectOfType<PlayerInteract>();
+        PlayerInteract playerInteract = FindAnyObjectByType<PlayerInteract>();
         if (playerInteract != null && playerInteract.promptText != null)
         {
             playerInteract.promptText.gameObject.SetActive(false);
@@ -283,7 +284,7 @@ public class RegistrarDocumentSortPuzzle : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        var playerMovement = FindObjectOfType<PlayerMovement>();
+        var playerMovement = FindAnyObjectByType<PlayerMovement>();
         if (playerMovement != null) playerMovement.SetControlsEnabled(false);
 
         // Header info
@@ -314,7 +315,7 @@ public class RegistrarDocumentSortPuzzle : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        var playerMovement = FindObjectOfType<PlayerMovement>();
+        var playerMovement = FindAnyObjectByType<PlayerMovement>();
         if (playerMovement != null) playerMovement.SetControlsEnabled(true);
     }
 
@@ -555,7 +556,7 @@ public class RegistrarDocumentSortPuzzle : MonoBehaviour
         ClosePuzzle();
 
         // Notify Registrar ClearanceNPC (signature 3)
-        var npcs = FindObjectsOfType<ClearanceNPC>();
+        var npcs = FindObjectsByType<ClearanceNPC>(FindObjectsInactive.Include);
         foreach (var npc in npcs)
         {
             if (npc.signatureIndex == 3)
@@ -569,52 +570,130 @@ public class RegistrarDocumentSortPuzzle : MonoBehaviour
     // ── Drag & Drop Implementation ─────────────────────────────────────────────
     private void SetupDragHandlers()
     {
-        EventTrigger trigger = documentCardTransform.gameObject.GetComponent<EventTrigger>();
-        if (trigger == null) trigger = documentCardTransform.gameObject.AddComponent<EventTrigger>();
+        if (documentCardTransform == null) return;
 
-        // Drag entry
-        EventTrigger.Entry dragEntry = new EventTrigger.Entry { eventID = EventTriggerType.Drag };
-        dragEntry.callback.AddListener((data) => { OnCardDragged((PointerEventData)data); });
-        trigger.triggers.Add(dragEntry);
+        // Clean up legacy EventTrigger if present
+        var oldTrigger = documentCardTransform.GetComponent<EventTrigger>();
+        if (oldTrigger != null) Destroy(oldTrigger);
 
-        // End Drag entry
-        EventTrigger.Entry endDragEntry = new EventTrigger.Entry { eventID = EventTriggerType.EndDrag };
-        endDragEntry.callback.AddListener((data) => { OnCardEndDrag((PointerEventData)data); });
-        trigger.triggers.Add(endDragEntry);
+        var dragDrop = documentCardTransform.GetComponent<RegistrarCardDragDrop>();
+        if (dragDrop == null) dragDrop = documentCardTransform.gameObject.AddComponent<RegistrarCardDragDrop>();
+        dragDrop.Init(this);
     }
 
-    private void OnCardDragged(PointerEventData data)
-    {
-        if (IsSolved || !IsOpen) return;
-        documentCardTransform.position = data.position;
-    }
-
-    private void OnCardEndDrag(PointerEventData data)
+    public void HandleCardDrop(PointerEventData data)
     {
         if (IsSolved || !IsOpen) return;
 
-        int closestTray = -1;
-        float closestDist = 160f; // threshold radius
+        int targetTray = -1;
+        float closestDist = 220f;
 
         for (int i = 0; i < trayUIList.Count; i++)
         {
-            if (!trayUIList[i].trayObject.activeSelf) continue;
+            if (trayUIList[i] == null || trayUIList[i].trayObject == null || !trayUIList[i].trayObject.activeSelf) continue;
+
+            // 1. Precise containment check
+            if (RectTransformUtility.RectangleContainsScreenPoint(trayUIList[i].trayRect, data.position, data.pressEventCamera))
+            {
+                targetTray = i;
+                break;
+            }
+
+            // 2. Proximity check
             float dist = Vector2.Distance(documentCardTransform.position, trayUIList[i].trayRect.position);
             if (dist < closestDist)
             {
                 closestDist = dist;
-                closestTray = i;
+                targetTray = i;
             }
         }
 
-        if (closestTray >= 0)
+        if (targetTray >= 0)
         {
-            TrySortToTray(closestTray);
+            TrySortToTray(targetTray);
         }
         else
         {
             // Snap back
             documentCardTransform.anchoredPosition = _docCardInitialPos;
+        }
+    }
+}
+
+/// <summary>
+/// Dedicated drag-and-drop controller for student document cards.
+/// Ensures reliable Unity EventSystem dragging and disables raycast targeting on child text.
+/// </summary>
+public class RegistrarCardDragDrop : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+{
+    private RegistrarDocumentSortPuzzle _puzzle;
+    private RectTransform _rectTransform;
+    private CanvasGroup _canvasGroup;
+    private Vector2 _dragOffset;
+
+    public void Init(RegistrarDocumentSortPuzzle puzzle)
+    {
+        _puzzle = puzzle;
+        _rectTransform = GetComponent<RectTransform>();
+        _canvasGroup = GetComponent<CanvasGroup>();
+        if (_canvasGroup == null) _canvasGroup = gameObject.AddComponent<CanvasGroup>();
+
+        // Disable raycastTarget on all child texts/banners so mouse events hit this card directly
+        foreach (var g in GetComponentsInChildren<Graphic>(true))
+        {
+            if (g.gameObject != gameObject)
+            {
+                g.raycastTarget = false;
+            }
+        }
+
+        var myImg = GetComponent<Image>();
+        if (myImg != null) myImg.raycastTarget = true;
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        if (_puzzle == null || !_puzzle.IsOpen || _puzzle.IsSolved) return;
+
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.blocksRaycasts = false;
+            _canvasGroup.alpha = 0.88f;
+        }
+
+        RectTransform parentRect = _rectTransform.parent as RectTransform;
+        if (parentRect != null)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, eventData.position, eventData.pressEventCamera, out Vector2 localPoint);
+            _dragOffset = _rectTransform.anchoredPosition - localPoint;
+        }
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (_puzzle == null || !_puzzle.IsOpen || _puzzle.IsSolved) return;
+
+        RectTransform parentRect = _rectTransform.parent as RectTransform;
+        if (parentRect != null)
+        {
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(parentRect, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
+            {
+                _rectTransform.anchoredPosition = localPoint + _dragOffset;
+            }
+        }
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.blocksRaycasts = true;
+            _canvasGroup.alpha = 1f;
+        }
+
+        if (_puzzle != null)
+        {
+            _puzzle.HandleCardDrop(eventData);
         }
     }
 }

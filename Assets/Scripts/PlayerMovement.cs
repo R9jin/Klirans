@@ -315,4 +315,16 @@ public class PlayerMovement : MonoBehaviour
         
         transform.rotation *= Quaternion.Euler(0f, Input.GetAxis("Mouse X") * lookSpeed, 0f);
     }
+
+    /// <summary>
+    /// Synchronizes rotationX mouse pitch when dialogue or cinematic camera override ends.
+    /// </summary>
+    public void SyncPitch(float pitch)
+    {
+        rotationX = Mathf.Clamp(pitch, -lookXLimit, lookXLimit);
+        if (playerCamera != null)
+        {
+            playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0f, 0f);
+        }
+    }
 }

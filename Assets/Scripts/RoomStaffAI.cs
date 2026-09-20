@@ -29,6 +29,7 @@ public class RoomStaffAI : MonoBehaviour
     // Runtime state
     private Animator _animator;
     private Transform _playerTransform;
+    private NPCSitController _sitController;
     private bool _isTalking = false;
     private Quaternion _homeRotation;
     private Vector3 _homePosition;
@@ -39,6 +40,7 @@ public class RoomStaffAI : MonoBehaviour
     private void Awake()
     {
         _animator = GetComponentInChildren<Animator>();
+        _sitController = GetComponent<NPCSitController>();
         _homeRotation = transform.rotation;
         _homePosition = transform.position;
 
@@ -48,21 +50,31 @@ public class RoomStaffAI : MonoBehaviour
 
     private void Start()
     {
+        if (_sitController == null) _sitController = GetComponent<NPCSitController>();
+
         var playerGO = GameObject.FindGameObjectWithTag("Player");
         if (playerGO != null)
         {
             _playerTransform = playerGO.transform;
         }
 
-        // Lock to exact home post
-        transform.position = _homePosition;
-        transform.rotation = _homeRotation;
+        // Lock to exact home post if not handled by chair controller
+        if (_sitController == null || !_sitController.HasChair)
+        {
+            transform.position = _homePosition;
+            transform.rotation = _homeRotation;
+        }
     }
 
     private void Update()
     {
-        // Enforce stationary desk post (prevent physics drift from chairs or colliders)
-        transform.position = _homePosition;
+        bool hasChair = _sitController != null && _sitController.HasChair;
+
+        // If not managed by chair controller, enforce stationary post
+        if (!hasChair)
+        {
+            transform.position = _homePosition;
+        }
 
         if (_isTalking)
         {
@@ -71,7 +83,14 @@ public class RoomStaffAI : MonoBehaviour
             return;
         }
 
-        // Check player proximity
+        // If seated on a chair, the NPC only stands when interacted with
+        if (hasChair)
+        {
+            UpdateAnimator(0f, false);
+            return;
+        }
+
+        // Check player proximity for non-chair staff
         if (_playerTransform != null)
         {
             float distToPlayer = Vector3.Distance(transform.position, _playerTransform.position);
@@ -119,6 +138,19 @@ public class RoomStaffAI : MonoBehaviour
     {
         _isTalking = talking;
         UpdateAnimator(0f, talking);
+
+        if (_sitController == null) _sitController = GetComponent<NPCSitController>();
+        if (_sitController != null && _sitController.HasChair)
+        {
+            if (talking)
+            {
+                _sitController.StandUp();
+            }
+            else
+            {
+                _sitController.SitDown();
+            }
+        }
     }
 
     /// <summary>

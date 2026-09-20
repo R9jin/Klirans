@@ -12,6 +12,14 @@ public class MainMenuController : MonoBehaviour
     public GameObject settingsPanel;
     public GameObject creditsPanel;
 
+    [Header("Headphone Notice")]
+    public GameObject headphoneNoticePanel;
+    public CanvasGroup headphoneCanvasGroup;
+    public Text headphonePromptText;
+    public float noticeAutoAdvanceTime = 5.0f;
+    public float noticeFadeDuration = 0.7f;
+    public static bool HasShownHeadphoneNotice = false;
+
     [Header("Audio Settings Controls")]
     public Slider volumeSlider;
     public Text volumeValueText;
@@ -26,6 +34,7 @@ public class MainMenuController : MonoBehaviour
 
     private AudioSource _bgmSource;
     private AudioSource _sfxSource;
+    private CanvasGroup _menuUIGroup;
 
     private void Awake()
     {
@@ -41,6 +50,12 @@ public class MainMenuController : MonoBehaviour
         _sfxSource.playOnAwake = false;
         _sfxSource.spatialBlend = 0f;
         _sfxSource.volume = 0.8f;
+
+        // Immediately hide notice in Awake if already shown this session to avoid any frame flicker
+        if (HasShownHeadphoneNotice && headphoneNoticePanel != null)
+        {
+            headphoneNoticePanel.SetActive(false);
+        }
     }
 
     private void Start()
@@ -84,15 +99,138 @@ public class MainMenuController : MonoBehaviour
         UpdateSensitivityText(savedSens);
 
         // Initial panel state
-        if (mainButtonsPanel != null) mainButtonsPanel.SetActive(true);
         if (settingsPanel != null) settingsPanel.SetActive(false);
         if (creditsPanel != null) creditsPanel.SetActive(false);
 
-        // Play BGM
+        // Locate CanvasGroup on MainMenu_UI
+        var canvas = GameObject.Find("Canvas");
+        if (canvas != null)
+        {
+            var menuUITrans = canvas.transform.Find("MainMenu_UI");
+            if (menuUITrans != null)
+            {
+                _menuUIGroup = menuUITrans.GetComponent<CanvasGroup>();
+                if (_menuUIGroup == null) _menuUIGroup = menuUITrans.gameObject.AddComponent<CanvasGroup>();
+            }
+        }
+
+        // Headphone recommendation check (only on first load of the game session)
+        if (!HasShownHeadphoneNotice && headphoneNoticePanel != null)
+        {
+            if (mainButtonsPanel != null) mainButtonsPanel.SetActive(false);
+            if (_menuUIGroup != null) _menuUIGroup.alpha = 0f;
+            StartCoroutine(ShowHeadphoneNoticeRoutine());
+        }
+        else
+        {
+            // Already shown this session, or panel not assigned: immediately show Main Menu
+            if (headphoneNoticePanel != null) headphoneNoticePanel.SetActive(false);
+            if (mainButtonsPanel != null) mainButtonsPanel.SetActive(true);
+            if (_menuUIGroup != null) _menuUIGroup.alpha = 1f;
+
+            if (menuBGM != null && _bgmSource != null)
+            {
+                _bgmSource.clip = menuBGM;
+                _bgmSource.volume = 0.5f;
+                _bgmSource.Play();
+            }
+        }
+    }
+
+    private System.Collections.IEnumerator ShowHeadphoneNoticeRoutine()
+    {
+        headphoneNoticePanel.SetActive(true);
+        if (headphoneCanvasGroup != null)
+        {
+            headphoneCanvasGroup.alpha = 1f;
+            headphoneCanvasGroup.blocksRaycasts = true;
+        }
+
+        float timer = 0f;
+        bool continueRequested = false;
+
+        while (timer < noticeAutoAdvanceTime && !continueRequested)
+        {
+            timer += Time.unscaledDeltaTime;
+
+            // Breathing pulse on prompt text
+            if (headphonePromptText != null)
+            {
+                float pulse = 0.4f + 0.6f * Mathf.PingPong(timer * 1.6f, 1f);
+                Color c = headphonePromptText.color;
+                c.a = pulse;
+                headphonePromptText.color = c;
+            }
+
+            // Allow skip after a brief delay (0.35s) so accidental taps don't instantly skip
+            if (timer >= 0.35f)
+            {
+                if (Input.anyKeyDown || Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1))
+                {
+                    continueRequested = true;
+                }
+            }
+
+            yield return null;
+        }
+
+        // Mark as shown for the remainder of this game session
+        HasShownHeadphoneNotice = true;
+
+        PlayClickSFX();
+
+        // Fade in BGM
         if (menuBGM != null && _bgmSource != null)
         {
             _bgmSource.clip = menuBGM;
+            _bgmSource.volume = 0f;
             _bgmSource.Play();
+        }
+
+        if (mainButtonsPanel != null) mainButtonsPanel.SetActive(true);
+
+        float fadeTimer = 0f;
+        float targetBgmVolume = 0.5f;
+
+        while (fadeTimer < noticeFadeDuration)
+        {
+            fadeTimer += Time.unscaledDeltaTime;
+            float progress = Mathf.Clamp01(fadeTimer / noticeFadeDuration);
+
+            if (headphoneCanvasGroup != null)
+            {
+                headphoneCanvasGroup.alpha = 1f - progress;
+            }
+
+            if (_menuUIGroup != null)
+            {
+                _menuUIGroup.alpha = progress;
+            }
+
+            if (_bgmSource != null)
+            {
+                _bgmSource.volume = progress * targetBgmVolume;
+            }
+
+            yield return null;
+        }
+
+        if (headphoneCanvasGroup != null)
+        {
+            headphoneCanvasGroup.alpha = 0f;
+            headphoneCanvasGroup.blocksRaycasts = false;
+        }
+        if (headphoneNoticePanel != null)
+        {
+            headphoneNoticePanel.SetActive(false);
+        }
+        if (_menuUIGroup != null)
+        {
+            _menuUIGroup.alpha = 1f;
+        }
+        if (_bgmSource != null)
+        {
+            _bgmSource.volume = targetBgmVolume;
         }
     }
 
@@ -115,8 +253,8 @@ public class MainMenuController : MonoBehaviour
     public void PlayGame()
     {
         PlayClickSFX();
-        Debug.Log("[MainMenuController] Starting game -> SampleScene");
-        SceneManager.LoadScene("SampleScene");
+        Debug.Log("[MainMenuController] Starting game -> SampleScene (via LoadingScreen)");
+        LoadingScreen.LoadScene("SampleScene");
     }
 
     public void OpenSettings()

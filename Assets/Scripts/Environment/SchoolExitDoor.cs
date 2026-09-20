@@ -119,7 +119,7 @@ namespace Klirans.Environment
         /// </summary>
         private void TriggerDiscoveredLockdownObjective()
         {
-            var hud = ObjectiveHUD.Instance ?? FindObjectOfType<ObjectiveHUD>();
+            var hud = ObjectiveHUD.Instance ?? FindAnyObjectByType<ObjectiveHUD>();
             if (hud == null) return;
 
             if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)
@@ -161,8 +161,8 @@ namespace Klirans.Environment
 
             int fragCount = FragmentManager.Instance != null ? FragmentManager.Instance.GetCollectedCount() : 0;
             hud.SetObjective(
-                $"Find Clearance Fragments ({fragCount}/4)",
-                $"The main exit gates are under security lockdown. Search the building corridors for the 4 torn clearance slip fragments ({fragCount}/4)."
+                $"Find or Craft Clearance Slip ({fragCount}/4)",
+                $"Search the school corridors for the 4 torn clearance slip fragments ({fragCount}/4) to craft your clearance paper."
             );
         }
 

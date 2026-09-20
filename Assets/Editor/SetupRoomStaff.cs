@@ -294,7 +294,9 @@ public static class SetupRoomStaff
                 wpT.position = cfg.waypoints[i];
                 wpList.Add(wpT);
             }
+#pragma warning disable CS0618
             staffAI.waypoints = wpList.ToArray();
+#pragma warning restore CS0618
 
             // Visual Model Attachment
             Transform modelChild = staffGO.transform.Find("VisualModel");

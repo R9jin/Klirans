@@ -114,9 +114,19 @@ public class GamePerformanceOptimizer : MonoBehaviour
     /// </summary>
     public void CacheLights()
     {
-        _allLights = FindObjectsOfType<Light>(true);
-        if (_allLights == null) return;
+        var rawLights = FindObjectsByType<Light>(FindObjectsInactive.Include);
+        if (rawLights == null) return;
 
+        var list = new System.Collections.Generic.List<Light>(rawLights.Length);
+        for (int i = 0; i < rawLights.Length; i++)
+        {
+            if (rawLights[i] != null && rawLights[i].gameObject.name != "FlashlightLight")
+            {
+                list.Add(rawLights[i]);
+            }
+        }
+
+        _allLights = list.ToArray();
         _lightCount = _allLights.Length;
         _lightPositions = new Vector3[_lightCount];
         _isLightDirectional = new bool[_lightCount];
@@ -145,33 +155,39 @@ public class GamePerformanceOptimizer : MonoBehaviour
                 float pZ = pPos.z;
 
                 // 1. Light Culling
-                for (int i = 0; i < _lightCount; i++)
+                // Skip light culling while BlackoutManager has a blackout active —
+                // BlackoutManager exclusively controls light state during blackouts.
+                bool blackoutActive = BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive;
+                if (!blackoutActive)
                 {
-                    Light l = _allLights[i];
-                    if (l == null) continue;
-
-                    // Directional lights are global (never cull)
-                    if (_isLightDirectional[i]) continue;
-
-                    Vector3 lPos = _lightPositions[i];
-
-                    // Floor check (vertical distance)
-                    float dy = Mathf.Abs(lPos.y - pY);
-                    if (dy > lightCullVerticalDist)
+                    for (int i = 0; i < _lightCount; i++)
                     {
-                        if (l.enabled) l.enabled = false;
-                        continue;
-                    }
+                        Light l = _allLights[i];
+                        if (l == null) continue;
 
-                    // Horizontal distance check
-                    float dx = lPos.x - pX;
-                    float dz = lPos.z - pZ;
-                    float sqrDist = (dx * dx) + (dz * dz);
+                        // Directional lights are global (never cull)
+                        if (_isLightDirectional[i]) continue;
 
-                    bool shouldEnable = (sqrDist <= _sqrHorizDist);
-                    if (l.enabled != shouldEnable)
-                    {
-                        l.enabled = shouldEnable;
+                        Vector3 lPos = _lightPositions[i];
+
+                        // Floor check (vertical distance)
+                        float dy = Mathf.Abs(lPos.y - pY);
+                        if (dy > lightCullVerticalDist)
+                        {
+                            if (l.enabled) l.enabled = false;
+                            continue;
+                        }
+
+                        // Horizontal distance check
+                        float dx = lPos.x - pX;
+                        float dz = lPos.z - pZ;
+                        float sqrDist = (dx * dx) + (dz * dz);
+
+                        bool shouldEnable = (sqrDist <= _sqrHorizDist);
+                        if (l.enabled != shouldEnable)
+                        {
+                            l.enabled = shouldEnable;
+                        }
                     }
                 }
 
