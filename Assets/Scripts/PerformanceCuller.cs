@@ -65,8 +65,8 @@ public class PerformanceCuller : MonoBehaviour
     /// <summary>Rebuild renderer/light lists (call after scene changes or room loads).</summary>
     public void RefreshCache()
     {
-        _allRenderers = FindObjectsOfType<Renderer>(true);
-        _allLights    = FindObjectsOfType<Light>(true);
+        _allRenderers = FindObjectsByType<Renderer>(FindObjectsInactive.Include);
+        _allLights    = FindObjectsByType<Light>(FindObjectsInactive.Include);
     }
 
     private IEnumerator CullRoutine()

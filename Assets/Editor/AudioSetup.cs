@@ -8,8 +8,8 @@ public class AudioSetup
     public static void SetupGameAudio()
     {
         // Find Player
-        PlayerMovement playerMovement = Object.FindFirstObjectByType<PlayerMovement>();
-        StaminaSystem staminaSystem = Object.FindFirstObjectByType<StaminaSystem>();
+        PlayerMovement playerMovement = Object.FindAnyObjectByType<PlayerMovement>();
+        StaminaSystem staminaSystem = Object.FindAnyObjectByType<StaminaSystem>();
 
         if (playerMovement == null || staminaSystem == null)
         {
@@ -40,7 +40,7 @@ public class AudioSetup
         }
 
         // Setup BGM
-        BGMController existingBGM = Object.FindFirstObjectByType<BGMController>();
+        BGMController existingBGM = Object.FindAnyObjectByType<BGMController>();
         if (existingBGM == null)
         {
             GameObject bgmObj = new GameObject("BGMManager");

@@ -114,7 +114,7 @@ public class InventoryEquipController : MonoBehaviour
     /// </summary>
     public void SelectSlot(int slotIndex)
     {
-        InventoryManager inventory = InventoryManager.Instance ?? FindObjectOfType<InventoryManager>(true);
+        InventoryManager inventory = InventoryManager.Instance ?? FindAnyObjectByType<InventoryManager>(FindObjectsInactive.Include);
         if (inventory == null)
         {
             Debug.LogWarning("[InventoryEquipController] InventoryManager instance not found!");
@@ -169,7 +169,7 @@ public class InventoryEquipController : MonoBehaviour
         // 1. Flashlight Handling
         if (itemNameLower.Contains("flashlight") || (flashlightItemData != null && item == flashlightItemData))
         {
-            FlashlightController flashlight = FlashlightController.Instance ?? FindObjectOfType<FlashlightController>(true);
+            FlashlightController flashlight = FlashlightController.Instance ?? FindAnyObjectByType<FlashlightController>(FindObjectsInactive.Include);
             if (flashlight != null)
             {
                 flashlight.SetEquippedState(true);
@@ -239,7 +239,7 @@ public class InventoryEquipController : MonoBehaviour
         }
 
         // Stow flashlight & turn off light
-        FlashlightController flashlight = FlashlightController.Instance ?? FindObjectOfType<FlashlightController>(true);
+        FlashlightController flashlight = FlashlightController.Instance ?? FindAnyObjectByType<FlashlightController>(FindObjectsInactive.Include);
         if (flashlight != null)
         {
             flashlight.SetEquippedState(false);

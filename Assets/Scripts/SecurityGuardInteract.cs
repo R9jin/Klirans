@@ -139,7 +139,7 @@ public class SecurityGuardInteract : MonoBehaviour, IInteractable
             _audioSource.Play();
         }
 
-        var diag = NPCDialogueSystem.Instance ?? FindObjectOfType<NPCDialogueSystem>();
+        var diag = NPCDialogueSystem.Instance ?? FindAnyObjectByType<NPCDialogueSystem>();
         if (diag != null)
         {
             diag.StartDialogue(transform, guardName, message, "CAMPUS SECURITY CHECKPOINT — MAIN LOBBY", OnDialogueEnded);

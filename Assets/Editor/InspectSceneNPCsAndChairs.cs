@@ -19,7 +19,7 @@ public static class InspectSceneNPCsAndChairs
         sb.AppendLine("=== NPC AND CHAIR AUDIT ===");
 
         // Find all chairs
-        var allGOs = Object.FindObjectsOfType<GameObject>();
+        var allGOs = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
         var chairs = new System.Collections.Generic.List<GameObject>();
         var npcs = new System.Collections.Generic.List<GameObject>();
 

@@ -120,7 +120,7 @@ public static class DeployAllNPCSitting
             }
 
             // Find closest chair to seated position
-            var allChairs = Object.FindObjectsOfType<GameObject>();
+            var allChairs = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
             GameObject chairGO = null;
             float minD = 5.0f;
             foreach (var c in allChairs)

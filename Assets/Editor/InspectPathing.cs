@@ -70,6 +70,7 @@ public static class InspectPathing
             if (staffAI != null)
             {
                 sb.AppendLine($"  StaffAI: role='{staffAI.staffRole}', awarenessRadius={staffAI.awarenessRadius}, moveSpeed={staffAI.moveSpeed}");
+#pragma warning disable CS0618
                 sb.AppendLine($"  Waypoints Count: {staffAI.waypoints?.Length ?? 0}");
                 if (staffAI.waypoints != null)
                 {
@@ -80,6 +81,7 @@ public static class InspectPathing
                         sb.AppendLine($"    WP[{i}]: '{wp.name}' at {wp.position}, Parent: '{wp.parent?.name}'");
                     }
                 }
+#pragma warning restore CS0618
             }
         }
 

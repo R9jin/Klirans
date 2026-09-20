@@ -22,7 +22,7 @@ public class FloorPlaqueSetup : MonoBehaviour
     [ContextMenu("Regenerate Plaques")]
     public void SetupPlaques()
     {
-        DoorInteract[] doors = FindObjectsByType<DoorInteract>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        DoorInteract[] doors = FindObjectsByType<DoorInteract>(FindObjectsInactive.Include);
         
         // Find or create a container for all room numbers to keep the hierarchy clean
         GameObject container = GameObject.Find("RoomNumbersContainer");
@@ -105,7 +105,7 @@ public class FloorPlaqueSetup : MonoBehaviour
     {
         if (!showGizmos) return;
 
-        DoorInteract[] doors = FindObjectsByType<DoorInteract>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        DoorInteract[] doors = FindObjectsByType<DoorInteract>(FindObjectsInactive.Include);
         if (doors == null) return;
 
         Gizmos.color = Color.yellow;

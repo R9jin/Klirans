@@ -1,1 +1,1 @@
-Hello from Unity Editor! Scene: SampleScene
+Hello from Unity Editor! Scene: MainMenu

@@ -68,7 +68,7 @@ namespace Klirans.Environment
             }
             else
             {
-                var cam = FindFirstObjectByType<Camera>();
+                var cam = FindAnyObjectByType<Camera>();
                 if (cam != null) playerCameraTransform = cam.transform;
             }
         }

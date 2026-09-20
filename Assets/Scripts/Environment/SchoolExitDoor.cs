@@ -119,7 +119,7 @@ namespace Klirans.Environment
         /// </summary>
         private void TriggerDiscoveredLockdownObjective()
         {
-            var hud = ObjectiveHUD.Instance ?? FindObjectOfType<ObjectiveHUD>();
+            var hud = ObjectiveHUD.Instance ?? FindAnyObjectByType<ObjectiveHUD>();
             if (hud == null) return;
 
             if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)

@@ -4,13 +4,12 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Triggers authentic FNAF-style NPC face jumpscares while exploring campus:
-/// 1. Bakes the animated face of a campus NPC (Proctor, Drei, Cashier, Guard, etc.).
-/// 2. Centers the terrifying, screaming face right in the camera viewport with FNAF-scale closeup.
-/// 3. Direct horror lighting ensures facial features and expressions are clearly visible (no black silhouettes or solid red flashes).
-/// 4. Violent high-frequency head twitching and lunging towards the camera glass.
-/// 5. Plays loud "you died" / proctor horror sting audio, drains stamina, and plays gasping breaths.
-/// 6. Safely blocked while player is interacting, solving puzzles, or climbing stairs.
+/// NPCJumpscareManager — In-Your-Face FNAF / Fortnite-style NPC face jumpscare:
+/// 1. Directly frames the horrifying face of a wandering student (Drei, Niel, Josua, Jessa, Glad, Ira) on screen.
+/// 2. Isolates the head and neck mesh centered at (0, 0, 0) and renders it with an Unlit shader
+///    so facial features (eyes, expression, mouth) are 100% crisp, clear, and recognizable (no white blowout blob).
+/// 3. Lunges towards the camera glass with violent high-frequency jitter and tremors.
+/// 4. Restricts jumpscares STRICTLY to hallways and circulation areas (blocked when inside any of the 24 rooms, on stairs, or in dialogue/puzzles).
 /// </summary>
 public class NPCJumpscareManager : MonoBehaviour
 {
@@ -25,16 +24,16 @@ public class NPCJumpscareManager : MonoBehaviour
 
     [Header("Jumpscare Tuning")]
     [Tooltip("Start distance of the lunging face from camera.")]
-    public float startDistance = 0.62f;
+    public float startDistance = 0.58f;
 
-    [Tooltip("End distance of the lunging face at closest point.")]
-    public float closestDistance = 0.38f;
+    [Tooltip("End distance of the lunging face at closest point (right in your face).")]
+    public float closestDistance = 0.26f;
 
-    [Tooltip("FNAF face scale multiplier to fill the screen.")]
-    public float faceScale = 1.95f;
+    [Tooltip("Face scale multiplier to fill the screen (Fortnite screamer style).")]
+    public float faceScale = 2.45f;
 
     [Tooltip("Duration of the jumpscare in seconds.")]
-    public float scareDuration = 0.85f;
+    public float scareDuration = 0.90f;
 
     [Tooltip("Stamina penalty when jumpscared.")]
     public float staminaDrain = 25f;
@@ -45,25 +44,38 @@ public class NPCJumpscareManager : MonoBehaviour
     public AudioClip staticHissClip;
     public AudioClip gaspBreathClip;
 
-    // Internal References
+    // ── Internal References ──────────────────────────────────────────────────
     private Camera _playerCam;
     private PlayerMovement _playerMovement;
     private StaminaSystem _staminaSystem;
     private AudioSource _audioSource;
 
-    // Jumpscare 3D Rig parented to Camera
+    // ── Jumpscare 3D Rig parented to Camera ──────────────────────────────────
     private GameObject _scareRig;
     private MeshFilter _scareMeshFilter;
     private MeshRenderer _scareMeshRenderer;
-    private Light _faceLight;
+    private Material _unlitMaterial;
     private Image _flashOverlay;
 
     private float _nextScareTime = 0f;
     private bool _isScaring = false;
 
-    // Cached NPC sources
-    private List<SkinnedMeshRenderer> _cachedSMRs = new List<SkinnedMeshRenderer>();
+    // ── Wandering Student sources ────────────────────────────────────────────
+    private readonly string[] _wanderingStudentNames = new string[]
+    {
+        "ClearanceNPC_Drei",
+        "ClearanceNPC_Niel",
+        "ClearanceNPC_Josua",
+        "ClearanceNPC_Jessa",
+        "ClearanceNPC_Glad",
+        "ClearanceNPC_Ira"
+    };
+
+    private List<SkinnedMeshRenderer> _cachedStudentSMRs = new List<SkinnedMeshRenderer>();
     private Mesh _activeBakedMesh;
+
+    // ── Room Bounding Boxes (to prevent scaring inside rooms) ────────────────
+    private List<Bounds> _cachedRoomBounds = new List<Bounds>();
 
     private void Awake()
     {
@@ -77,11 +89,11 @@ public class NPCJumpscareManager : MonoBehaviour
 
     private void Start()
     {
-        _playerMovement = GetComponent<PlayerMovement>() ?? FindObjectOfType<PlayerMovement>();
+        _playerMovement = GetComponent<PlayerMovement>() ?? FindAnyObjectByType<PlayerMovement>();
         if (_playerMovement != null) _playerCam = _playerMovement.playerCamera;
         if (_playerCam == null) _playerCam = Camera.main;
 
-        _staminaSystem = GetComponent<StaminaSystem>() ?? FindObjectOfType<StaminaSystem>();
+        _staminaSystem = GetComponent<StaminaSystem>() ?? FindAnyObjectByType<StaminaSystem>();
 
         var audioGO = new GameObject("JumpscareAudioSource");
         audioGO.transform.SetParent(transform, false);
@@ -92,6 +104,7 @@ public class NPCJumpscareManager : MonoBehaviour
 
         LoadDefaultAudio();
         CacheNPCSkinRenderers();
+        CacheRoomBounds();
         BuildScareRig();
         ScheduleNextScare();
     }
@@ -113,24 +126,87 @@ public class NPCJumpscareManager : MonoBehaviour
 #endif
     }
 
-    private void CacheNPCSkinRenderers()
+    /// <summary>
+    /// Caches specifically the wandering students so the jumpscare clearly features their face.
+    /// </summary>
+    public void CacheNPCSkinRenderers()
     {
-        _cachedSMRs.Clear();
-        var allSMRs = FindObjectsOfType<SkinnedMeshRenderer>();
-        foreach (var smr in allSMRs)
+        _cachedStudentSMRs.Clear();
+
+        foreach (var name in _wanderingStudentNames)
         {
-            if (smr == null || smr.sharedMesh == null) continue;
-            // Ignore player's own mesh if any
-            if (smr.transform.root.CompareTag("Player")) continue;
-            _cachedSMRs.Add(smr);
+            var go = GameObject.Find(name);
+            if (go != null)
+            {
+                var smr = go.GetComponentInChildren<SkinnedMeshRenderer>();
+                if (smr != null && smr.sharedMesh != null)
+                {
+                    _cachedStudentSMRs.Add(smr);
+                }
+            }
         }
+
+        // Fallback: search all student clearance NPCs
+        if (_cachedStudentSMRs.Count == 0)
+        {
+            var allSMRs = FindObjectsByType<SkinnedMeshRenderer>(FindObjectsInactive.Include);
+            foreach (var smr in allSMRs)
+            {
+                if (smr == null || smr.sharedMesh == null) continue;
+                if (smr.transform.root.CompareTag("Player")) continue;
+                if (smr.transform.root.name.Contains("LobbyArea") || smr.gameObject.name.Contains("ClearanceNPC"))
+                {
+                    _cachedStudentSMRs.Add(smr);
+                }
+            }
+        }
+
+        Debug.Log($"[NPCJumpscareManager] Cached {_cachedStudentSMRs.Count} wandering student character models for jumpscares.");
+    }
+
+    /// <summary>
+    /// Caches the 3D bounding boxes of all 24 rooms in the building.
+    /// </summary>
+    public void CacheRoomBounds()
+    {
+        _cachedRoomBounds.Clear();
+        var roomsRoot = GameObject.Find("Rooms");
+        if (roomsRoot == null) return;
+
+        for (int f = 0; f < roomsRoot.transform.childCount; f++)
+        {
+            var floor = roomsRoot.transform.GetChild(f);
+            for (int r = 0; r < floor.transform.childCount; r++)
+            {
+                var room = floor.transform.GetChild(r);
+                var cols = room.GetComponentsInChildren<Collider>(true);
+                bool first = true;
+                Bounds b = new Bounds();
+                foreach (var c in cols)
+                {
+                    if (c.isTrigger) continue;
+                    // Exclude service counters protruding through hallway walls
+                    if (c.gameObject.name.Contains("ReceptionServiceWindow")) continue;
+                    if (first) { b = c.bounds; first = false; }
+                    else b.Encapsulate(c.bounds);
+                }
+                if (!first)
+                {
+                    // Slightly contract bounds horizontally so doorways aren't falsely flagged as inside
+                    b.Expand(new Vector3(-0.15f, 0f, -0.15f));
+                    _cachedRoomBounds.Add(b);
+                }
+            }
+        }
+
+        Debug.Log($"[NPCJumpscareManager] Cached {_cachedRoomBounds.Count} room boundaries for hallway-only jumpscare filtering.");
     }
 
     private void BuildScareRig()
     {
         if (_playerCam == null) return;
 
-        _scareRig = new GameObject("NPC_FNAF_ScareRig");
+        _scareRig = new GameObject("NPC_Fortnite_ScareRig");
         _scareRig.transform.SetParent(_playerCam.transform, false);
         _scareRig.transform.localPosition = new Vector3(0f, 0f, startDistance);
         _scareRig.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
@@ -141,19 +217,12 @@ public class NPCJumpscareManager : MonoBehaviour
         _scareMeshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         _scareMeshRenderer.receiveShadows = false;
 
-        // Bright horror front light aimed directly onto the face so features are crystal clear
-        var lightGO = new GameObject("FaceHorrorLight");
-        lightGO.transform.SetParent(_playerCam.transform, false);
-        lightGO.transform.localPosition = new Vector3(0f, 0f, 0.12f);
-        _faceLight = lightGO.AddComponent<Light>();
-        _faceLight.type = LightType.Point;
-        _faceLight.color = new Color(1.0f, 0.95f, 0.90f, 1f); // Horror exposure
-        _faceLight.intensity = 2.8f;
-        _faceLight.range = 2.5f;
-        _faceLight.shadows = LightShadows.None;
-        _faceLight.enabled = false;
+        // Dedicated Unlit material: NO specular blowout, NO white blob!
+        var unlitShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Texture");
+        _unlitMaterial = new Material(unlitShader);
+        _scareMeshRenderer.sharedMaterial = _unlitMaterial;
 
-        // Subtle vignette / horror flash overlay (never fully opaque so face remains visible)
+        // Horror flash vignette on HudCanvas
         var hud = GameObject.Find("HudCanvas");
         if (hud != null)
         {
@@ -165,7 +234,7 @@ public class NPCJumpscareManager : MonoBehaviour
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
             _flashOverlay = flashGO.GetComponent<Image>();
-            _flashOverlay.color = new Color(0.70f, 0.05f, 0.05f, 0f);
+            _flashOverlay.color = new Color(0.60f, 0.04f, 0.04f, 0f);
             _flashOverlay.raycastTarget = false;
             flashGO.SetActive(false);
         }
@@ -175,6 +244,14 @@ public class NPCJumpscareManager : MonoBehaviour
 
     private void Update()
     {
+        // Debug trigger for testing: press F8 to test jumpscare immediately
+        if (Input.GetKeyDown(KeyCode.F8))
+        {
+            Debug.Log("[NPCJumpscareManager] Manual F8 jumpscare triggered!");
+            TriggerJumpscare();
+            return;
+        }
+
         if (_isScaring) return;
 
         if (Time.time >= _nextScareTime)
@@ -185,12 +262,15 @@ public class NPCJumpscareManager : MonoBehaviour
             }
             else
             {
-                _nextScareTime = Time.time + 10f;
+                _nextScareTime = Time.time + 8f;
             }
         }
     }
 
-    private bool CanTriggerScare()
+    /// <summary>
+    /// Ensures jumpscares happen ONLY in hallways and circulation areas, never inside rooms.
+    /// </summary>
+    public bool CanTriggerScare()
     {
         if (PauseMenu.GameIsPaused) return false;
         if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return false;
@@ -207,7 +287,25 @@ public class NPCJumpscareManager : MonoBehaviour
         // Never scare while player is climbing or transitioning stairs
         if (IsPlayerOnStairs()) return false;
 
+        // Jumpscare the player ONLY if he is not inside rooms and is in the hallways!
+        if (IsPlayerInsideAnyRoom()) return false;
+
         return true;
+    }
+
+    public bool IsPlayerInsideAnyRoom()
+    {
+        if (_cachedRoomBounds.Count == 0) CacheRoomBounds();
+
+        var playerGO = GameObject.FindGameObjectWithTag("Player");
+        if (playerGO == null) return false;
+        Vector3 playerPos = playerGO.transform.position;
+
+        foreach (var b in _cachedRoomBounds)
+        {
+            if (b.Contains(playerPos)) return true;
+        }
+        return false;
     }
 
     private bool IsPlayerOnStairs()
@@ -215,8 +313,7 @@ public class NPCJumpscareManager : MonoBehaviour
         var playerGO = GameObject.FindGameObjectWithTag("Player");
         if (playerGO == null) return false;
 
-        // Check if inside any StairTriggerZone
-        var stairZones = FindObjectsOfType<StairTriggerZone>();
+        var stairZones = FindObjectsByType<StairTriggerZone>(FindObjectsInactive.Include);
         Vector3 playerPos = playerGO.transform.position;
         foreach (var zone in stairZones)
         {
@@ -227,30 +324,31 @@ public class NPCJumpscareManager : MonoBehaviour
         return false;
     }
 
+    [ContextMenu("Trigger Jumpscare Now")]
     public void TriggerJumpscare()
     {
         if (_isScaring || _scareRig == null) return;
-        StartCoroutine(FNAFJumpscareSequence());
+        StartCoroutine(FortniteStyleJumpscareSequence());
     }
 
-    private IEnumerator FNAFJumpscareSequence()
+    private IEnumerator FortniteStyleJumpscareSequence()
     {
         _isScaring = true;
 
-        if (_cachedSMRs.Count == 0) CacheNPCSkinRenderers();
-        if (_cachedSMRs.Count == 0)
+        if (_cachedStudentSMRs.Count == 0) CacheNPCSkinRenderers();
+        if (_cachedStudentSMRs.Count == 0)
         {
             _isScaring = false;
             yield break;
         }
 
-        // Pick a random NPC to jumpscare
-        int idx = Random.Range(0, _cachedSMRs.Count);
-        SkinnedMeshRenderer chosenSMR = _cachedSMRs[idx];
+        // Pick a wandering student to jumpscare (e.g. Drei, Niel, Josua, Jessa, Glad, Ira)
+        int idx = Random.Range(0, _cachedStudentSMRs.Count);
+        SkinnedMeshRenderer chosenSMR = _cachedStudentSMRs[idx];
         if (chosenSMR == null)
         {
             CacheNPCSkinRenderers();
-            chosenSMR = _cachedSMRs.Count > 0 ? _cachedSMRs[0] : null;
+            chosenSMR = _cachedStudentSMRs.Count > 0 ? _cachedStudentSMRs[0] : null;
         }
         if (chosenSMR == null)
         {
@@ -258,39 +356,94 @@ public class NPCJumpscareManager : MonoBehaviour
             yield break;
         }
 
-        // Bake the current skinned mesh into a frozen snapshot
-        if (_activeBakedMesh != null) Destroy(_activeBakedMesh);
-        _activeBakedMesh = new Mesh();
-        chosenSMR.BakeMesh(_activeBakedMesh);
+        // 1. Bake the student's current skinned mesh pose
+        Mesh fullBakedMesh = new Mesh();
+        chosenSMR.BakeMesh(fullBakedMesh);
 
-        // Compute head center from the top 20% of vertices
-        Vector3[] verts = _activeBakedMesh.vertices;
+        Vector3[] rawVerts = fullBakedMesh.vertices;
+        Vector2[] rawUVs = fullBakedMesh.uv;
+        int[] rawTris = fullBakedMesh.triangles;
+
         float maxY = float.MinValue;
         float minY = float.MaxValue;
-        for (int i = 0; i < verts.Length; i++)
+        for (int i = 0; i < rawVerts.Length; i++)
         {
-            if (verts[i].y > maxY) maxY = verts[i].y;
-            if (verts[i].y < minY) minY = verts[i].y;
+            if (rawVerts[i].y > maxY) maxY = rawVerts[i].y;
+            if (rawVerts[i].y < minY) minY = rawVerts[i].y;
         }
 
-        float headCutoff = maxY - (maxY - minY) * 0.20f;
-        Vector3 headCenter = Vector3.zero;
-        int headCount = 0;
-        for (int i = 0; i < verts.Length; i++)
+        // Compute the true face center (eyes and bridge of nose)
+        float eyeY = maxY - 0.15f;
+        float sumZ = 0f;
+        int countZ = 0;
+        for (int i = 0; i < rawVerts.Length; i++)
         {
-            if (verts[i].y >= headCutoff)
+            if (rawVerts[i].y >= maxY - 0.25f)
             {
-                headCenter += verts[i];
-                headCount++;
+                sumZ += rawVerts[i].z;
+                countZ++;
             }
         }
-        if (headCount > 0) headCenter /= headCount;
+        float centerZ = countZ > 0 ? (sumZ / countZ) : 0f;
+        Vector3 faceCenter = new Vector3(0f, eyeY, centerZ);
 
-        // Apply mesh and material to rig
+        // 2. Center all vertices directly on the eyes/nose and isolate head & face triangles
+        var newVerts = new List<Vector3>();
+        var newUVs = new List<Vector2>();
+        var newTris = new List<int>();
+        var oldToNew = new Dictionary<int, int>();
+
+        float keepMinY = -0.22f; // Chin & upper collar cutoff
+        float keepMaxY = 0.22f;  // Top of hair cutoff
+
+        for (int i = 0; i < rawTris.Length; i += 3)
+        {
+            int i1 = rawTris[i], i2 = rawTris[i + 1], i3 = rawTris[i + 2];
+            Vector3 v1 = rawVerts[i1] - faceCenter;
+            Vector3 v2 = rawVerts[i2] - faceCenter;
+            Vector3 v3 = rawVerts[i3] - faceCenter;
+
+            // Keep triangle if vertices belong to the face/head zone
+            if ((v1.y >= keepMinY && v1.y <= keepMaxY) ||
+                (v2.y >= keepMinY && v2.y <= keepMaxY) ||
+                (v3.y >= keepMinY && v3.y <= keepMaxY))
+            {
+                int AddOrGet(int oldIdx, Vector3 pos)
+                {
+                    if (!oldToNew.TryGetValue(oldIdx, out int nIdx))
+                    {
+                        nIdx = newVerts.Count;
+                        newVerts.Add(pos);
+                        newUVs.Add(rawUVs != null && oldIdx < rawUVs.Length ? rawUVs[oldIdx] : Vector2.zero);
+                        oldToNew[oldIdx] = nIdx;
+                    }
+                    return nIdx;
+                }
+
+                newTris.Add(AddOrGet(i1, v1));
+                newTris.Add(AddOrGet(i2, v2));
+                newTris.Add(AddOrGet(i3, v3));
+            }
+        }
+
+        Destroy(fullBakedMesh);
+
+        if (_activeBakedMesh != null) Destroy(_activeBakedMesh);
+        _activeBakedMesh = new Mesh();
+        _activeBakedMesh.SetVertices(newVerts);
+        _activeBakedMesh.SetUVs(0, newUVs);
+        _activeBakedMesh.SetTriangles(newTris, 0);
+        _activeBakedMesh.RecalculateNormals();
+        _activeBakedMesh.RecalculateBounds();
+
+        // 3. Apply student texture with Unlit shader so it's 100% sharp and recognizable
         _scareMeshFilter.sharedMesh = _activeBakedMesh;
-        _scareMeshRenderer.sharedMaterial = chosenSMR.sharedMaterial;
+        if (_unlitMaterial != null && chosenSMR.sharedMaterial != null)
+        {
+            _unlitMaterial.mainTexture = chosenSMR.sharedMaterial.mainTexture;
+        }
 
-        // Play horror sting audio: "you died" or "encountering a proctor"
+        // 4. Audio scream / horror sting
         if (_audioSource != null)
         {
             AudioClip clipToPlay = (Random.value < 0.65f && scareStingClip != null) ? scareStingClip : proctorStingClip;
@@ -298,9 +451,8 @@ public class NPCJumpscareManager : MonoBehaviour
             if (clipToPlay != null) _audioSource.PlayOneShot(clipToPlay, 1.0f);
         }
 
-        // Enable rig, light, and overlay
+        // 5. Activate rig and overlay
         _scareRig.SetActive(true);
-        if (_faceLight != null) _faceLight.enabled = true;
         if (_flashOverlay != null) _flashOverlay.gameObject.SetActive(true);
 
         // Deduct stamina
@@ -310,51 +462,52 @@ public class NPCJumpscareManager : MonoBehaviour
         }
 
         float elapsed = 0f;
-        float s = faceScale;
+        float baseScale = faceScale;
 
-        // FNAF violent lunging & screaming head shake loop
+        // 6. Michael Jackson / Fortnite Screamer Loop:
+        // Huge in-your-face lunging head with violent tilt, jitter, and screen shudder
+        float randomTilt = Random.Range(-12f, 12f);
+        float basePitch = 16.0f; // Forward pitch so eyes stare directly into player camera lens
+
         while (elapsed < scareDuration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / scareDuration;
 
-            // Fast forward lunge from startDistance to closestDistance (right against camera glass)
-            float lungeZ = Mathf.Lerp(startDistance, closestDistance, Mathf.Sin(t * Mathf.PI * 0.5f));
+            // Aggressive snap-forward lunge: fast initial slam towards camera
+            float lungeCurve = Mathf.Pow(Mathf.Sin(t * Mathf.PI * 0.5f), 0.6f);
+            float lungeZ = Mathf.Lerp(startDistance, closestDistance, lungeCurve);
 
-            // Violent FNAF high-frequency jitter (positional twitch and angular shaking)
-            float jitterStrength = 1.0f - (t * 0.35f);
-            float jitterX = Random.Range(-0.035f, 0.035f) * jitterStrength;
-            float jitterY = Random.Range(-0.035f, 0.035f) * jitterStrength;
-            float jitterZ = Random.Range(-0.020f, 0.020f) * jitterStrength;
+            // Violent high-frequency jitter (rapid convulsions)
+            float intensity = 1.0f - (t * 0.30f);
+            float jitterX = Random.Range(-0.022f, 0.022f) * intensity;
+            float jitterY = Random.Range(-0.022f, 0.022f) * intensity;
+            float jitterZ = Random.Range(-0.012f, 0.012f) * intensity;
 
-            float pitchJitter = Random.Range(-9f, 9f) * jitterStrength;
-            float yawJitter = 180f + Random.Range(-12f, 12f) * jitterStrength;
-            float rollJitter = Random.Range(-10f, 10f) * jitterStrength;
+            float pitchJitter = Random.Range(-6f, 6f) * intensity;
+            float yawJitter = Random.Range(-8f, 8f) * intensity;
+            float rollJitter = randomTilt + Random.Range(-5f, 5f) * intensity;
 
-            // Align head center at (0, 0, lungeZ) in camera coordinates
-            _scareRig.transform.localScale = Vector3.one * s;
-            _scareRig.transform.localPosition = new Vector3(headCenter.x * s + jitterX, -headCenter.y * s + jitterY, lungeZ + headCenter.z * s + jitterZ);
-            _scareRig.transform.localRotation = Quaternion.Euler(pitchJitter, yawJitter, rollJitter);
+            // Micro-pulsing scale to enhance the breathing/screaming terror
+            float scalePulse = baseScale * (1.0f + Random.Range(-0.035f, 0.035f) * intensity);
 
-            // Light flicker
-            if (_faceLight != null)
-            {
-                _faceLight.intensity = Random.Range(2.4f, 3.2f);
-            }
+            // Eyes and nose are centered at (0,0,0) with forward tilt staring into your face
+            _scareRig.transform.localScale = Vector3.one * scalePulse;
+            _scareRig.transform.localPosition = new Vector3(jitterX, jitterY, lungeZ + jitterZ);
+            _scareRig.transform.localRotation = Quaternion.Euler(basePitch + pitchJitter, 180f + yawJitter, rollJitter);
 
-            // Subtle red horror flash that does NOT mask the face (max alpha ~0.18)
+            // Red horror vignette pulse (leaves center face crisp and clear)
             if (_flashOverlay != null)
             {
-                float flashAlpha = Mathf.Lerp(0.18f, 0f, t);
-                _flashOverlay.color = new Color(0.70f, 0.05f, 0.05f, flashAlpha);
+                float flashAlpha = Mathf.Lerp(0.24f, 0f, t);
+                _flashOverlay.color = new Color(0.65f, 0.04f, 0.04f, flashAlpha);
             }
 
             yield return null;
         }
 
-        // Clean up rig
+        // Clean up
         _scareRig.SetActive(false);
-        if (_faceLight != null) _faceLight.enabled = false;
         if (_flashOverlay != null) _flashOverlay.gameObject.SetActive(false);
 
         if (_activeBakedMesh != null)
@@ -363,11 +516,11 @@ public class NPCJumpscareManager : MonoBehaviour
             _activeBakedMesh = null;
         }
 
-        // Post-scare audio: static hiss and gasping for air
+        // Post-scare audio: static hiss and gasping for breath
         if (_audioSource != null)
         {
-            if (staticHissClip != null) _audioSource.PlayOneShot(staticHissClip, 0.6f);
-            if (gaspBreathClip != null) _audioSource.PlayOneShot(gaspBreathClip, 0.9f);
+            if (staticHissClip != null) _audioSource.PlayOneShot(staticHissClip, 0.5f);
+            if (gaspBreathClip != null) _audioSource.PlayOneShot(gaspBreathClip, 0.85f);
         }
 
         _isScaring = false;

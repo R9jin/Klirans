@@ -93,6 +93,13 @@ public class ObjectiveHUD : MonoBehaviour
             typewriterFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") 
                           ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
 
+        // Ensure Canvas is in ScreenSpaceOverlay so 3D world geometry can NEVER occlude or clip the HUD
+        Canvas parentCanvas = GetComponentInParent<Canvas>();
+        if (parentCanvas != null && parentCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
+        {
+            parentCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        }
+
         if (panelRoot != null)
         {
             var prt = panelRoot.GetComponent<RectTransform>();

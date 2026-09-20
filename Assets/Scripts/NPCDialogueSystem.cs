@@ -101,7 +101,7 @@ public class NPCDialogueSystem : MonoBehaviour
         _onDialogueClosedCallback = null;
 
         // Cache Player & Camera
-        if (_playerMovement == null) _playerMovement = FindObjectOfType<PlayerMovement>();
+        if (_playerMovement == null) _playerMovement = FindAnyObjectByType<PlayerMovement>();
         if (_playerCam == null) _playerCam = Camera.main;
         if (_playerCam == null && _playerMovement != null) _playerCam = _playerMovement.playerCamera;
 
@@ -152,7 +152,7 @@ public class NPCDialogueSystem : MonoBehaviour
         _isDialogueActive = true;
         _onDialogueClosedCallback = onClose;
 
-        if (_playerMovement == null) _playerMovement = FindObjectOfType<PlayerMovement>();
+        if (_playerMovement == null) _playerMovement = FindAnyObjectByType<PlayerMovement>();
         if (_playerCam == null) _playerCam = Camera.main;
         if (_playerCam == null && _playerMovement != null) _playerCam = _playerMovement.playerCamera;
 

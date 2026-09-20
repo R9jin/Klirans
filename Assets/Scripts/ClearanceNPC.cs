@@ -233,7 +233,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         // Gate 4: Guidance Counselor (signatureIndex 1) requires solving the Core Values Scrambled Word Puzzle
         if (signatureIndex == 1)
         {
-            var puzzle = GuidanceWordPuzzle.Instance ?? FindObjectOfType<GuidanceWordPuzzle>(true);
+            var puzzle = GuidanceWordPuzzle.Instance ?? FindAnyObjectByType<GuidanceWordPuzzle>(FindObjectsInactive.Include);
             if (puzzle != null && !puzzle.IsSolved)
             {
                 ShowDialogue("Welcome to Guidance and Counseling. To clear your moral conduct standing, you must demonstrate alignment with our sacred institutional pillars. Unscramble the core value letters on this evaluation sheet... or your journey ends here.");
@@ -254,7 +254,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         // Gate 5: University Registrar (signatureIndex 3) requires solving the Document Sort Puzzle
         if (signatureIndex == 3)
         {
-            var sortPuzzle = RegistrarDocumentSortPuzzle.Instance ?? FindObjectOfType<RegistrarDocumentSortPuzzle>(true);
+            var sortPuzzle = RegistrarDocumentSortPuzzle.Instance ?? FindAnyObjectByType<RegistrarDocumentSortPuzzle>(FindObjectsInactive.Include);
             if (sortPuzzle != null && !sortPuzzle.IsSolved)
             {
                 ShowDialogue("Window 2, University Registrar. Before I can evaluate and stamp your clearance slip, our archival desk is backed up with disorganized student grade sheets. Sort this stack of official documents into their correct archival trays so our records remain in order.");
@@ -275,7 +275,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         // Gate 6: University Cashier (signatureIndex 4) requires solving the Balance Sheet Math Puzzle
         if (signatureIndex == 4)
         {
-            var cashierPuzzle = CashierBalancePuzzle.Instance ?? FindObjectOfType<CashierBalancePuzzle>(true);
+            var cashierPuzzle = CashierBalancePuzzle.Instance ?? FindAnyObjectByType<CashierBalancePuzzle>(FindObjectsInactive.Include);
             if (cashierPuzzle != null && !cashierPuzzle.IsSolved)
             {
                 ShowDialogue("Window 2, Cashier Department. Before I can clear and stamp your clearance slip, our records show pending unsettled fees. I have slid your assessment balance sheet through the window slot. Calculate the exact total due and submit it to clear your payment status.");
@@ -468,7 +468,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             _dialogueAudioSource.Play();
         }
 
-        var diagSystem = NPCDialogueSystem.Instance ?? FindObjectOfType<NPCDialogueSystem>();
+        var diagSystem = NPCDialogueSystem.Instance ?? FindAnyObjectByType<NPCDialogueSystem>();
         if (diagSystem != null)
         {
             diagSystem.StartDialogue(this, message);

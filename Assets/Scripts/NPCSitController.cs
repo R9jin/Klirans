@@ -285,7 +285,7 @@ public class NPCSitController : MonoBehaviour
 
     private GameObject FindClosestChair(Vector3 origin, float radius)
     {
-        var allGOs = FindObjectsOfType<GameObject>();
+        var allGOs = FindObjectsByType<GameObject>(FindObjectsInactive.Include);
         GameObject closest = null;
         float minDist = radius;
 

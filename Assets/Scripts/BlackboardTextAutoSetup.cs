@@ -72,7 +72,7 @@ public class BlackboardTextAutoSetup : MonoBehaviour
         tmp.fontSize = fontSize;
         tmp.color = textChalkColor;
         tmp.alignment = TextAlignmentOptions.Center;
-        tmp.enableWordWrapping = true;
+        tmp.textWrappingMode = TextWrappingModes.Normal;
         tmp.overflowMode = TextOverflowModes.Overflow;
 
         RectTransform rt = textGo.GetComponent<RectTransform>();
@@ -84,7 +84,7 @@ public class BlackboardTextAutoSetup : MonoBehaviour
 
     private void CleanupOldTextObjects()
     {
-        var allGo = Object.FindObjectsOfType<GameObject>();
+        var allGo = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include);
         foreach (var go in allGo)
         {
             if (go.name.StartsWith("Blackboard_RiddleText_") || go.name == "Blackboard_AutoRiddleText" || go.name == "RiddleText")

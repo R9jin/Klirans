@@ -57,7 +57,7 @@ public class BlackboardInteract : MonoBehaviour, IInteractable
     {
         if (riddleCanvasGroup == null || riddleText == null)
         {
-            Canvas canvas = FindObjectOfType<Canvas>();
+            Canvas canvas = FindAnyObjectByType<Canvas>();
             if (canvas != null)
             {
                 Transform panel = canvas.transform.Find("RiddlePanel");

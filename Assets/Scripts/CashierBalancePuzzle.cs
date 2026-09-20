@@ -21,7 +21,7 @@ public class CashierBalancePuzzle : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<CashierBalancePuzzle>(true);
+                _instance = FindAnyObjectByType<CashierBalancePuzzle>(FindObjectsInactive.Include);
             }
             return _instance;
         }
@@ -288,7 +288,7 @@ public class CashierBalancePuzzle : MonoBehaviour
         }
 
         // Suppress interaction prompt so "Press E..." does not overlap
-        PlayerInteract playerInteract = FindObjectOfType<PlayerInteract>();
+        PlayerInteract playerInteract = FindAnyObjectByType<PlayerInteract>();
         if (playerInteract != null && playerInteract.promptText != null)
         {
             playerInteract.promptText.gameObject.SetActive(false);
@@ -299,7 +299,7 @@ public class CashierBalancePuzzle : MonoBehaviour
         Cursor.visible = true;
 
         // Freeze player movement while examining balance sheet
-        var playerMovement = FindObjectOfType<PlayerMovement>();
+        var playerMovement = FindAnyObjectByType<PlayerMovement>();
         if (playerMovement != null) playerMovement.SetControlsEnabled(false);
 
         // Populate header and metadata
@@ -349,7 +349,7 @@ public class CashierBalancePuzzle : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        var playerMovement = FindObjectOfType<PlayerMovement>();
+        var playerMovement = FindAnyObjectByType<PlayerMovement>();
         if (playerMovement != null) playerMovement.SetControlsEnabled(true);
     }
 
@@ -598,7 +598,7 @@ public class CashierBalancePuzzle : MonoBehaviour
         ClosePuzzle();
 
         // Notify Cashier ClearanceNPC (signature 4)
-        var npcs = FindObjectsOfType<ClearanceNPC>();
+        var npcs = FindObjectsByType<ClearanceNPC>(FindObjectsInactive.Include);
         foreach (var npc in npcs)
         {
             if (npc.signatureIndex == 4)
