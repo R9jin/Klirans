@@ -15167,6 +15167,7 @@ MonoBehaviour:
   sensitivityValueText: {fileID: 702359838}
   menuBGM: {fileID: 8300000, guid: a39c964e5e021f34989ee1d4c4fe5060, type: 3}
   clickClip: {fileID: 8300000, guid: 5c108ae53556e184690f0e05a81b81e7, type: 3}
+  hallwayAmbientClip: {fileID: 8300000, guid: 19781b1190b1e1649964577f41c60206, type: 3}
 --- !u!4 &587683936
 Transform:
   m_ObjectHideFlags: 0

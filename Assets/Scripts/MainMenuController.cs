@@ -31,9 +31,11 @@ public class MainMenuController : MonoBehaviour
     [Header("Audio Clips")]
     public AudioClip menuBGM;
     public AudioClip clickClip;
+    public AudioClip hallwayAmbientClip;
 
     private AudioSource _bgmSource;
     private AudioSource _sfxSource;
+    private AudioSource _ambientSource;
     private CanvasGroup _menuUIGroup;
 
     private void Awake()
@@ -50,6 +52,13 @@ public class MainMenuController : MonoBehaviour
         _sfxSource.playOnAwake = false;
         _sfxSource.spatialBlend = 0f;
         _sfxSource.volume = 0.8f;
+
+        // Setup hallway ambient source
+        _ambientSource = gameObject.AddComponent<AudioSource>();
+        _ambientSource.playOnAwake = false;
+        _ambientSource.loop = true;
+        _ambientSource.spatialBlend = 0f;
+        _ambientSource.volume = 0.35f;
 
         // Immediately hide notice in Awake if already shown this session to avoid any frame flicker
         if (HasShownHeadphoneNotice && headphoneNoticePanel != null)
@@ -134,6 +143,13 @@ public class MainMenuController : MonoBehaviour
                 _bgmSource.volume = 0.5f;
                 _bgmSource.Play();
             }
+
+            if (hallwayAmbientClip != null && _ambientSource != null)
+            {
+                _ambientSource.clip = hallwayAmbientClip;
+                _ambientSource.volume = 0.35f;
+                _ambientSource.Play();
+            }
         }
     }
 
@@ -187,10 +203,20 @@ public class MainMenuController : MonoBehaviour
             _bgmSource.Play();
         }
 
+        // Fade in hallway ambient alongside BGM
+        if (hallwayAmbientClip != null && _ambientSource != null)
+        {
+            _ambientSource.clip = hallwayAmbientClip;
+            _ambientSource.volume = 0f;
+            _ambientSource.Play();
+        }
+
         if (mainButtonsPanel != null) mainButtonsPanel.SetActive(true);
 
         float fadeTimer = 0f;
-        float targetBgmVolume = 0.5f;
+        float targetBgmVolume = 1f;
+
+        float targetAmbientVolume = 1f;
 
         while (fadeTimer < noticeFadeDuration)
         {
@@ -212,6 +238,11 @@ public class MainMenuController : MonoBehaviour
                 _bgmSource.volume = progress * targetBgmVolume;
             }
 
+            if (_ambientSource != null)
+            {
+                _ambientSource.volume = progress * targetAmbientVolume;
+            }
+
             yield return null;
         }
 
@@ -231,6 +262,10 @@ public class MainMenuController : MonoBehaviour
         if (_bgmSource != null)
         {
             _bgmSource.volume = targetBgmVolume;
+        }
+        if (_ambientSource != null)
+        {
+            _ambientSource.volume = targetAmbientVolume;
         }
     }
 
