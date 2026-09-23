@@ -9,14 +9,22 @@ using TMPro;
 public class BlackboardTextAutoSetup : MonoBehaviour
 {
     [Header("Riddle Text Content")]
-    [TextArea(3, 5)]
-    public string riddleText = "Find the left, right, top, and bottom pieces of the clearance slip hidden in the room and beneath the stairs.";
+    [TextArea(6, 12)]
+    public string riddleText = 
+        "Four edges torn, your exit denied,\n" +
+        "Top, bottom, and side to side.\n\n" +
+        "To make it whole and leave this place,\n" +
+        "Search the shadows of this space.\n\n" +
+        "When the room has given up its share,\n" +
+        "Check the darkness beneath the stair.";
 
     [Header("Appearance & Font Settings")]
-    public float fontSize = 2.4f;
-    public Color textChalkColor = new Color(0.95f, 0.95f, 0.92f, 1.0f);
-    public Vector2 textContainerSize = new Vector2(3.5f, 1.1f);
-    public float surfaceOffsetZ = -0.05f;
+    public float fontSize = 1.05f;
+    public FontStyles fontStyle = FontStyles.Bold;
+    public Color textMarkerColor = new Color(0.10f, 0.10f, 0.12f, 1.0f);
+    public Vector2 textContainerSize = new Vector2(2.8f, 1.2f);
+    [Tooltip("Offset in front of board writing surface in meters to prevent Z-fighting without floating.")]
+    public float surfaceOffsetZ = -0.0025f;
 
     [Header("Targeting")]
     [Tooltip("If true, only allows setup on this specific blackboard and removes duplicate text elsewhere.")]
@@ -31,7 +39,15 @@ public class BlackboardTextAutoSetup : MonoBehaviour
 
     private void OnValidate()
     {
-        SetupText();
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.delayCall += () =>
+        {
+            if (this != null && !Application.isPlaying)
+            {
+                SetupText();
+            }
+        };
+#endif
     }
 
     [ContextMenu("Force Refresh Riddle Text")]
@@ -39,8 +55,29 @@ public class BlackboardTextAutoSetup : MonoBehaviour
     {
         if (!isPrimaryBlackboard) return;
 
-        MeshRenderer meshRenderer = GetComponentInChildren<MeshRenderer>();
-        if (meshRenderer == null) return;
+        // Target the inner board writing surface mesh rather than the outer frame
+        MeshRenderer boardFaceRenderer = null;
+        var renderers = GetComponentsInChildren<MeshRenderer>();
+        foreach (var r in renderers)
+        {
+            if (r.gameObject.name.Contains(".001") || 
+                r.gameObject.name.ToLower().Contains("glass") || 
+                (r.sharedMaterial != null && r.sharedMaterial.name.Contains("TemperedGlass")))
+            {
+                boardFaceRenderer = r;
+                break;
+            }
+        }
+        if (boardFaceRenderer == null && renderers.Length > 1)
+        {
+            boardFaceRenderer = renderers[1];
+        }
+        else if (boardFaceRenderer == null && renderers.Length > 0)
+        {
+            boardFaceRenderer = renderers[0];
+        }
+
+        if (boardFaceRenderer == null) return;
 
         // Clean up any old duplicate text objects in scene
         CleanupOldTextObjects();
@@ -51,15 +88,23 @@ public class BlackboardTextAutoSetup : MonoBehaviour
             textGo = new GameObject(TEXT_OBJECT_PREFIX);
         }
 
-        // Align in World Space
-        Vector3 center = meshRenderer.bounds.center;
+        // Parent under the furniture container to stay organized in the scene hierarchy
+        if (transform.parent != null)
+        {
+            textGo.transform.SetParent(transform.parent, true);
+        }
 
-        // Position slightly in front of board surface
-        textGo.transform.position = new Vector3(center.x, center.y, center.z + surfaceOffsetZ);
+        // Align in World Space:
+        // Use the board face's center X & Y, and front surface Z
+        Vector3 center = boardFaceRenderer.bounds.center;
+        float faceFrontZ = boardFaceRenderer.bounds.min.z;
+
+        // Position flush on the board surface
+        textGo.transform.position = new Vector3(center.x, center.y, faceFrontZ + surfaceOffsetZ);
         
-        // Rotation (0, 0, 0) displays the front face of TextMeshPro (Non-Mirrored, Left-to-Right)
+        // Rotation (0, 0, 0) displays the front face of TextMeshPro directly facing into the room
         textGo.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
-        textGo.transform.localScale = Vector3.one; // Clean 1.0 scale
+        textGo.transform.localScale = Vector3.one;
 
         // Add or update TextMeshPro 3D
         TextMeshPro tmp = textGo.GetComponent<TextMeshPro>();
@@ -70,16 +115,19 @@ public class BlackboardTextAutoSetup : MonoBehaviour
 
         tmp.text = riddleText;
         tmp.fontSize = fontSize;
-        tmp.color = textChalkColor;
+        tmp.fontStyle = fontStyle;
+        tmp.color = textMarkerColor;
         tmp.alignment = TextAlignmentOptions.Center;
-        tmp.textWrappingMode = TextWrappingModes.Normal;
-        tmp.overflowMode = TextOverflowModes.Overflow;
+        tmp.textWrappingMode = TextWrappingModes.NoWrap;
+        tmp.overflowMode = TextOverflowModes.Truncate;
 
         RectTransform rt = textGo.GetComponent<RectTransform>();
         if (rt != null)
         {
             rt.sizeDelta = textContainerSize;
         }
+
+        tmp.ForceMeshUpdate();
     }
 
     private void CleanupOldTextObjects()

@@ -643,6 +643,15 @@ public class ProctorAI : MonoBehaviour
             return;
         }
 
+        // If the player is hiding in a locker, the Proctor loses sight of them completely
+        if (LockerHideManager.IsPlayerHidden)
+        {
+            _isStaringAtPlayer  = false;
+            _currentStareWeight = 0f;
+            _stareCooldownTimer = Random.Range(minStareCooldown, maxStareCooldown);
+            return;
+        }
+
         float distToPlayer = Vector3.Distance(transform.position, _playerTransform.position);
 
         if (_isStaringAtPlayer)
