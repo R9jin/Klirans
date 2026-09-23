@@ -30,6 +30,19 @@ public class InventoryEquipController : MonoBehaviour
     [Tooltip("Speed at which held viewmodel smoothly lerps into position/rotation at EquipPoint.")]
     public float equipSmoothSpeed = 12f;
 
+    [Header("Item Dropping")]
+    [Tooltip("Key to drop the currently selected hotbar item onto the ground.")]
+    public KeyCode dropKey = KeyCode.G;
+
+    [Tooltip("How far in front of the player the dropped item spawns (metres).")]
+    public float dropForwardOffset = 0.8f;
+
+    [Tooltip("Upward force applied to dropped items so they arc slightly before landing.")]
+    public float dropUpwardForce = 1.5f;
+
+    [Tooltip("Forward force applied to dropped items.")]
+    public float dropForwardForce = 2.0f;
+
     // Currently active hotkey slot index (-1 if none equipped)
     private int activeSlotIndex = -1;
 
@@ -84,6 +97,7 @@ public class InventoryEquipController : MonoBehaviour
     private void Update()
     {
         HandleHotkeyInput();
+        HandleDropInput();
         UpdateViewmodelPosition();
     }
 
@@ -267,6 +281,105 @@ public class InventoryEquipController : MonoBehaviour
             equipPoint.rotation,
             Time.deltaTime * equipSmoothSpeed
         );
+    }
+
+    // ── Item Dropping ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Checks for the drop key every frame and drops the active hotbar item.
+    /// Suppressed while paused, in dialogue, or inside a locker.
+    /// </summary>
+    private void HandleDropInput()
+    {
+        if (!Input.GetKeyDown(dropKey)) return;
+        if (PauseMenu.GameIsPaused) return;
+        if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return;
+        if (LockerHideManager.IsPlayerHidden) return;
+
+        // Need an actively selected slot
+        if (activeSlotIndex < 0) return;
+
+        InventoryManager inventory = InventoryManager.Instance;
+        if (inventory == null) return;
+
+        inventory.EnsureSlotsInitialized();
+        if (activeSlotIndex >= inventory.Slots.Count) return;
+
+        InventorySlot slot = inventory.Slots[activeSlotIndex];
+        if (slot == null || slot.IsEmpty || slot.item == null) return;
+
+        InventoryItem item = slot.item;
+
+        // Respect the quest-item flag
+        if (!item.canBeDropped)
+        {
+            Debug.Log($"[InventoryEquipController] {item.itemName} cannot be dropped (quest item).");
+            return;
+        }
+
+        DropActiveItem(item, slot);
+    }
+
+    /// <summary>
+    /// Removes the item from the inventory, unequips it, and spawns its world prefab
+    /// in front of the player with Rigidbody physics so it arcs and lands naturally.
+    /// </summary>
+    private void DropActiveItem(InventoryItem item, InventorySlot slot)
+    {
+        // Unequip first so the viewmodel disappears cleanly
+        UnequipCurrentItem();
+
+        // Remove one copy from inventory (or the entire stack if > 1)
+        int qtyToDrop = slot.quantity; // drop whole stack
+        InventoryManager.Instance.RemoveItem(item, qtyToDrop);
+
+        SlotMenu.Instance?.PingVisibility();
+
+        // Determine spawn position: slightly in front and at waist height
+        Camera cam = Camera.main;
+        if (cam == null) cam = GetComponentInChildren<Camera>();
+
+        Vector3 forward   = cam != null ? cam.transform.forward : transform.forward;
+        forward.y         = 0f;
+        forward.Normalize();
+
+        Vector3 spawnPos = transform.position + forward * dropForwardOffset + Vector3.up * 0.5f;
+
+        // If the item has a world prefab, spawn it
+        if (item.itemPrefab != null)
+        {
+            GameObject dropped = Instantiate(item.itemPrefab, spawnPos, Random.rotation);
+
+            // Make sure it has a Rigidbody for physics
+            Rigidbody rb = dropped.GetComponent<Rigidbody>();
+            if (rb == null) rb = dropped.AddComponent<Rigidbody>();
+            rb.isKinematic = false;
+            rb.mass        = 0.4f;
+
+            // Make sure it has a Collider
+            if (dropped.GetComponentInChildren<Collider>() == null)
+            {
+                BoxCollider bc = dropped.AddComponent<BoxCollider>();
+                bc.size = Vector3.one * 0.15f;
+            }
+
+            // Apply a gentle arc throw
+            rb.linearVelocity = forward * dropForwardForce + Vector3.up * dropUpwardForce;
+            rb.angularVelocity = Random.insideUnitSphere * 3f;
+
+            // Re-attach PickupItem so the player can pick it back up
+            PickupItem pickup = dropped.GetComponent<PickupItem>();
+            if (pickup == null) pickup = dropped.AddComponent<PickupItem>();
+            pickup.itemData = item;
+            pickup.amount   = qtyToDrop;
+
+            Debug.Log($"[InventoryEquipController] Dropped {item.itemName} x{qtyToDrop} at {spawnPos}.");
+        }
+        else
+        {
+            // No prefab: item is simply discarded (with a log warning)
+            Debug.LogWarning($"[InventoryEquipController] {item.itemName} has no itemPrefab assigned — item dropped but no world object spawned.");
+        }
     }
 
     public int GetActiveSlotIndex() => activeSlotIndex;

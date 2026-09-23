@@ -38,6 +38,10 @@ public class NPCJumpscareManager : MonoBehaviour
     [Tooltip("Stamina penalty when jumpscared.")]
     public float staminaDrain = 25f;
 
+    [Tooltip("Maximum distance (metres) between the player and a walking NPC for the random jumpscare to be eligible. " +
+             "Think of it as personal-space violation — the NPC must be right next to the player.")]
+    public float personalSpaceRadius = 1.8f;
+
     [Header("Audio Clips")]
     public AudioClip scareStingClip;
     public AudioClip proctorStingClip;
@@ -73,6 +77,9 @@ public class NPCJumpscareManager : MonoBehaviour
 
     private List<SkinnedMeshRenderer> _cachedStudentSMRs = new List<SkinnedMeshRenderer>();
     private Mesh _activeBakedMesh;
+
+    // Tracks which NPC violated personal space and should be shown in the next jumpscare
+    private SkinnedMeshRenderer _proximityChosenSMR = null;
 
     // ── Room Bounding Boxes (to prevent scaring inside rooms) ────────────────
     private List<Bounds> _cachedRoomBounds = new List<Bounds>();
@@ -258,7 +265,21 @@ public class NPCJumpscareManager : MonoBehaviour
         {
             if (CanTriggerScare())
             {
-                TriggerJumpscare();
+                // ── Personal-space proximity gate ──────────────────────────
+                // The jumpscare only fires when the player is within
+                // personal-space distance of one of the wandering NPCs.
+                // We find the closest NPC and use their face for the scare.
+                SkinnedMeshRenderer nearestSMR = GetNPCInPersonalSpace();
+                if (nearestSMR != null)
+                {
+                    _proximityChosenSMR = nearestSMR;
+                    TriggerJumpscare();
+                }
+                else
+                {
+                    // No NPC is close enough yet — retry in a short interval
+                    _nextScareTime = Time.time + 4f;
+                }
             }
             else
             {
@@ -268,11 +289,50 @@ public class NPCJumpscareManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Returns the SkinnedMeshRenderer of the wandering NPC that is currently
+    /// within <see cref="personalSpaceRadius"/> metres of the player,
+    /// or null if no NPC is that close.
+    /// </summary>
+    private SkinnedMeshRenderer GetNPCInPersonalSpace()
+    {
+        var playerGO = GameObject.FindGameObjectWithTag("Player");
+        if (playerGO == null) return null;
+
+        Vector3 playerPos = playerGO.transform.position;
+
+        if (_cachedStudentSMRs.Count == 0) CacheNPCSkinRenderers();
+
+        SkinnedMeshRenderer closest = null;
+        float closestDist = float.MaxValue;
+
+        foreach (var smr in _cachedStudentSMRs)
+        {
+            if (smr == null) continue;
+
+            // Use the NPC root transform position for the distance check
+            Transform npcRoot = smr.transform.root;
+            float dist = Vector3.Distance(playerPos, npcRoot.position);
+
+            if (dist <= personalSpaceRadius && dist < closestDist)
+            {
+                closestDist = dist;
+                closest = smr;
+            }
+        }
+
+        if (closest != null)
+            Debug.Log($"[NPCJumpscareManager] NPC in personal space at {closestDist:F2} m → triggering jumpscare with {closest.transform.root.name}.");
+
+        return closest;
+    }
+
+    /// <summary>
     /// Ensures jumpscares happen ONLY in hallways and circulation areas, never inside rooms.
     /// </summary>
     public bool CanTriggerScare()
     {
         if (PauseMenu.GameIsPaused) return false;
+        if (LockerHideManager.IsPlayerHidden) return false;  // Player is hiding in a locker
         if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return false;
 
         var guidancePuzzle = GuidanceWordPuzzle.Instance;
@@ -342,14 +402,23 @@ public class NPCJumpscareManager : MonoBehaviour
             yield break;
         }
 
-        // Pick a wandering student to jumpscare (e.g. Drei, Niel, Josua, Jessa, Glad, Ira)
-        int idx = Random.Range(0, _cachedStudentSMRs.Count);
-        SkinnedMeshRenderer chosenSMR = _cachedStudentSMRs[idx];
+        // Use the NPC that violated the player's personal space (set in Update).
+        // Falls back to a random wandering student only when triggered manually (e.g. F8).
+        SkinnedMeshRenderer chosenSMR = _proximityChosenSMR;
+        _proximityChosenSMR = null; // consume it
+
+        if (chosenSMR == null)
+        {
+            int idx = Random.Range(0, _cachedStudentSMRs.Count);
+            chosenSMR = _cachedStudentSMRs[idx];
+        }
+
         if (chosenSMR == null)
         {
             CacheNPCSkinRenderers();
             chosenSMR = _cachedStudentSMRs.Count > 0 ? _cachedStudentSMRs[0] : null;
         }
+
         if (chosenSMR == null)
         {
             _isScaring = false;
