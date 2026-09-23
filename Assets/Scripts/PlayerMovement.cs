@@ -64,6 +64,10 @@ public class PlayerMovement : MonoBehaviour
     private bool isRunning = false;
     private bool isCrouching = false;
 
+    public bool IsMoving => isMoving;
+    public bool IsRunning => isRunning;
+    public bool IsCrouching => isCrouching;
+
     private Vector3 standingCameraPosition;
     private Vector3 crouchingCameraPosition;
 

@@ -216,6 +216,17 @@ public class BlackoutManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Restores power to the building, triggering the flickering light surge and ambient recovery.
+    /// Called when The Proctor either catches the player or when the blackout chase timer expires.
+    /// </summary>
+    public void RestorePower()
+    {
+        if (!IsBlackoutActive) return;
+        if (_blackoutCoroutine != null) StopCoroutine(_blackoutCoroutine);
+        _blackoutCoroutine = StartCoroutine(PowerRestorationRoutine());
+    }
+
     private IEnumerator BlackoutSequence(float duration)
     {
         IsBlackoutActive = true;
@@ -250,10 +261,18 @@ public class BlackoutManager : MonoBehaviour
         RenderSettings.skybox = null;
 
         // ── PHASE 3: Darkness hold ────────────────────────────────────────────
-        // Stay dark for the blackout duration minus 5 seconds (restoration lead-up)
-        float holdTime = Mathf.Max(1f, duration - 5f);
-        yield return new WaitForSeconds(holdTime);
+        // If TheProctorManager is active, it controls when RestorePower() is invoked (chase timer / catch).
+        // Otherwise, wait for duration as fallback.
+        if (TheProctorManager.Instance == null)
+        {
+            float holdTime = Mathf.Max(1f, duration - 5f);
+            yield return new WaitForSeconds(holdTime);
+            yield return PowerRestorationRoutine();
+        }
+    }
 
+    private IEnumerator PowerRestorationRoutine()
+    {
         // ── PHASE 4: Power restoration wind-up ───────────────────────────────
         // Play the reversed power-up sound as the building power charges back up
         if (powerUpClip != null)

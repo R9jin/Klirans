@@ -43,6 +43,9 @@ public class NPCJumpscareManager : MonoBehaviour
     public float personalSpaceRadius = 1.8f;
 
     [Header("Audio Clips")]
+    [Range(0f, 1f)]
+    [Tooltip("Master volume for walking NPC jumpscares (lowered to avoid overwhelming the player).")]
+    public float jumpscareVolume = 0.5f;
     public AudioClip scareStingClip;
     public AudioClip proctorStingClip;
     public AudioClip staticHissClip;
@@ -517,7 +520,7 @@ public class NPCJumpscareManager : MonoBehaviour
         {
             AudioClip clipToPlay = (Random.value < 0.65f && scareStingClip != null) ? scareStingClip : proctorStingClip;
             if (clipToPlay == null) clipToPlay = scareStingClip;
-            if (clipToPlay != null) _audioSource.PlayOneShot(clipToPlay, 1.0f);
+            if (clipToPlay != null) _audioSource.PlayOneShot(clipToPlay, jumpscareVolume);
         }
 
         // 5. Activate rig and overlay
@@ -588,8 +591,8 @@ public class NPCJumpscareManager : MonoBehaviour
         // Post-scare audio: static hiss and gasping for breath
         if (_audioSource != null)
         {
-            if (staticHissClip != null) _audioSource.PlayOneShot(staticHissClip, 0.5f);
-            if (gaspBreathClip != null) _audioSource.PlayOneShot(gaspBreathClip, 0.85f);
+            if (staticHissClip != null) _audioSource.PlayOneShot(staticHissClip, jumpscareVolume * 0.6f);
+            if (gaspBreathClip != null) _audioSource.PlayOneShot(gaspBreathClip, jumpscareVolume * 0.9f);
         }
 
         _isScaring = false;
