@@ -1,1 +1,1 @@
-SUCCESS: TheProctor setup and scene wiring completed! Scene: SampleScene
+Hello from Unity Editor! Scene: SampleScene

@@ -4770,6 +4770,7 @@ GameObject:
   - component: {fileID: 174965674}
   - component: {fileID: 174965677}
   - component: {fileID: 174965676}
+  - component: {fileID: 174965678}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -4905,6 +4906,14 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!81 &174965678
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 174965672}
+  m_Enabled: 1
 --- !u!21 &175929205
 Material:
   serializedVersion: 8
@@ -15164,8 +15173,10 @@ MonoBehaviour:
   fovSlider: {fileID: 150640333}
   fovValueText: {fileID: 1724483104}
   sensitivitySlider: {fileID: 38793458}
-  sensitivityValueText: {fileID: 702359838}
-  menuBGM: {fileID: 8300000, guid: a39c964e5e021f34989ee1d4c4fe5060, type: 3}
+  bgmVolume: 0.65
+  ambientVolume: 0.2
+  sfxVolume: 0.85
+  menuBGM: {fileID: 8300000, guid: 95a03a073a13399498dc42651d476a47, type: 3}
   clickClip: {fileID: 8300000, guid: 5c108ae53556e184690f0e05a81b81e7, type: 3}
   hallwayAmbientClip: {fileID: 8300000, guid: 19781b1190b1e1649964577f41c60206, type: 3}
 --- !u!4 &587683936

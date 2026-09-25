@@ -289,19 +289,27 @@ public class TheProctorAI : MonoBehaviour
 
         if (_leftHandBone != null)
         {
-            _clipboardProp.transform.localPosition = new Vector3(0.08f, 0.05f, 0f);
+            Vector3 ls = _leftHandBone.lossyScale;
+            _clipboardProp.transform.localScale = new Vector3(
+                ls.x > 0.0001f ? 1f / ls.x : 1f,
+                ls.y > 0.0001f ? 1f / ls.y : 1f,
+                ls.z > 0.0001f ? 1f / ls.z : 1f
+            );
+            _clipboardProp.transform.localPosition = Vector3.zero;
             _clipboardProp.transform.localRotation = Quaternion.Euler(20f, 40f, -10f);
         }
         else
         {
             _clipboardProp.transform.localPosition = new Vector3(-0.35f, 1.4f, 0.35f);
+            _clipboardProp.transform.localScale = Vector3.one;
         }
 
-        // Visual board
+        // Visual board (A4 size: ~22cm wide, ~32cm tall, ~1.2cm thick)
         var boardGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
         boardGO.name = "BoardMesh";
         boardGO.transform.SetParent(_clipboardProp.transform, false);
-        boardGO.transform.localScale = new Vector3(0.24f, 0.34f, 0.015f);
+        boardGO.transform.localPosition = new Vector3(0.02f, -0.04f, 0.06f);
+        boardGO.transform.localScale = new Vector3(0.22f, 0.32f, 0.012f);
 
         var col = boardGO.GetComponent<Collider>();
         if (col != null) Destroy(col);
@@ -318,8 +326,8 @@ public class TheProctorAI : MonoBehaviour
         var paperGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
         paperGO.name = "PaperSlip";
         paperGO.transform.SetParent(boardGO.transform, false);
-        paperGO.transform.localPosition = new Vector3(0f, -0.02f, 0.55f);
-        paperGO.transform.localScale = new Vector3(0.85f, 0.82f, 0.1f);
+        paperGO.transform.localPosition = new Vector3(0f, -0.01f, 0.55f);
+        paperGO.transform.localScale = new Vector3(0.85f, 0.85f, 0.1f);
 
         var paperCol = paperGO.GetComponent<Collider>();
         if (paperCol != null) Destroy(paperCol);

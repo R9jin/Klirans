@@ -117,10 +117,14 @@ public class TheProctorManager : MonoBehaviour
             TheProctorAI.ActiveProctor.Despawn();
         }
 
+        Vector3 toPlayer = playerPos - spawnPos;
+        toPlayer.y = 0f;
+        Quaternion spawnRot = toPlayer.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toPlayer) : Quaternion.identity;
+
         GameObject proctorGO = null;
         if (theProctorPrefab != null)
         {
-            proctorGO = Instantiate(theProctorPrefab, spawnPos, Quaternion.identity);
+            proctorGO = Instantiate(theProctorPrefab, spawnPos, spawnRot);
         }
         else
         {
@@ -297,7 +301,12 @@ public class TheProctorManager : MonoBehaviour
             targetZ = Mathf.Clamp(playerPos.z - spawnDistance, minZ + 2f, maxZ - 2f);
         }
 
-        return new Vector3(-84.0f, floorY, targetZ);
+        Vector3 candidatePos = new Vector3(-84.0f, floorY, targetZ);
+        if (UnityEngine.AI.NavMesh.SamplePosition(candidatePos, out UnityEngine.AI.NavMeshHit hit, 5.0f, UnityEngine.AI.NavMesh.AllAreas))
+        {
+            return hit.position;
+        }
+        return candidatePos;
     }
 
     private GameObject CreateFallbackProctor(Vector3 pos)

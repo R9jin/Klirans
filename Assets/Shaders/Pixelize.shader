@@ -2,13 +2,13 @@ Shader "Hidden/Custom/Pixelize"
 {
     Properties
     {
-        _PixelSize ("Pixel Size", Float) = 8
-        _ColorBleed ("Color Bleed", Float) = 0.005
-        _ScanlineIntensity ("Scanline Intensity", Float) = 0.15
-        _NoiseIntensity ("Noise Intensity", Float) = 0.1
-        _VignetteIntensity ("Vignette Intensity", Float) = 0.8
-        _VignetteSmoothness ("Vignette Smoothness", Float) = 0.5
-        _DirtIntensity ("Dirt Intensity", Float) = 0.2
+        _PixelSize ("Pixel Size", Float) = 2
+        _ColorBleed ("Color Bleed", Float) = 0.002
+        _ScanlineIntensity ("Scanline Intensity", Float) = 0.3
+        _NoiseIntensity ("Noise Intensity", Float) = 0.025
+        _VignetteIntensity ("Vignette Intensity", Float) = 0.55
+        _VignetteSmoothness ("Vignette Smoothness", Float) = 0.45
+        _DirtIntensity ("Dirt Intensity", Float) = 0.35
     }
     
     HLSLINCLUDE
@@ -25,56 +25,28 @@ Shader "Hidden/Custom/Pixelize"
     float _VignetteSmoothness;
     float _DirtIntensity;
 
-    float hash21(float2 p) 
+    // High-performance single-instruction pseudo-random hash (replaces 21 heavy multi-octave noise hashes)
+    inline float fastHash(float2 p) 
     { 
-        p = frac(p * float2(123.34, 456.21));
-        p += dot(p, p + 45.32);
-        return frac(p.x * p.y);
-    }
-
-    // Smooth value noise using cubic Hermite interpolation - smooth continuous gradients, zero pixelation
-    float smoothNoise(float2 p)
-    {
-        float2 i = floor(p);
-        float2 f = frac(p);
-        float2 u = f * f * (3.0 - 2.0 * f);
-
-        float a = hash21(i);
-        float b = hash21(i + float2(1.0, 0.0));
-        float c = hash21(i + float2(0.0, 1.0));
-        float d = hash21(i + float2(1.0, 1.0));
-
-        return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
-    }
-
-    // Multi-octave FBM for rich, organic lens smudges and grease stains
-    float fbmGrime(float2 p)
-    {
-        float val = 0.0;
-        float amp = 0.5;
-        val += amp * smoothNoise(p); p = p * 2.13 + float2(1.7, 9.2); amp *= 0.5;
-        val += amp * smoothNoise(p); p = p * 2.37 + float2(8.3, 2.8); amp *= 0.5;
-        val += amp * smoothNoise(p);
-        return val;
+        return frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453);
     }
 
     half4 Fragment(Varyings input) : SV_Target
     {
         UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
         
-        float2 uv = input.texcoord;
+        float2 rawUV = input.texcoord;
+        float2 uv = rawUV;
         
-        // VHS Tape Tracking/Jitter effect
-        float trackingOffset = step(0.98, sin(uv.y * 15.0 + _Time.y * 10.0)) * 0.01 * sin(_Time.y * 50.0);
+        // 1. VHS Tape Tracking / Jitter effect (fast single-frequency jump)
+        float trackingOffset = step(0.985, sin(uv.y * 14.0 + _Time.y * 8.0)) * 0.008 * sin(_Time.y * 45.0);
         uv.x += trackingOffset;
 
-        // Calculate the grid size for pixelation
+        // 2. High-performance pixelation grid
         float2 size = _ScreenParams.xy / max(_PixelSize, 1.0);
-        
-        // Floor the UVs to create blocks
         float2 pixelatedUV = floor(uv * size) / size;
         
-        // Chromatic Aberration (Color Bleeding)
+        // 3. Chromatic Aberration (Color Bleeding) - 3 taps clamped
         float2 redShift = float2(_ColorBleed, 0.0);
         float2 blueShift = float2(-_ColorBleed, 0.0);
         
@@ -84,57 +56,47 @@ Shader "Hidden/Custom/Pixelize"
         
         half4 color = half4(r, g, b, 1.0);
 
-        // Scanlines
+        // 4. CRT / VHS Scanlines (lightweight sine wave)
         float scanline = sin(uv.y * _ScreenParams.y * 1.5) * 0.5 + 0.5;
         color.rgb *= lerp(1.0, scanline, _ScanlineIntensity);
 
-        // Smooth Asymmetrical Horror Vignette (Edge Falloff)
-        // Uses input.texcoord directly (not pixelatedUV) to eliminate chunky pixelation on the vignette
+        // 5. Asymmetrical Horror Vignette (Edge Falloff)
         float aspect = _ScreenParams.x / max(_ScreenParams.y, 1.0);
-        float2 rawUV = input.texcoord;
-        
-        // Asymmetrical center offset (imbalanced organic framing)
         float2 vigCenter = rawUV - float2(0.485, 0.525);
         vigCenter.x *= aspect;
 
-        // Non-uniform corner weighting: top-left & top-right creep in more organically
         float asymmetry = 1.0 + 0.28 * (rawUV.y - 0.5) + 0.18 * (0.5 - rawUV.x) * (rawUV.y - 0.5);
         float vigDist = length(vigCenter) * asymmetry;
 
-        // Keep the central vision open and clear
         float vigOuter = 1.18;
         float vigInner = max(0.2, vigOuter - _VignetteSmoothness);
         float vignette = smoothstep(vigOuter, vigInner, vigDist);
         color.rgb *= lerp(1.0, vignette, _VignetteIntensity);
 
-        // --- Gritty Analog Lens Grime & Smudges (Continuous, Smooth & Atmospheric) ---
-        // Aspect-corrected UV for grime to keep smudges natural (not stretched on widescreen)
-        float2 grimeUV = float2(rawUV.x * aspect, rawUV.y);
+        // 6. Ultra-Fast Organic Lens Grime & Analog Mottling
+        // Vectorized harmonic sinusoids give rich, organic smudges without per-pixel loops or hash thrashing
+        float2 grimeUV = float2(rawUV.x * aspect, rawUV.y) * 4.0;
+        float smudgePattern = sin(grimeUV.x * 1.4 + sin(grimeUV.y * 2.1)) * cos(grimeUV.y * 1.6 + sin(grimeUV.x * 1.8)) * 0.5 + 0.5;
+        float smudges = smoothstep(0.32, 0.72, smudgePattern);
 
-        // Layer 1: Broad organic lens grease & dirty smudges
-        float greaseNoise = fbmGrime(grimeUV * 5.5 + float2(0.23, 0.71));
-        float smudges = smoothstep(0.32, 0.70, greaseNoise);
+        // Single PRNG sample evaluated once per pixel for grain + dust specks
+        float seed = frac(_Time.y * 0.29);
+        float prng = fastHash(rawUV * 460.0 + seed);
 
-        // Layer 2: Mottled surface grime & dirt accumulation
-        float mottledNoise = smoothNoise(grimeUV * 18.0 + float2(3.14, 1.59));
-        float mottling = smoothstep(0.38, 0.80, mottledNoise);
+        // Rare micro dust specks
+        float dustFlecks = step(0.993, prng) * (prng - 0.993) * 140.0;
 
-        // Layer 3: Organic film dust specks (smooth sub-pixel flecks, not pixelated blocks)
-        float dustNoise = smoothNoise(grimeUV * 65.0 + float2(8.21, 5.73));
-        float dustFlecks = pow(dustNoise, 6.0) * 6.0;
+        // Grime intensifies smoothly towards edges and corners
+        float grimeSpread = lerp(0.25, 1.0, smoothstep(0.25, 0.95, vigDist));
+        float totalGrime = (smudges * 0.7 + dustFlecks * 0.5) * grimeSpread;
 
-        // Asymmetric grime distribution:
-        // Visible across the glass (preventing sterile/clean look), intensifying heavily towards borders/corners
-        float grimeSpread = lerp(0.32, 1.0, smoothstep(0.22, 1.0, vigDist));
-        float totalGrime = (smudges * 0.62 + mottling * 0.38 + dustFlecks * 0.45) * grimeSpread;
-
-        // Darken and impart murky analog residue tone
+        // Murky analog tint & edge darkening
         half3 grimeTone = half3(0.06, 0.05, 0.04);
         color.rgb = lerp(color.rgb, color.rgb * (1.0 - totalGrime * 0.85), _DirtIntensity);
         color.rgb = lerp(color.rgb, grimeTone, totalGrime * _DirtIntensity * 0.35);
 
-        // Subtle analog video noise/grain
-        float grain = (hash21(rawUV * 600.0 + frac(_Time.y * 11.37)) - 0.5) * _NoiseIntensity;
+        // Analog video tape grain
+        float grain = (prng - 0.5) * _NoiseIntensity;
         color.rgb += grain;
         
         return color;
