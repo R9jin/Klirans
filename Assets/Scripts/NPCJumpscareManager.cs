@@ -5,47 +5,78 @@ using UnityEngine.UI;
 
 /// <summary>
 /// NPCJumpscareManager — In-Your-Face FNAF / Fortnite-style NPC face jumpscare:
-/// 1. Directly frames the horrifying face of a wandering student (Drei, Niel, Josua, Jessa, Glad, Ira) on screen.
-/// 2. Isolates the head and neck mesh centered at (0, 0, 0) and renders it with an Unlit shader
-///    so facial features (eyes, expression, mouth) are 100% crisp, clear, and recognizable (no white blowout blob).
-/// 3. Lunges towards the camera glass with violent high-frequency jitter and tremors.
-/// 4. Restricts jumpscares STRICTLY to hallways and circulation areas (blocked when inside any of the 24 rooms, on stairs, or in dialogue/puzzles).
+/// 1. Primary Trigger: Punishes player when really touching or blocking the walking students in the hallways.
+///    - Detected via OnControllerColliderHit (direct physics contact) AND horizontal distance (&lt;= 1.30m).
+///    - Balanced to near 50/50 chance, but not too frequent (18s global cooldown, 5s reroll debounce).
+/// 2. Flashlight Blinding: Blinding walking students at close range (&lt;= 3.5m) for &gt;= 1.0s.
+/// 3. External Errors API: PunishPlayerError (e.g. failed lockpicking or loud crashes).
+/// 4. Directly frames the horrifying face of the offending student (Drei, Niel, Josua, Jessa, Glad, Ira) on screen.
+/// 5. Isolates head and neck mesh centered at (0, 0, 0) and renders with Unlit shader so facial features are crisp.
+/// 6. Lunges directly towards camera lens with violent high-frequency jitter, tremors, and screams.
+/// 7. Adds anxiety to AnxietyManager (+12f) and drains stamina.
+/// 8. Plays high-impact jumpscare screamer sound at full volume.
+/// 9. Restricts jumpscares STRICTLY to hallways and circulation areas (blocked inside rooms, lockers, dialogue, puzzles).
 /// </summary>
 public class NPCJumpscareManager : MonoBehaviour
 {
     public static NPCJumpscareManager Instance { get; private set; }
 
-    [Header("Timing Settings")]
-    [Tooltip("Minimum seconds between random jumpscares.")]
-    public float minInterval = 70f;
+    [System.Serializable]
+    public class WanderingNPCData
+    {
+        public string name;
+        public GameObject gameObject;
+        public Transform transform;
+        public SkinnedMeshRenderer smr;
+        public Collider collider;
+        public ProctorAI proctorAI;
+    }
 
-    [Tooltip("Maximum seconds between random jumpscares.")]
-    public float maxInterval = 150f;
+    [Header("Touch & Block Punishment Settings")]
+    [Tooltip("Distance threshold (meters, horizontal XZ) where the player is touching or blocking a walking student.")]
+    public float touchDistanceThreshold = 1.30f;
 
-    [Header("Jumpscare Tuning")]
-    [Tooltip("Start distance of the lunging face from camera.")]
-    public float startDistance = 0.58f;
+    [Range(0f, 1f)]
+    [Tooltip("Probability of being jumpscared when physically touching or blocking a walking student (near 50/50).")]
+    public float touchScareChance = 0.50f;
 
-    [Tooltip("End distance of the lunging face at closest point (right in your face).")]
-    public float closestDistance = 0.26f;
+    [Tooltip("Cooldown in seconds after a jumpscare occurs before another jumpscare can happen (pacing: not too frequent).")]
+    public float jumpscareGlobalCooldown = 18.0f;
 
-    [Tooltip("Face scale multiplier to fill the screen (Fortnite screamer style).")]
-    public float faceScale = 2.45f;
+    [Tooltip("Cooldown in seconds after touching/blocking an NPC and rolling safe before checking touch again.")]
+    public float touchRerollCooldown = 5.0f;
 
-    [Tooltip("Duration of the jumpscare in seconds.")]
-    public float scareDuration = 0.90f;
+    [Header("Flashlight Blinding Punishment")]
+    [Tooltip("Distance threshold for blinding a student with the flashlight.")]
+    public float flashlightInFaceRadius = 3.5f;
+
+    [Tooltip("How long the flashlight must shine directly in a student's eyes before triggering a scare.")]
+    public float flashlightBlindingThreshold = 1.0f;
+
+    [Header("Horror & Balancing")]
+    [Tooltip("Amount of anxiety added to the AnxietyMeter on jumpscare.")]
+    public float jumpscareAnxietyIncrease = 12f;
 
     [Tooltip("Stamina penalty when jumpscared.")]
     public float staminaDrain = 25f;
 
-    [Tooltip("Maximum distance (metres) between the player and a walking NPC for the random jumpscare to be eligible. " +
-             "Think of it as personal-space violation — the NPC must be right next to the player.")]
-    public float personalSpaceRadius = 1.8f;
+    [Tooltip("Duration of the in-your-face scare in seconds.")]
+    public float scareDuration = 0.90f;
 
-    [Header("Audio Clips")]
+    [Tooltip("Start distance of the lunging face from camera.")]
+    public float startDistance = 0.58f;
+
+    [Tooltip("End distance of the lunging face at closest point (right in your face).")]
+    public float closestDistance = 0.25f;
+
+    [Tooltip("Face scale multiplier to fill the screen.")]
+    public float faceScale = 2.45f;
+
+    [Header("Audio Settings")]
     [Range(0f, 1f)]
-    [Tooltip("Master volume for walking NPC jumpscares (lowered to avoid overwhelming the player).")]
-    public float jumpscareVolume = 0.5f;
+    [Tooltip("Master volume for jumpscare screamer.")]
+    public float jumpscareVolume = 1.0f;
+
     public AudioClip scareStingClip;
     public AudioClip proctorStingClip;
     public AudioClip staticHissClip;
@@ -64,7 +95,9 @@ public class NPCJumpscareManager : MonoBehaviour
     private Material _unlitMaterial;
     private Image _flashOverlay;
 
-    private float _nextScareTime = 0f;
+    private float _flashlightAimTimer = 0f;
+    private float _cooldownUntil = 0f;
+    private float _touchRerollCooldownUntil = 0f;
     private bool _isScaring = false;
 
     // ── Wandering Student sources ────────────────────────────────────────────
@@ -78,10 +111,10 @@ public class NPCJumpscareManager : MonoBehaviour
         "ClearanceNPC_Ira"
     };
 
-    private List<SkinnedMeshRenderer> _cachedStudentSMRs = new List<SkinnedMeshRenderer>();
+    private readonly List<WanderingNPCData> _cachedNPCs = new List<WanderingNPCData>();
     private Mesh _activeBakedMesh;
 
-    // Tracks which NPC violated personal space and should be shown in the next jumpscare
+    // Tracks which NPC violated personal space / caught the player
     private SkinnedMeshRenderer _proximityChosenSMR = null;
 
     // ── Room Bounding Boxes (to prevent scaring inside rooms) ────────────────
@@ -109,14 +142,13 @@ public class NPCJumpscareManager : MonoBehaviour
         audioGO.transform.SetParent(transform, false);
         _audioSource = audioGO.AddComponent<AudioSource>();
         _audioSource.playOnAwake = false;
-        _audioSource.spatialBlend = 0f;
-        _audioSource.volume = 1.0f;
+        _audioSource.spatialBlend = 0f; // 2D in-your-face sound
+        _audioSource.volume = jumpscareVolume;
 
         LoadDefaultAudio();
-        CacheNPCSkinRenderers();
+        CacheWanderingNPCs();
         CacheRoomBounds();
         BuildScareRig();
-        ScheduleNextScare();
     }
 
     private void LoadDefaultAudio()
@@ -134,14 +166,23 @@ public class NPCJumpscareManager : MonoBehaviour
         if (gaspBreathClip == null)
             gaspBreathClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/man gasping for air.mp3");
 #endif
+        // Runtime fallback for standalone builds
+        if (scareStingClip == null)
+            scareStingClip = Resources.Load<AudioClip>("Sounds/you died (lobotomy sound)");
+        if (proctorStingClip == null)
+            proctorStingClip = Resources.Load<AudioClip>("Sounds/encountering a proctor");
+        if (staticHissClip == null)
+            staticHissClip = Resources.Load<AudioClip>("Sounds/vhs static");
+        if (gaspBreathClip == null)
+            gaspBreathClip = Resources.Load<AudioClip>("Sounds/man gasping for air");
     }
 
     /// <summary>
-    /// Caches specifically the wandering students so the jumpscare clearly features their face.
+    /// Caches all wandering student character models, true 3D transforms, and colliders.
     /// </summary>
-    public void CacheNPCSkinRenderers()
+    public void CacheWanderingNPCs()
     {
-        _cachedStudentSMRs.Clear();
+        _cachedNPCs.Clear();
 
         foreach (var name in _wanderingStudentNames)
         {
@@ -149,29 +190,48 @@ public class NPCJumpscareManager : MonoBehaviour
             if (go != null)
             {
                 var smr = go.GetComponentInChildren<SkinnedMeshRenderer>();
+                var col = go.GetComponent<Collider>() ?? go.GetComponentInChildren<Collider>();
+                var ai = go.GetComponent<ProctorAI>();
+
                 if (smr != null && smr.sharedMesh != null)
                 {
-                    _cachedStudentSMRs.Add(smr);
+                    _cachedNPCs.Add(new WanderingNPCData
+                    {
+                        name = name,
+                        gameObject = go,
+                        transform = go.transform,
+                        smr = smr,
+                        collider = col,
+                        proctorAI = ai
+                    });
                 }
             }
         }
 
-        // Fallback: search all student clearance NPCs
-        if (_cachedStudentSMRs.Count == 0)
+        // Fallback: search all ProctorAI walking students
+        if (_cachedNPCs.Count == 0)
         {
-            var allSMRs = FindObjectsByType<SkinnedMeshRenderer>(FindObjectsInactive.Include);
-            foreach (var smr in allSMRs)
+            var allAI = FindObjectsByType<ProctorAI>(FindObjectsInactive.Include);
+            foreach (var ai in allAI)
             {
-                if (smr == null || smr.sharedMesh == null) continue;
-                if (smr.transform.root.CompareTag("Player")) continue;
-                if (smr.transform.root.name.Contains("LobbyArea") || smr.gameObject.name.Contains("ClearanceNPC"))
+                if (ai.name.Contains("TheProctor")) continue;
+                var smr = ai.GetComponentInChildren<SkinnedMeshRenderer>();
+                if (smr != null && smr.sharedMesh != null)
                 {
-                    _cachedStudentSMRs.Add(smr);
+                    _cachedNPCs.Add(new WanderingNPCData
+                    {
+                        name = ai.name,
+                        gameObject = ai.gameObject,
+                        transform = ai.transform,
+                        smr = smr,
+                        collider = ai.GetComponent<Collider>() ?? ai.GetComponentInChildren<Collider>(),
+                        proctorAI = ai
+                    });
                 }
             }
         }
 
-        Debug.Log($"[NPCJumpscareManager] Cached {_cachedStudentSMRs.Count} wandering student character models for jumpscares.");
+        Debug.Log($"[NPCJumpscareManager] Cached {_cachedNPCs.Count} wandering student NPCs for touch/blocking jumpscares.");
     }
 
     /// <summary>
@@ -195,14 +255,12 @@ public class NPCJumpscareManager : MonoBehaviour
                 foreach (var c in cols)
                 {
                     if (c.isTrigger) continue;
-                    // Exclude service counters protruding through hallway walls
                     if (c.gameObject.name.Contains("ReceptionServiceWindow")) continue;
                     if (first) { b = c.bounds; first = false; }
                     else b.Encapsulate(c.bounds);
                 }
                 if (!first)
                 {
-                    // Slightly contract bounds horizontally so doorways aren't falsely flagged as inside
                     b.Expand(new Vector3(-0.15f, 0f, -0.15f));
                     _cachedRoomBounds.Add(b);
                 }
@@ -227,12 +285,12 @@ public class NPCJumpscareManager : MonoBehaviour
         _scareMeshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         _scareMeshRenderer.receiveShadows = false;
 
-        // Dedicated Unlit material: NO specular blowout, NO white blob!
+        // Dedicated Unlit material: NO specular blowout, sharp recognizable face
         var unlitShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Texture");
         _unlitMaterial = new Material(unlitShader);
         _scareMeshRenderer.sharedMaterial = _unlitMaterial;
 
-        // Horror flash vignette on HudCanvas
+        // Red horror vignette on HudCanvas
         var hud = GameObject.Find("HudCanvas");
         if (hud != null)
         {
@@ -264,78 +322,210 @@ public class NPCJumpscareManager : MonoBehaviour
 
         if (_isScaring) return;
 
-        if (Time.time >= _nextScareTime)
+        // ── 1. PRIMARY TRIGGER: Really Touching / Blocking Walking NPC in Hallways ───
+        if (Time.time >= _cooldownUntil && Time.time >= _touchRerollCooldownUntil && CanTriggerScare())
         {
-            if (CanTriggerScare())
+            var (touchNPC, distXZ) = GetTouchedNPC(touchDistanceThreshold);
+            if (touchNPC != null)
             {
-                // ── Personal-space proximity gate ──────────────────────────
-                // The jumpscare only fires when the player is within
-                // personal-space distance of one of the wandering NPCs.
-                // We find the closest NPC and use their face for the scare.
-                SkinnedMeshRenderer nearestSMR = GetNPCInPersonalSpace();
-                if (nearestSMR != null)
+                HandleTouchOrBlock(touchNPC, $"Continuous Proximity/Block (distXZ={distXZ:F2}m)");
+                return;
+            }
+        }
+
+        // ── 2. FLASHLIGHT BLINDING PUNISHMENT ────────────────────────────────────
+        if (Time.time >= _cooldownUntil && CanTriggerScare())
+        {
+            if (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn)
+            {
+                var (aimNPC, aimDist) = GetAimedNPCInRadius(flashlightInFaceRadius, 0.82f);
+                if (aimNPC != null)
                 {
-                    _proximityChosenSMR = nearestSMR;
-                    TriggerJumpscare();
+                    _flashlightAimTimer += Time.deltaTime;
+                    if (_flashlightAimTimer >= flashlightBlindingThreshold)
+                    {
+                        _flashlightAimTimer = 0f;
+                        HandleTouchOrBlock(aimNPC, $"Flashlight Blinding (dist={aimDist:F2}m)");
+                        return;
+                    }
                 }
                 else
                 {
-                    // No NPC is close enough yet — retry in a short interval
-                    _nextScareTime = Time.time + 4f;
+                    _flashlightAimTimer = Mathf.Max(0f, _flashlightAimTimer - Time.deltaTime * 2f);
                 }
             }
             else
             {
-                _nextScareTime = Time.time + 8f;
+                _flashlightAimTimer = 0f;
             }
         }
     }
 
     /// <summary>
-    /// Returns the SkinnedMeshRenderer of the wandering NPC that is currently
-    /// within <see cref="personalSpaceRadius"/> metres of the player,
-    /// or null if no NPC is that close.
+    /// Direct PhysX collision callback: called when CharacterController hits a collider while moving.
+    /// Guarantees that walking into / pushing against the NPC triggers the touch check.
     /// </summary>
-    private SkinnedMeshRenderer GetNPCInPersonalSpace()
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (_isScaring) return;
+        if (Time.time < _cooldownUntil || Time.time < _touchRerollCooldownUntil) return;
+        if (!CanTriggerScare()) return;
+
+        var npc = FindMatchingNPC(hit.collider.gameObject);
+        if (npc != null)
+        {
+            HandleTouchOrBlock(npc, "Physical Collision (OnControllerColliderHit)");
+        }
+    }
+
+    /// <summary>
+    /// Evaluates the 50/50 jumpscare roll when the player touches or blocks a walking student.
+    /// If scare triggers, initiates jumpscare and applies long global cooldown (not too frequent).
+    /// If safe, applies a reroll debounce so the player isn't spammed with checks while touching.
+    /// </summary>
+    private void HandleTouchOrBlock(WanderingNPCData npc, string source)
+    {
+        if (_isScaring) return;
+        if (Time.time < _cooldownUntil || Time.time < _touchRerollCooldownUntil) return;
+        if (!CanTriggerScare()) return;
+
+        float roll = Random.value;
+        bool shouldScare = (roll < touchScareChance);
+
+        Debug.Log($"[NPCJumpscareManager] Player touched/blocked {npc.name} ({source}). 50/50 Roll: {roll:F2} < {touchScareChance:F2} => {(shouldScare ? "JUMPSCARE!" : "SAFE (reroll cooldown)")}");
+
+        if (shouldScare)
+        {
+            _proximityChosenSMR = npc.smr;
+            _cooldownUntil = Time.time + jumpscareGlobalCooldown;
+            _touchRerollCooldownUntil = Time.time + jumpscareGlobalCooldown;
+            TriggerJumpscare();
+        }
+        else
+        {
+            // Debounce: safe roll means no jumpscare for at least touchRerollCooldown seconds
+            _touchRerollCooldownUntil = Time.time + touchRerollCooldown;
+        }
+    }
+
+    /// <summary>
+    /// Public API: Punishes specific player mistakes (e.g. lockpicking fail or loud noises).
+    /// </summary>
+    public void PunishPlayerError(string reason, float chance = 0.50f)
+    {
+        if (_isScaring || Time.time < _cooldownUntil) return;
+        if (!CanTriggerScare()) return;
+
+        var (targetNPC, dist) = GetTouchedNPC(4.0f);
+        if (targetNPC != null && Random.value <= chance)
+        {
+            Debug.Log($"[NPCJumpscareManager] Punishing error '{reason}' with jumpscare from {targetNPC.name}!");
+            _proximityChosenSMR = targetNPC.smr;
+            _cooldownUntil = Time.time + jumpscareGlobalCooldown;
+            _touchRerollCooldownUntil = Time.time + jumpscareGlobalCooldown;
+            TriggerJumpscare();
+        }
+    }
+
+    /// <summary>
+    /// Matches a hit collider's GameObject to one of our cached wandering NPCs.
+    /// </summary>
+    private WanderingNPCData FindMatchingNPC(GameObject go)
+    {
+        if (go == null) return null;
+        if (_cachedNPCs.Count == 0) CacheWanderingNPCs();
+
+        foreach (var npc in _cachedNPCs)
+        {
+            if (npc == null || npc.gameObject == null) continue;
+            if (go == npc.gameObject || go.transform.IsChildOf(npc.transform))
+            {
+                return npc;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Returns the wandering student being touched or blocked horizontally within maxDistXZ on the same floor level.
+    /// </summary>
+    private (WanderingNPCData npc, float distXZ) GetTouchedNPC(float maxDistXZ)
     {
         var playerGO = GameObject.FindGameObjectWithTag("Player");
-        if (playerGO == null) return null;
+        if (playerGO == null) return (null, float.MaxValue);
 
         Vector3 playerPos = playerGO.transform.position;
+        Vector2 playerXZ = new Vector2(playerPos.x, playerPos.z);
 
-        if (_cachedStudentSMRs.Count == 0) CacheNPCSkinRenderers();
+        if (_cachedNPCs.Count == 0) CacheWanderingNPCs();
 
-        SkinnedMeshRenderer closest = null;
-        float closestDist = float.MaxValue;
+        WanderingNPCData closest = null;
+        float closestDistXZ = float.MaxValue;
 
-        foreach (var smr in _cachedStudentSMRs)
+        foreach (var npc in _cachedNPCs)
         {
-            if (smr == null) continue;
+            if (npc == null || npc.gameObject == null) continue;
 
-            // Use the NPC root transform position for the distance check
-            Transform npcRoot = smr.transform.root;
-            float dist = Vector3.Distance(playerPos, npcRoot.position);
+            Vector3 npcPos = npc.transform.position;
+            float distY = Mathf.Abs(playerPos.y - npcPos.y);
+            if (distY > 1.8f) continue; // Must be on same floor
 
-            if (dist <= personalSpaceRadius && dist < closestDist)
+            Vector2 npcXZ = new Vector2(npcPos.x, npcPos.z);
+            float distXZ = Vector2.Distance(playerXZ, npcXZ);
+
+            if (distXZ <= maxDistXZ && distXZ < closestDistXZ)
             {
-                closestDist = dist;
-                closest = smr;
+                closestDistXZ = distXZ;
+                closest = npc;
             }
         }
 
-        if (closest != null)
-            Debug.Log($"[NPCJumpscareManager] NPC in personal space at {closestDist:F2} m → triggering jumpscare with {closest.transform.root.name}.");
-
-        return closest;
+        return (closest, closestDistXZ);
     }
 
     /// <summary>
-    /// Ensures jumpscares happen ONLY in hallways and circulation areas, never inside rooms.
+    /// Returns any wandering student whose face/head is being aimed at directly by player camera.
+    /// </summary>
+    private (WanderingNPCData npc, float dist) GetAimedNPCInRadius(float radius, float minDot)
+    {
+        if (_playerCam == null) return (null, float.MaxValue);
+        if (_cachedNPCs.Count == 0) CacheWanderingNPCs();
+
+        Vector3 camPos = _playerCam.transform.position;
+        Vector3 camFwd = _playerCam.transform.forward;
+
+        WanderingNPCData bestNPC = null;
+        float bestDist = float.MaxValue;
+
+        foreach (var npc in _cachedNPCs)
+        {
+            if (npc == null || npc.gameObject == null) continue;
+
+            Vector3 headPos = npc.transform.position + Vector3.up * 1.55f;
+            Vector3 toHead = headPos - camPos;
+            float dist = toHead.magnitude;
+
+            if (dist <= radius && dist < bestDist)
+            {
+                float dot = Vector3.Dot(camFwd, toHead / dist);
+                if (dot >= minDot)
+                {
+                    bestDist = dist;
+                    bestNPC = npc;
+                }
+            }
+        }
+
+        return (bestNPC, bestDist);
+    }
+
+    /// <summary>
+    /// Ensures jumpscares happen ONLY in hallways and circulation areas, never inside rooms or safe spots.
     /// </summary>
     public bool CanTriggerScare()
     {
         if (PauseMenu.GameIsPaused) return false;
-        if (LockerHideManager.IsPlayerHidden) return false;  // Player is hiding in a locker
+        if (LockerHideManager.IsPlayerHidden) return false;
         if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return false;
 
         var guidancePuzzle = GuidanceWordPuzzle.Instance;
@@ -347,10 +537,7 @@ public class NPCJumpscareManager : MonoBehaviour
         var registrarPuzzle = RegistrarDocumentSortPuzzle.Instance;
         if (registrarPuzzle != null && registrarPuzzle.IsOpen) return false;
 
-        // Never scare while player is climbing or transitioning stairs
         if (IsPlayerOnStairs()) return false;
-
-        // Jumpscare the player ONLY if he is not inside rooms and is in the hallways!
         if (IsPlayerInsideAnyRoom()) return false;
 
         return true;
@@ -398,28 +585,20 @@ public class NPCJumpscareManager : MonoBehaviour
     {
         _isScaring = true;
 
-        if (_cachedStudentSMRs.Count == 0) CacheNPCSkinRenderers();
-        if (_cachedStudentSMRs.Count == 0)
+        if (_cachedNPCs.Count == 0) CacheWanderingNPCs();
+        if (_cachedNPCs.Count == 0)
         {
             _isScaring = false;
             yield break;
         }
 
-        // Use the NPC that violated the player's personal space (set in Update).
-        // Falls back to a random wandering student only when triggered manually (e.g. F8).
         SkinnedMeshRenderer chosenSMR = _proximityChosenSMR;
-        _proximityChosenSMR = null; // consume it
+        _proximityChosenSMR = null;
 
         if (chosenSMR == null)
         {
-            int idx = Random.Range(0, _cachedStudentSMRs.Count);
-            chosenSMR = _cachedStudentSMRs[idx];
-        }
-
-        if (chosenSMR == null)
-        {
-            CacheNPCSkinRenderers();
-            chosenSMR = _cachedStudentSMRs.Count > 0 ? _cachedStudentSMRs[0] : null;
+            int idx = Random.Range(0, _cachedNPCs.Count);
+            chosenSMR = _cachedNPCs[idx].smr;
         }
 
         if (chosenSMR == null)
@@ -444,7 +623,7 @@ public class NPCJumpscareManager : MonoBehaviour
             if (rawVerts[i].y < minY) minY = rawVerts[i].y;
         }
 
-        // Compute the true face center (eyes and bridge of nose)
+        // Compute true face center (eyes and bridge of nose)
         float eyeY = maxY - 0.15f;
         float sumZ = 0f;
         int countZ = 0;
@@ -459,7 +638,7 @@ public class NPCJumpscareManager : MonoBehaviour
         float centerZ = countZ > 0 ? (sumZ / countZ) : 0f;
         Vector3 faceCenter = new Vector3(0f, eyeY, centerZ);
 
-        // 2. Center all vertices directly on the eyes/nose and isolate head & face triangles
+        // 2. Center vertices directly on eyes/nose and isolate head & face triangles
         var newVerts = new List<Vector3>();
         var newUVs = new List<Vector2>();
         var newTris = new List<int>();
@@ -475,7 +654,6 @@ public class NPCJumpscareManager : MonoBehaviour
             Vector3 v2 = rawVerts[i2] - faceCenter;
             Vector3 v3 = rawVerts[i3] - faceCenter;
 
-            // Keep triangle if vertices belong to the face/head zone
             if ((v1.y >= keepMinY && v1.y <= keepMaxY) ||
                 (v2.y >= keepMinY && v2.y <= keepMaxY) ||
                 (v3.y >= keepMinY && v3.y <= keepMaxY))
@@ -515,17 +693,25 @@ public class NPCJumpscareManager : MonoBehaviour
             _unlitMaterial.mainTexture = chosenSMR.sharedMaterial.mainTexture;
         }
 
-        // 4. Audio scream / horror sting
+        // 4. Audio scream / horror sting at FULL VOLUME
         if (_audioSource != null)
         {
+            if (scareStingClip == null) LoadDefaultAudio();
             AudioClip clipToPlay = (Random.value < 0.65f && scareStingClip != null) ? scareStingClip : proctorStingClip;
             if (clipToPlay == null) clipToPlay = scareStingClip;
-            if (clipToPlay != null) _audioSource.PlayOneShot(clipToPlay, jumpscareVolume);
+            if (clipToPlay != null)
+            {
+                _audioSource.volume = jumpscareVolume;
+                _audioSource.PlayOneShot(clipToPlay, jumpscareVolume);
+            }
         }
 
-        // 5. Activate rig and overlay
-        _scareRig.SetActive(true);
-        if (_flashOverlay != null) _flashOverlay.gameObject.SetActive(true);
+        // 5. Increment Anxiety Meter!
+        if (AnxietyManager.Instance != null)
+        {
+            AnxietyManager.Instance.AddAnxiety(jumpscareAnxietyIncrease);
+            Debug.Log($"[NPCJumpscareManager] Added +{jumpscareAnxietyIncrease} anxiety on NPC jumpscare! Current: {AnxietyManager.Instance.CurrentAnxiety:F1}");
+        }
 
         // Deduct stamina
         if (_staminaSystem != null)
@@ -533,45 +719,46 @@ public class NPCJumpscareManager : MonoBehaviour
             _staminaSystem.currentStamina = Mathf.Max(5f, _staminaSystem.currentStamina - staminaDrain);
         }
 
+        // 6. Activate rig and horror vignette
+        _scareRig.SetActive(true);
+        if (_flashOverlay != null) _flashOverlay.gameObject.SetActive(true);
+
         float elapsed = 0f;
         float baseScale = faceScale;
 
-        // 6. Michael Jackson / Fortnite Screamer Loop:
-        // Huge in-your-face lunging head with violent tilt, jitter, and screen shudder
-        float randomTilt = Random.Range(-12f, 12f);
-        float basePitch = 16.0f; // Forward pitch so eyes stare directly into player camera lens
+        // 7. Screamer Loop:
+        // Lunging head staring straight into camera lens with violent tilt, jitter, and screen shudder
+        float randomTilt = Random.Range(-10f, 10f);
+        float basePitch = 15.0f; // Stare straight into camera lens
 
         while (elapsed < scareDuration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / scareDuration;
 
-            // Aggressive snap-forward lunge: fast initial slam towards camera
+            // Fast slam towards camera lens
             float lungeCurve = Mathf.Pow(Mathf.Sin(t * Mathf.PI * 0.5f), 0.6f);
             float lungeZ = Mathf.Lerp(startDistance, closestDistance, lungeCurve);
 
-            // Violent high-frequency jitter (rapid convulsions)
+            // Violent high-frequency jitter
             float intensity = 1.0f - (t * 0.30f);
-            float jitterX = Random.Range(-0.022f, 0.022f) * intensity;
-            float jitterY = Random.Range(-0.022f, 0.022f) * intensity;
+            float jitterX = Random.Range(-0.024f, 0.024f) * intensity;
+            float jitterY = Random.Range(-0.024f, 0.024f) * intensity;
             float jitterZ = Random.Range(-0.012f, 0.012f) * intensity;
 
             float pitchJitter = Random.Range(-6f, 6f) * intensity;
             float yawJitter = Random.Range(-8f, 8f) * intensity;
             float rollJitter = randomTilt + Random.Range(-5f, 5f) * intensity;
 
-            // Micro-pulsing scale to enhance the breathing/screaming terror
             float scalePulse = baseScale * (1.0f + Random.Range(-0.035f, 0.035f) * intensity);
 
-            // Eyes and nose are centered at (0,0,0) with forward tilt staring into your face
             _scareRig.transform.localScale = Vector3.one * scalePulse;
             _scareRig.transform.localPosition = new Vector3(jitterX, jitterY, lungeZ + jitterZ);
             _scareRig.transform.localRotation = Quaternion.Euler(basePitch + pitchJitter, 180f + yawJitter, rollJitter);
 
-            // Red horror vignette pulse (leaves center face crisp and clear)
             if (_flashOverlay != null)
             {
-                float flashAlpha = Mathf.Lerp(0.24f, 0f, t);
+                float flashAlpha = Mathf.Lerp(0.25f, 0f, t);
                 _flashOverlay.color = new Color(0.65f, 0.04f, 0.04f, flashAlpha);
             }
 
@@ -591,16 +778,10 @@ public class NPCJumpscareManager : MonoBehaviour
         // Post-scare audio: static hiss and gasping for breath
         if (_audioSource != null)
         {
-            if (staticHissClip != null) _audioSource.PlayOneShot(staticHissClip, jumpscareVolume * 0.6f);
+            if (staticHissClip != null) _audioSource.PlayOneShot(staticHissClip, jumpscareVolume * 0.7f);
             if (gaspBreathClip != null) _audioSource.PlayOneShot(gaspBreathClip, jumpscareVolume * 0.9f);
         }
 
         _isScaring = false;
-        ScheduleNextScare();
-    }
-
-    private void ScheduleNextScare()
-    {
-        _nextScareTime = Time.time + Random.Range(minInterval, maxInterval);
     }
 }

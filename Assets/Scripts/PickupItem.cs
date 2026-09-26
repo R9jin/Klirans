@@ -23,7 +23,9 @@ public class PickupItem : MonoBehaviour, IInteractable
             bool added = InventoryManager.Instance.AddItem(itemData, amount);
             if (added)
             {
-                Destroy(gameObject);
+                var failsafe = GetComponentInParent<DroppedItemFailsafe>();
+                GameObject toDestroy = (failsafe != null) ? failsafe.gameObject : gameObject;
+                Destroy(toDestroy);
             }
         }
         else

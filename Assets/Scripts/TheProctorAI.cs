@@ -36,23 +36,23 @@ public class TheProctorAI : MonoBehaviour
     public ProctorState currentState = ProctorState.Inactive;
 
     [Header("Movement & Balancing")]
-    [Tooltip("Slow, terrifying stalking speed in hallway.")]
-    public float patrolSpeed = 1.35f;
+    [Tooltip("Fast stalking walk speed in hallway.")]
+    public float patrolSpeed = 3.2f;
 
-    [Tooltip("Hunting speed when alerted or chasing player.")]
-    public float chaseSpeed = 1.95f;
+    [Tooltip("Terrifying pursuit speed when alerted or chasing player.")]
+    public float chaseSpeed = 5.2f;
 
     [Tooltip("Distance at which Proctor catches the player and triggers jumpscare.")]
-    public float catchDistance = 1.3f;
+    public float catchDistance = 1.4f;
 
     [Tooltip("NavMesh stopping distance.")]
     public float stoppingDistance = 0.5f;
 
     [Tooltip("NavMesh agent acceleration.")]
-    public float acceleration = 9.0f;
+    public float acceleration = 12.0f;
 
     [Tooltip("Angular turning speed.")]
-    public float angularSpeed = 360.0f;
+    public float angularSpeed = 420.0f;
 
     [Header("Assigned Hallway & Floor Limits")]
     [Tooltip("The hallway name/identifier The Proctor is strictly confined to.")]
@@ -87,11 +87,11 @@ public class TheProctorAI : MonoBehaviour
     public AudioClip staticHissClip;
 
     [Header("Visual & Creepy Motion Tuning")]
-    [Tooltip("Target height in meters (stands towering near ceiling ~2.02m without clipping).")]
-    public float targetHeightMeters = 2.02f;
+    [Tooltip("Target height in meters (stands towering Slenderman-like ~2.60m).")]
+    public float targetHeightMeters = 2.60f;
 
     [Tooltip("Spine hunch angle (degrees).")]
-    public float spineHunchAngle = 14.0f;
+    public float spineHunchAngle = 10.0f;
 
     [Tooltip("Frequency of sudden blind head twitches.")]
     public float headTwitchInterval = 2.2f;
@@ -136,6 +136,14 @@ public class TheProctorAI : MonoBehaviour
             return;
         }
         ActiveProctor = this;
+
+        // Enforce Slenderman height & fast pursuit speeds even if overridden by old prefab serialization
+        if (patrolSpeed < 3.0f) patrolSpeed = 3.2f;
+        if (chaseSpeed < 5.0f) chaseSpeed = 5.2f;
+        if (targetHeightMeters < 2.50f) targetHeightMeters = 2.60f;
+        if (catchDistance < 1.35f) catchDistance = 1.4f;
+        if (acceleration < 11.0f) acceleration = 12.0f;
+        if (angularSpeed < 400.0f) angularSpeed = 420.0f;
 
         _agent = GetComponent<NavMeshAgent>();
         _animator = GetComponentInChildren<Animator>();
@@ -213,6 +221,15 @@ public class TheProctorAI : MonoBehaviour
         if (staticHissClip == null)
             staticHissClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/vhs static.mp3");
 #endif
+        // Runtime fallback for standalone builds
+        if (jumpscareScreamClip == null)
+            jumpscareScreamClip = Resources.Load<AudioClip>("Sounds/you died (lobotomy sound)");
+        if (alertStingClip == null)
+            alertStingClip = Resources.Load<AudioClip>("Sounds/encountering a proctor");
+        if (footstepClip == null)
+            footstepClip = Resources.Load<AudioClip>("Sounds/footsteps walking & running");
+        if (staticHissClip == null)
+            staticHissClip = Resources.Load<AudioClip>("Sounds/vhs static");
     }
 
     private void ConfigureNavMeshAgent()
@@ -637,15 +654,17 @@ public class TheProctorAI : MonoBehaviour
             _agent.velocity = Vector3.zero;
         }
 
-        // 2. Freeze player movement and lock camera facing Proctor
+        // 2. Freeze player movement and lock camera facing Proctor's face
         if (_playerMovement != null)
         {
             _playerMovement.SetControlsEnabled(false);
         }
 
-        if (_playerTransform != null)
+        float headOffsetFromRootY = (_headBone != null) ? (_headBone.position.y - transform.position.y) : (targetHeightMeters * 0.90f);
+        if (_playerCam != null)
         {
-            Vector3 lookAtProctor = (transform.position + Vector3.up * 1.8f) - _playerCam.transform.position;
+            Vector3 initialHeadPos = transform.position + Vector3.up * headOffsetFromRootY;
+            Vector3 lookAtProctor = initialHeadPos - _playerCam.transform.position;
             if (lookAtProctor.sqrMagnitude > 0.01f)
             {
                 _playerCam.transform.rotation = Quaternion.LookRotation(lookAtProctor);
@@ -653,15 +672,20 @@ public class TheProctorAI : MonoBehaviour
         }
 
         // 3. Audio Horror Screamer
-        if (_audioSource != null && jumpscareScreamClip != null)
+        if (_audioSource != null)
         {
-            _audioSource.spatialBlend = 0f; // 2D in-your-face audio
-            _audioSource.PlayOneShot(jumpscareScreamClip, 1.0f);
+            if (jumpscareScreamClip == null) LoadAudioAssets();
+            if (jumpscareScreamClip != null)
+            {
+                _audioSource.spatialBlend = 0f; // 2D in-your-face audio
+                _audioSource.volume = 1.0f;
+                _audioSource.PlayOneShot(jumpscareScreamClip, 1.0f);
+            }
         }
 
         // 4. In-Your-Face Camera Shudder & Face Lunging
         float elapsed = 0f;
-        float scareDuration = 1.1f;
+        float scareDuration = 1.15f;
         Vector3 initialProctorPos = transform.position;
 
         // Turn Proctor face directly toward camera
@@ -669,21 +693,37 @@ public class TheProctorAI : MonoBehaviour
         faceDir.y = 0;
         if (faceDir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(faceDir);
 
+        // Position target so his terrifying FACE (not his feet!) is positioned directly 0.42m in front of camera lens
+        Vector3 targetProctorPos = _playerCam.transform.position - faceDir * 0.42f;
+        targetProctorPos.y = _playerCam.transform.position.y - headOffsetFromRootY + 0.04f;
+
+        Vector3 camBaseLocalPos = _playerCam.transform.localPosition;
+
         while (elapsed < scareDuration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / scareDuration;
 
-            // Aggressive snap-slam towards player
-            transform.position = Vector3.Lerp(initialProctorPos, _playerCam.transform.position - faceDir * 0.45f, Mathf.Pow(t, 0.4f));
+            // Aggressive snap-slam of his FACE right into camera
+            transform.position = Vector3.Lerp(initialProctorPos, targetProctorPos, Mathf.Pow(t, 0.35f));
+
+            // Continuously lock camera directly on his face throughout the scare
+            Vector3 currentHeadPos = _headBone != null ? _headBone.position : (transform.position + Vector3.up * headOffsetFromRootY);
+            Vector3 lookDir = currentHeadPos - _playerCam.transform.position;
+            if (lookDir.sqrMagnitude > 0.001f)
+            {
+                _playerCam.transform.rotation = Quaternion.LookRotation(lookDir);
+            }
 
             // Violent shudder shake
             float shakeX = Random.Range(-0.04f, 0.04f);
             float shakeY = Random.Range(-0.04f, 0.04f);
-            _playerCam.transform.localPosition += new Vector3(shakeX, shakeY, 0f);
+            _playerCam.transform.localPosition = camBaseLocalPos + new Vector3(shakeX, shakeY, 0f);
 
             yield return null;
         }
+
+        if (_playerCam != null) _playerCam.transform.localPosition = camBaseLocalPos;
 
         // 5. Blinding Whiteout Flash Overlay
         yield return StartCoroutine(WhiteoutAndResetRoutine());

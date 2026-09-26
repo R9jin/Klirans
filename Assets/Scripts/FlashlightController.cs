@@ -28,6 +28,9 @@ public class FlashlightController : MonoBehaviour
     private bool isEquipped = false;
     private bool isLightOn = false;
 
+    public bool IsEquipped => isEquipped;
+    public bool IsLightOn => isLightOn && (flashlightLight == null || flashlightLight.enabled);
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -143,7 +146,4 @@ public class FlashlightController : MonoBehaviour
             AudioSource.PlayClipAtPoint(clickSound, transform.position, 0.8f);
         }
     }
-
-    public bool IsLightOn() => isLightOn;
-    public bool IsEquipped() => isEquipped;
 }

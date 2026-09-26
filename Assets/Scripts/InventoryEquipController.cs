@@ -291,7 +291,7 @@ public class InventoryEquipController : MonoBehaviour
     /// </summary>
     private void HandleDropInput()
     {
-        if (!Input.GetKeyDown(dropKey)) return;
+        if (!Input.GetKeyDown(dropKey) && !Input.GetKeyDown(KeyCode.Q)) return;
         if (PauseMenu.GameIsPaused) return;
         if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return;
         if (LockerHideManager.IsPlayerHidden) return;
@@ -322,15 +322,16 @@ public class InventoryEquipController : MonoBehaviour
 
     /// <summary>
     /// Removes the item from the inventory, unequips it, and spawns its world prefab
-    /// in front of the player with Rigidbody physics so it arcs and lands naturally.
+    /// in front of the player with Rigidbody physics and floor failsafe so it arcs and lands naturally.
+    /// Guarantees that every droppable item can always be picked up again with 'E'.
     /// </summary>
     private void DropActiveItem(InventoryItem item, InventorySlot slot)
     {
         // Unequip first so the viewmodel disappears cleanly
         UnequipCurrentItem();
 
-        // Remove one copy from inventory (or the entire stack if > 1)
-        int qtyToDrop = slot.quantity; // drop whole stack
+        // Remove copy from inventory (or the entire stack if > 1)
+        int qtyToDrop = slot.quantity;
         InventoryManager.Instance.RemoveItem(item, qtyToDrop);
 
         SlotMenu.Instance?.PingVisibility();
@@ -339,46 +340,107 @@ public class InventoryEquipController : MonoBehaviour
         Camera cam = Camera.main;
         if (cam == null) cam = GetComponentInChildren<Camera>();
 
-        Vector3 forward   = cam != null ? cam.transform.forward : transform.forward;
-        forward.y         = 0f;
+        Vector3 forward = cam != null ? cam.transform.forward : transform.forward;
+        forward.y = 0f;
         forward.Normalize();
 
-        Vector3 spawnPos = transform.position + forward * dropForwardOffset + Vector3.up * 0.5f;
+        // Detect floor height below player to ensure item never spawns below floor level
+        float floorY = transform.position.y;
+        if (Physics.Raycast(transform.position + Vector3.up * 0.5f, Vector3.down, out RaycastHit floorHit, 5f, ~0, QueryTriggerInteraction.Ignore))
+        {
+            floorY = floorHit.point.y;
+        }
+
+        Vector3 spawnPos = transform.position + forward * dropForwardOffset;
+        spawnPos.y = Mathf.Max(transform.position.y + 0.4f, floorY + 0.35f);
+
+        GameObject dropped = null;
 
         // If the item has a world prefab, spawn it
         if (item.itemPrefab != null)
         {
-            GameObject dropped = Instantiate(item.itemPrefab, spawnPos, Random.rotation);
+            dropped = Instantiate(item.itemPrefab, spawnPos, Random.rotation);
+        }
+        else
+        {
+            // Fallback for items with no world prefab (e.g. Blank_Paper, Voucher, Printer_Paper)
+            dropped = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            dropped.name = $"{item.itemName}_Dropped";
+            dropped.transform.position = spawnPos;
+            dropped.transform.rotation = Random.rotation;
+            dropped.transform.localScale = new Vector3(0.25f, 0.05f, 0.35f);
 
-            // Make sure it has a Rigidbody for physics
+            var mr = dropped.GetComponent<MeshRenderer>();
+            if (mr != null && item.icon != null)
+            {
+                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                mat.mainTexture = item.icon.texture;
+                mr.sharedMaterial = mat;
+            }
+        }
+
+        if (dropped != null)
+        {
+            // Remove broken child MeshColliders or ensure convex
+            var meshCols = dropped.GetComponentsInChildren<MeshCollider>(true);
+            foreach (var mc in meshCols)
+            {
+                if (mc.sharedMesh == null)
+                {
+                    Destroy(mc);
+                }
+                else
+                {
+                    mc.convex = true;
+                }
+            }
+
+            // Ensure a solid primitive collider on root
+            var rootCol = dropped.GetComponent<Collider>();
+            if (rootCol == null)
+            {
+                var sphere = dropped.AddComponent<SphereCollider>();
+                sphere.radius = 0.16f;
+            }
+
+            // Rigidbody with continuous collision detection
             Rigidbody rb = dropped.GetComponent<Rigidbody>();
             if (rb == null) rb = dropped.AddComponent<Rigidbody>();
             rb.isKinematic = false;
-            rb.mass        = 0.4f;
-
-            // Make sure it has a Collider
-            if (dropped.GetComponentInChildren<Collider>() == null)
-            {
-                BoxCollider bc = dropped.AddComponent<BoxCollider>();
-                bc.size = Vector3.one * 0.15f;
-            }
+            rb.mass = 0.5f;
+            rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
 
             // Apply a gentle arc throw
             rb.linearVelocity = forward * dropForwardForce + Vector3.up * dropUpwardForce;
             rb.angularVelocity = Random.insideUnitSphere * 3f;
 
-            // Re-attach PickupItem so the player can pick it back up
+            // Attach DroppedItemFailsafe to guarantee it never drops through the map
+            var failsafe = dropped.GetComponent<DroppedItemFailsafe>();
+            if (failsafe == null) failsafe = dropped.AddComponent<DroppedItemFailsafe>();
+            failsafe.Initialize(floorY);
+
+            // Strip any rogue child PickupItems so only one authoritative PickupItem exists on root
+            var childPickups = dropped.GetComponentsInChildren<PickupItem>(true);
+            foreach (var cp in childPickups)
+            {
+                if (cp.gameObject != dropped) Destroy(cp);
+            }
+
+            // Re-attach / configure PickupItem on the root so it can ALWAYS be picked back up with 'E'
             PickupItem pickup = dropped.GetComponent<PickupItem>();
             if (pickup == null) pickup = dropped.AddComponent<PickupItem>();
             pickup.itemData = item;
-            pickup.amount   = qtyToDrop;
+            pickup.amount = qtyToDrop;
 
-            Debug.Log($"[InventoryEquipController] Dropped {item.itemName} x{qtyToDrop} at {spawnPos}.");
-        }
-        else
-        {
-            // No prefab: item is simply discarded (with a log warning)
-            Debug.LogWarning($"[InventoryEquipController] {item.itemName} has no itemPrefab assigned — item dropped but no world object spawned.");
+            // Ensure layer is Default for PlayerInteract raycasting
+            dropped.layer = LayerMask.NameToLayer("Default");
+            foreach (Transform c in dropped.transform)
+            {
+                c.gameObject.layer = LayerMask.NameToLayer("Default");
+            }
+
+            Debug.Log($"[InventoryEquipController] Dropped {item.itemName} x{qtyToDrop} safely at {spawnPos}.");
         }
     }
 
