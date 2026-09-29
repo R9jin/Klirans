@@ -433,8 +433,9 @@ public class ProctorJumpscareQTE : MonoBehaviour
                 // Tangible physical pushback: player pushes Proctor back slightly
                 pushbackOffset += -faceDir * (0.045f * Mathf.Min(pressAmount, 3f));
 
-                // Frantic camera impulse
+                // Frantic camera impulse & visual FOV kick
                 cameraJolt = UnityEngine.Random.insideUnitSphere * 0.035f;
+                if (playerCam != null) playerCam.fieldOfView = 42.5f;
             }
 
             // 3. Subtle Progress Decay (forces active, continuous spamming)
@@ -450,38 +451,40 @@ public class ProctorJumpscareQTE : MonoBehaviour
             // 5. Recover Pushback Offset Smoothly
             pushbackOffset = Vector3.Lerp(pushbackOffset, Vector3.zero, dt * 6.5f);
 
-            // 6. Proctor Violent Jumpscare Wiggle & Twitch
-            float tremorFreq = 26.0f;
-            float tremorAmp = 0.038f;
+            // 6. Proctor Violent Jumpscare Wiggle & Twitch (FNAF Help Wanted VR in-your-face shudder)
+            float tremorFreq = 28.0f;
+            float tremorAmp = 0.032f;
             Vector3 tremor = new Vector3(
-                Mathf.Sin(struggleTimer * tremorFreq) * tremorAmp + UnityEngine.Random.Range(-0.012f, 0.012f),
-                Mathf.Cos(struggleTimer * tremorFreq * 1.35f) * tremorAmp + UnityEngine.Random.Range(-0.012f, 0.012f),
-                Mathf.Sin(struggleTimer * tremorFreq * 0.65f) * 0.015f
+                Mathf.Sin(struggleTimer * tremorFreq) * tremorAmp + UnityEngine.Random.Range(-0.010f, 0.010f),
+                Mathf.Cos(struggleTimer * tremorFreq * 1.35f) * (tremorAmp * 0.75f) + UnityEngine.Random.Range(-0.008f, 0.008f),
+                Mathf.Sin(struggleTimer * tremorFreq * 0.65f) * 0.012f
             );
 
             if (proctor != null)
             {
                 proctor.transform.position = targetProctorPos + pushbackOffset + tremor;
 
-                // Rotational twitching & head spasms
-                float yawShake = Mathf.Sin(struggleTimer * 22f) * 4.5f + UnityEngine.Random.Range(-2f, 2f);
-                float pitchShake = Mathf.Cos(struggleTimer * 19f) * 3.5f + UnityEngine.Random.Range(-2f, 2f);
-                float rollShake = Mathf.Sin(struggleTimer * 16f) * 5.0f;
+                // Rotational twitching & head spasms directly looking into camera lens
+                float yawShake = Mathf.Sin(struggleTimer * 26f) * 3.5f + UnityEngine.Random.Range(-1.5f, 1.5f);
+                float pitchShake = Mathf.Cos(struggleTimer * 22f) * 2.2f + UnityEngine.Random.Range(-1.5f, 1.5f);
+                float rollShake = Mathf.Sin(struggleTimer * 18f) * 4.0f;
                 proctor.transform.rotation = Quaternion.LookRotation(faceDir) * Quaternion.Euler(pitchShake, yawShake, rollShake);
             }
 
-            // 7. Lock Camera directly on Proctor's head
+            // 7. Lock Camera directly on Proctor's face & maintain FNAF VR FOV Zoom (40 deg)
             if (playerCam != null)
             {
+                playerCam.fieldOfView = Mathf.Lerp(playerCam.fieldOfView, 40.0f, dt * 10f);
+
                 Vector3 currentHeadPos = (headBone != null) ? headBone.position : (proctor.transform.position + Vector3.up * headOffsetFromRootY);
                 Vector3 lookDir = currentHeadPos - playerCam.transform.position;
-                if (lookDir.sqrMagnitude > 0.001f)
+                if (lookDir.sqrMagnitude > 0.0001f)
                 {
                     playerCam.transform.rotation = Quaternion.LookRotation(lookDir);
                 }
 
                 // Frantic camera shudder shake
-                float camShakeIntensity = 0.032f;
+                float camShakeIntensity = 0.026f;
                 Vector3 camShake = new Vector3(
                     UnityEngine.Random.Range(-camShakeIntensity, camShakeIntensity),
                     UnityEngine.Random.Range(-camShakeIntensity, camShakeIntensity),

@@ -1021,7 +1021,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.45
-  m_Speed: 5.2
+  m_Speed: 5.6
   m_Acceleration: 12
   avoidancePriority: 50
   m_AngularSpeed: 420
@@ -1070,7 +1070,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TheProctorAI
   currentState: 0
   patrolSpeed: 3.2
-  chaseSpeed: 5.2
+  chaseSpeed: 5.6
   catchDistance: 1.4
   stoppingDistance: 0.5
   acceleration: 12

@@ -17,7 +17,7 @@ public static class UpdateTheProctorPrefab
 
         float height = 2.60f;
         float pSpeed = 3.2f;
-        float cSpeed = 5.2f;
+        float cSpeed = 5.6f;
         float catchDist = 1.4f;
         float accel = 12.0f;
         float angSpeed = 420.0f;
@@ -72,6 +72,6 @@ public static class UpdateTheProctorPrefab
 
         PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
         PrefabUtility.UnloadPrefabContents(root);
-        Debug.Log("[UpdateTheProctorPrefab] Successfully updated TheProctor.prefab with Slenderman height (2.60m), 5.2 chase speed, and serialized audio clips!");
+        Debug.Log("[UpdateTheProctorPrefab] Successfully updated TheProctor.prefab with Slenderman height (2.60m), 5.6 chase speed, and serialized audio clips!");
     }
 }

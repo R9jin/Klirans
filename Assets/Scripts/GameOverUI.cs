@@ -88,6 +88,7 @@ public class GameOverUI : MonoBehaviour
         if (playerMovement != null)
         {
             playerMovement.SetControlsEnabled(false);
+            playerMovement.isJumpscareCameraOverride = false;
         }
 
         // 2. Despawn any active Proctor

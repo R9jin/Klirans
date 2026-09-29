@@ -40,7 +40,7 @@ public class TheProctorAI : MonoBehaviour
     public float patrolSpeed = 3.2f;
 
     [Tooltip("Terrifying pursuit speed when alerted or chasing player.")]
-    public float chaseSpeed = 5.2f;
+    public float chaseSpeed = 5.6f;
 
     [Tooltip("Distance at which Proctor catches the player and triggers jumpscare.")]
     public float catchDistance = 1.4f;
@@ -139,7 +139,7 @@ public class TheProctorAI : MonoBehaviour
 
         // Enforce Slenderman height & fast pursuit speeds even if overridden by old prefab serialization
         if (patrolSpeed < 3.0f) patrolSpeed = 3.2f;
-        if (chaseSpeed < 5.0f) chaseSpeed = 5.2f;
+        if (chaseSpeed < 5.5f) chaseSpeed = 5.6f;
         if (targetHeightMeters < 2.50f) targetHeightMeters = 2.60f;
         if (catchDistance < 1.35f) catchDistance = 1.4f;
         if (acceleration < 11.0f) acceleration = 12.0f;
@@ -198,7 +198,7 @@ public class TheProctorAI : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (currentState == ProctorState.Inactive || currentState == ProctorState.Despawning) return;
+        if (currentState == ProctorState.Inactive || currentState == ProctorState.Despawning || currentState == ProctorState.Jumpscare) return;
 
         // Apply creepy procedural poses (spine hunch, blind listening head twitches)
         ApplyCreepyProceduralMotion();
@@ -503,17 +503,30 @@ public class TheProctorAI : MonoBehaviour
             }
         }
 
-        // Sync Animator speed parameter for walking leg locomotion (never glides)
+        // Sync Animator speed parameter for walking / sprinting leg locomotion (never glides)
         if (_animator != null)
         {
-            float currentSpeed = _agent.velocity.magnitude;
+            bool isChasing = (currentState == ProctorState.Chasing);
+            float currentSpeed = (_agent != null && _agent.isOnNavMesh) ? _agent.velocity.magnitude : 0f;
             float normSpeed = 0f;
-            if (currentSpeed > 0.08f)
+
+            if (isChasing)
             {
-                normSpeed = Mathf.Clamp(currentSpeed / patrolSpeed, 0.5f, 1.25f);
+                // Full sprint chase animation: BlendTree threshold 2.0 (Runningdrei_InPlace)
+                normSpeed = Mathf.Clamp(1.6f + (currentSpeed / chaseSpeed) * 0.6f, 1.5f, 2.3f);
+                _animator.speed = 1.30f; // Frantic, aggressive running pace
             }
+            else
+            {
+                if (currentSpeed > 0.08f)
+                {
+                    normSpeed = Mathf.Clamp(currentSpeed / patrolSpeed, 0.4f, 1.15f);
+                }
+                _animator.speed = 1.0f;
+            }
+
             _animator.SetFloat("Speed", normSpeed);
-            _animator.SetBool("Chasing", currentState == ProctorState.Chasing);
+            _animator.SetBool("Chasing", isChasing);
         }
     }
 
@@ -588,29 +601,40 @@ public class TheProctorAI : MonoBehaviour
 
     private void ApplyCreepyProceduralMotion()
     {
-        // 1. Spine forward hunch - fixed controlled angle, non-accumulating!
+        bool isChasing = (currentState == ProctorState.Chasing);
+
+        // 1. Deep predatory forward spine hunch during chase (lean aggressively towards player!)
         if (_spineBone != null)
         {
-            _spineBone.localRotation *= Quaternion.Euler(spineHunchAngle, 0f, 0f);
+            float targetHunch = isChasing ? 24.0f : spineHunchAngle;
+            _spineBone.localRotation *= Quaternion.Euler(targetHunch, 0f, 0f);
         }
 
-        // 2. Left arm positioned to hold dripping clipboard firmly against chest
+        // 2. Left arm grips clipboard to chest; Right arm reaches/lunges forward during chase
         if (_leftArmBone != null)
         {
             _leftArmBone.localRotation *= Quaternion.Euler(22f, 15f, -10f);
         }
+        if (_rightArmBone != null && isChasing)
+        {
+            // Menacing reaching forward claw / grasping motion
+            float armReaching = 38f + Mathf.Sin(Time.time * 14f) * 12f;
+            _rightArmBone.localRotation *= Quaternion.Euler(armReaching, -12f, 15f);
+        }
 
-        // 3. Blind listening head twitches (smoothly tracking target tilt)
+        // 3. Creepy entity head twitches: rapid frantic stutters during chase
+        float interval = isChasing ? 0.35f : headTwitchInterval;
         if (Time.time >= _nextHeadTwitchTime)
         {
-            _nextHeadTwitchTime = Time.time + Random.Range(headTwitchInterval * 0.7f, headTwitchInterval * 1.3f);
-            float twitchYaw = Random.Range(-35f, 35f);
-            float twitchPitch = Random.Range(-10f, 16f);
-            float twitchRoll = Random.Range(-14f, 14f);
+            _nextHeadTwitchTime = Time.time + Random.Range(interval * 0.7f, interval * 1.3f);
+            float twitchYaw = isChasing ? Random.Range(-45f, 45f) : Random.Range(-35f, 35f);
+            float twitchPitch = isChasing ? Random.Range(-18f, 20f) : Random.Range(-10f, 16f);
+            float twitchRoll = Random.Range(-15f, 15f);
             _targetHeadTwitch = Quaternion.Euler(twitchPitch, twitchYaw, twitchRoll);
         }
 
-        _currentHeadTwitch = Quaternion.Slerp(_currentHeadTwitch, _targetHeadTwitch, Time.deltaTime * 5f);
+        float slerpSpeed = isChasing ? 16f : 5f;
+        _currentHeadTwitch = Quaternion.Slerp(_currentHeadTwitch, _targetHeadTwitch, Time.deltaTime * slerpSpeed);
         if (_headBone != null)
         {
             _headBone.localRotation *= _currentHeadTwitch;
@@ -627,10 +651,12 @@ public class TheProctorAI : MonoBehaviour
         _footstepTimer -= Time.deltaTime;
         if (_footstepTimer <= 0f)
         {
-            // Heavy, spaced, dragging steps
-            _footstepTimer = (currentState == ProctorState.Chasing) ? 0.55f : 0.85f;
-            _footstepAudio.pitch = Random.Range(0.75f, 0.90f); // Low ominous resonant pitch
-            _footstepAudio.PlayOneShot(footstepClip, 0.65f);
+            // Rapid terrifying stomping footsteps when sprinting, heavy dragging when patrolling
+            bool isChasing = (currentState == ProctorState.Chasing);
+            _footstepTimer = isChasing ? 0.28f : 0.85f;
+            _footstepAudio.pitch = isChasing ? Random.Range(0.95f, 1.15f) : Random.Range(0.75f, 0.90f);
+            float vol = isChasing ? 0.90f : 0.65f;
+            _footstepAudio.PlayOneShot(footstepClip, vol);
         }
     }
 
@@ -650,29 +676,53 @@ public class TheProctorAI : MonoBehaviour
     {
         Debug.Log("[TheProctorAI] PLAYER CAUGHT! Initiating Jumpscare Sequence.");
 
-        // 1. Freeze Proctor movement immediately
-        if (_agent.isOnNavMesh)
+        // 1. Disable NavMeshAgent so it does NOT clamp transform.position.y to floor during 3D camera scare
+        if (_agent != null)
         {
-            _agent.isStopped = true;
-            _agent.velocity = Vector3.zero;
+            if (_agent.isOnNavMesh)
+            {
+                _agent.isStopped = true;
+                _agent.velocity = Vector3.zero;
+            }
+            _agent.enabled = false;
         }
 
         // 2. Freeze player movement and lock camera facing Proctor's face
         if (_playerMovement != null)
         {
             _playerMovement.SetControlsEnabled(false);
+            _playerMovement.isJumpscareCameraOverride = true;
         }
 
-        float headOffsetFromRootY = (_headBone != null) ? (_headBone.position.y - transform.position.y) : (targetHeightMeters * 0.90f);
-        if (_playerCam != null)
+        if (_playerCam == null) _playerCam = Camera.main;
+
+        Vector3 camPos = _playerCam.transform.position;
+        Vector3 camBaseLocalPos = _playerCam.transform.localPosition;
+        float startFOV = _playerCam.fieldOfView;
+        float jumpscareFOV = 40.0f; // Extreme FNAF Help Wanted VR close-up zoom!
+
+        // Turn Proctor face directly toward camera horizontally
+        Vector3 faceDir = (camPos - transform.position);
+        faceDir.y = 0f;
+        if (faceDir.sqrMagnitude < 0.001f)
         {
-            Vector3 initialHeadPos = transform.position + Vector3.up * headOffsetFromRootY;
-            Vector3 lookAtProctor = initialHeadPos - _playerCam.transform.position;
-            if (lookAtProctor.sqrMagnitude > 0.01f)
-            {
-                _playerCam.transform.rotation = Quaternion.LookRotation(lookAtProctor);
-            }
+            faceDir = -_playerCam.transform.forward;
+            faceDir.y = 0f;
         }
+        faceDir.Normalize();
+        transform.rotation = Quaternion.LookRotation(faceDir);
+
+        // Compute exact head offset relative to Proctor's root position
+        Vector3 headOffset = (_headBone != null) ? (_headBone.position - transform.position) : new Vector3(0f, targetHeightMeters * 0.90f, 0f);
+
+        // Desired head position in world space:
+        // Positioned 0.25m in front of camera, at EXACT camera eye-level height!
+        // Camera look direction is strictly horizontal (-faceDir): zero downward pitch!
+        Vector3 desiredHeadPos = camPos - faceDir * 0.25f;
+        desiredHeadPos.y = camPos.y; // Eye-level horizontal alignment!
+
+        Vector3 targetProctorPos = desiredHeadPos - headOffset;
+        Vector3 initialProctorPos = transform.position;
 
         // 3. Audio Horror Screamer
         if (_audioSource != null)
@@ -686,41 +736,33 @@ public class TheProctorAI : MonoBehaviour
             }
         }
 
-        // 4. Initial In-Your-Face Snap-Slam into Camera
+        // 4. Initial In-Your-Face Snap-Slam into Camera with FNAF VR FOV Zoom
         float elapsed = 0f;
         float initialLungeDuration = 0.55f;
-        Vector3 initialProctorPos = transform.position;
-
-        // Turn Proctor face directly toward camera
-        Vector3 faceDir = (_playerCam.transform.position - transform.position).normalized;
-        faceDir.y = 0;
-        if (faceDir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(faceDir);
-
-        // Position target so his terrifying FACE (not his feet!) is positioned directly 0.42m in front of camera lens
-        Vector3 targetProctorPos = _playerCam.transform.position - faceDir * 0.42f;
-        targetProctorPos.y = _playerCam.transform.position.y - headOffsetFromRootY + 0.04f;
-
-        Vector3 camBaseLocalPos = _playerCam.transform.localPosition;
 
         while (elapsed < initialLungeDuration)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / initialLungeDuration;
+            float ease = Mathf.Pow(t, 0.35f);
 
-            // Aggressive snap-slam of his FACE right into camera
-            transform.position = Vector3.Lerp(initialProctorPos, targetProctorPos, Mathf.Pow(t, 0.35f));
+            // Aggressive snap-slam of his FACE right into camera lens
+            transform.position = Vector3.Lerp(initialProctorPos, targetProctorPos, ease);
+
+            // Dramatic vertigo camera zoom directly into his face
+            _playerCam.fieldOfView = Mathf.Lerp(startFOV, jumpscareFOV, ease);
 
             // Continuously lock camera directly on his face throughout the scare
-            Vector3 currentHeadPos = _headBone != null ? _headBone.position : (transform.position + Vector3.up * headOffsetFromRootY);
+            Vector3 currentHeadPos = (_headBone != null) ? _headBone.position : (transform.position + headOffset);
             Vector3 lookDir = currentHeadPos - _playerCam.transform.position;
-            if (lookDir.sqrMagnitude > 0.001f)
+            if (lookDir.sqrMagnitude > 0.0001f)
             {
                 _playerCam.transform.rotation = Quaternion.LookRotation(lookDir);
             }
 
             // Violent shudder shake
-            float shakeX = Random.Range(-0.04f, 0.04f);
-            float shakeY = Random.Range(-0.04f, 0.04f);
+            float shakeX = Random.Range(-0.035f, 0.035f);
+            float shakeY = Random.Range(-0.035f, 0.035f);
             _playerCam.transform.localPosition = camBaseLocalPos + new Vector3(shakeX, shakeY, 0f);
 
             yield return null;
@@ -741,7 +783,7 @@ public class TheProctorAI : MonoBehaviour
             _headBone,
             targetProctorPos,
             faceDir,
-            headOffsetFromRootY,
+            headOffset.y,
             camBaseLocalPos,
             (escaped) => { playerEscaped = escaped; }
         ));
@@ -812,25 +854,39 @@ public class TheProctorAI : MonoBehaviour
             SafeZoneManager.Instance.TeleportToSafeZone(_playerTransform.gameObject);
         }
 
-        // Smooth fade down from whiteout
+        // Smooth fade down from whiteout and restore camera FOV
         float fadeElapsed = 0f;
         float fadeDuration = 1.2f;
+        float currentFOV = (_playerCam != null) ? _playerCam.fieldOfView : 40f;
+        float normalFOV = (_playerMovement != null) ? _playerMovement.normalFOV : 60f;
+
         while (fadeElapsed < fadeDuration)
         {
             fadeElapsed += Time.deltaTime;
-            float alpha = Mathf.Clamp01(1f - (fadeElapsed / fadeDuration));
+            float t = fadeElapsed / fadeDuration;
+            float alpha = Mathf.Clamp01(1f - t);
             if (whiteoutImg != null)
             {
                 whiteoutImg.color = new Color(1f, 1f, 1f, alpha);
+            }
+            if (_playerCam != null)
+            {
+                _playerCam.fieldOfView = Mathf.Lerp(currentFOV, normalFOV, t);
             }
             yield return null;
         }
 
         if (whiteoutGO != null) Destroy(whiteoutGO);
 
-        // Re-enable player movement
+        // Re-enable player movement & restore camera controls
         if (_playerMovement != null)
         {
+            _playerMovement.isJumpscareCameraOverride = false;
+            if (_playerCam != null)
+            {
+                _playerCam.fieldOfView = normalFOV;
+                _playerMovement.SyncPitch(_playerCam.transform.localEulerAngles.x);
+            }
             _playerMovement.SetControlsEnabled(true);
         }
     }

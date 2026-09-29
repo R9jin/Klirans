@@ -54,6 +54,10 @@ public class PlayerMovement : MonoBehaviour
     public bool isDialogueCameraOverride = false;
     public float dialogueTargetFOV = 38f;
 
+    [Header("Jumpscare Camera Lock")]
+    [Tooltip("True while a jumpscare sequence locks camera zoom and orientation.")]
+    public bool isJumpscareCameraOverride = false;
+
     private Vector3 moveDirection = Vector3.zero;
     private float rotationX = 0f;
     private float headBobTimer = 0f;
@@ -244,7 +248,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleCameraAndBreathing()
     {
-        if (playerCamera == null || PauseMenu.GameIsPaused) return;
+        if (playerCamera == null || PauseMenu.GameIsPaused || isJumpscareCameraOverride) return;
 
         Vector3 targetCameraPosition = isCrouching ? crouchingCameraPosition : standingCameraPosition;
         float targetFOV = normalFOV;
@@ -311,7 +315,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleMouseLook()
     {
-        if (!canMove || PauseMenu.GameIsPaused || isDialogueCameraOverride) return;
+        if (!canMove || PauseMenu.GameIsPaused || isDialogueCameraOverride || isJumpscareCameraOverride) return;
 
         rotationX += -Input.GetAxis("Mouse Y") * lookSpeed;
         rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);
