@@ -160,6 +160,13 @@ public class TheProctorManager : MonoBehaviour
             // If encounter was resolved (e.g. player caught), exit timer loop
             if (!isEncounterActive || _isBlackoutEnding) yield break;
 
+            // Pause timer if Proctor is actively jumpscaring or in struggle QTE with player
+            if (TheProctorAI.ActiveProctor != null && TheProctorAI.ActiveProctor.currentState == TheProctorAI.ProctorState.Jumpscare)
+            {
+                yield return null;
+                continue;
+            }
+
             currentTimer -= Time.deltaTime;
             yield return null;
         }

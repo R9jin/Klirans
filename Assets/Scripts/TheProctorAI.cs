@@ -409,10 +409,13 @@ public class TheProctorAI : MonoBehaviour
             transform.position = hit.position;
         }
 
-        _agent.enabled = true;
-        _agent.isStopped = false;
-        currentState = ProctorState.Searching;
-        Debug.Log($"[TheProctorAI] Spawned and patrolling in {assignedHallway} at {transform.position}");
+        if (currentState != ProctorState.Jumpscare)
+        {
+            _agent.enabled = true;
+            _agent.isStopped = false;
+            currentState = ProctorState.Searching;
+            Debug.Log($"[TheProctorAI] Spawned and patrolling in {assignedHallway} at {transform.position}");
+        }
     }
 
     private void UpdateAIBehavior()
@@ -683,9 +686,9 @@ public class TheProctorAI : MonoBehaviour
             }
         }
 
-        // 4. In-Your-Face Camera Shudder & Face Lunging
+        // 4. Initial In-Your-Face Snap-Slam into Camera
         float elapsed = 0f;
-        float scareDuration = 1.15f;
+        float initialLungeDuration = 0.55f;
         Vector3 initialProctorPos = transform.position;
 
         // Turn Proctor face directly toward camera
@@ -699,10 +702,10 @@ public class TheProctorAI : MonoBehaviour
 
         Vector3 camBaseLocalPos = _playerCam.transform.localPosition;
 
-        while (elapsed < scareDuration)
+        while (elapsed < initialLungeDuration)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / scareDuration;
+            float t = elapsed / initialLungeDuration;
 
             // Aggressive snap-slam of his FACE right into camera
             transform.position = Vector3.Lerp(initialProctorPos, targetProctorPos, Mathf.Pow(t, 0.35f));
@@ -723,18 +726,52 @@ public class TheProctorAI : MonoBehaviour
             yield return null;
         }
 
-        if (_playerCam != null) _playerCam.transform.localPosition = camBaseLocalPos;
-
-        // 5. Blinding Whiteout Flash Overlay
-        yield return StartCoroutine(WhiteoutAndResetRoutine());
-
-        // 6. Increase Anxiety by jumpscareAnxietyIncrease (exactly once)
-        if (AnxietyManager.Instance != null)
+        // 5. Interactive Struggle QTE & Continuous Anxiety Buildup
+        var qte = ProctorJumpscareQTE.Instance;
+        if (qte == null)
         {
-            AnxietyManager.Instance.AddAnxiety(AnxietyManager.Instance.jumpscareAnxietyIncrease);
+            var qteGO = new GameObject("ProctorJumpscareQTE");
+            qte = qteGO.AddComponent<ProctorJumpscareQTE>();
         }
 
-        // 7. Despawn Proctor & Restore Power
+        bool playerEscaped = false;
+        yield return qte.StartCoroutine(qte.RunStruggleQTE(
+            this,
+            _playerCam,
+            _headBone,
+            targetProctorPos,
+            faceDir,
+            headOffsetFromRootY,
+            camBaseLocalPos,
+            (escaped) => { playerEscaped = escaped; }
+        ));
+
+        if (_playerCam != null) _playerCam.transform.localPosition = camBaseLocalPos;
+
+        // If player failed (Anxiety reached 100% -> Game Over), halt routine
+        if (!playerEscaped || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver))
+        {
+            yield break;
+        }
+
+        // 6. Breaking Free! Knock Proctor backward with visceral shove
+        float pushElapsed = 0f;
+        float pushDuration = 0.35f;
+        Vector3 shoveStartPos = transform.position;
+        Vector3 shoveTargetPos = targetProctorPos - faceDir * 1.6f;
+
+        while (pushElapsed < pushDuration)
+        {
+            pushElapsed += Time.deltaTime;
+            float t = pushElapsed / pushDuration;
+            transform.position = Vector3.Lerp(shoveStartPos, shoveTargetPos, Mathf.SmoothStep(0f, 1f, t));
+            yield return null;
+        }
+
+        // 7. Blinding Whiteout Flash Overlay & Teleport to Safe Zone
+        yield return StartCoroutine(WhiteoutAndResetRoutine());
+
+        // 8. Despawn Proctor & Restore Power
         TheProctorManager.Instance?.OnProctorCompletedEncounter();
         Despawn();
     }

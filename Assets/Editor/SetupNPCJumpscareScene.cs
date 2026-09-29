@@ -35,6 +35,32 @@ public static class SetupNPCJumpscareScene
             Debug.Log("[SetupNPCJumpscareScene] NPCJumpscareManager in scene configured with audio clips and error punishment settings!");
         }
 
+        // 4. Configure ProctorJumpscareQTE
+        var qte = Object.FindAnyObjectByType<ProctorJumpscareQTE>();
+        if (qte == null)
+        {
+            var proctorMgr = Object.FindAnyObjectByType<TheProctorManager>();
+            GameObject targetGO = proctorMgr != null ? proctorMgr.gameObject : new GameObject("ProctorJumpscareQTE");
+            qte = targetGO.AddComponent<ProctorJumpscareQTE>();
+        }
+        if (qte != null)
+        {
+            qte.qteKey = KeyCode.Q;
+            qte.alternateKey = KeyCode.Space;
+            qte.minRequiredPresses = 12;
+            qte.maxRequiredPresses = 18;
+            qte.anxietyIncreaseRate = 14.0f;
+            qte.progressDecayRate = 1.0f;
+            qte.decayGracePeriod = 0.28f;
+
+            qte.heartbeatAudio = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/fast heart beat.mp3");
+            qte.strugglePressAudio = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/man gasping for air.mp3");
+            qte.breakFreeAudio = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/encountering a proctor.mp3");
+
+            EditorUtility.SetDirty(qte);
+            Debug.Log("[SetupNPCJumpscareScene] ProctorJumpscareQTE configured in scene with audio and struggle settings!");
+        }
+
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
         EditorSceneManager.SaveOpenScenes();
         AssetDatabase.SaveAssets();
