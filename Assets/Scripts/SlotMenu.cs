@@ -198,10 +198,30 @@ public class SlotMenu : MonoBehaviour, ISlotOwner
     private void UseConsumable(InventorySlot slot)
     {
         InventoryItem item = slot.item;
+        if (item == null) return;
 
-        // Hook these up once your Anxiety/Stamina scripts exist, e.g.:
-        // PlayerStatus.Instance.ChangeAnxiety(item.anxietyChange);
-        // PlayerStatus.Instance.ChangeStamina(item.staminaChange);
+        // Apply anxiety relief
+        if (item.anxietyChange != 0f && AnxietyManager.Instance != null)
+        {
+            AnxietyManager.Instance.ChangeAnxiety(item.anxietyChange);
+        }
+
+        // Apply stamina restore
+        if (item.staminaChange > 0f)
+        {
+            var stamina = FindAnyObjectByType<StaminaSystem>();
+            if (stamina != null)
+            {
+                stamina.currentStamina = Mathf.Min(stamina.maxStamina, stamina.currentStamina + item.staminaChange);
+            }
+        }
+
+        // Special comforting feedback for Ham & Cheese sandwich
+        if (item.itemName.Contains("Ham") || item.itemName.Contains("Cheese"))
+        {
+            HamAndCheeseItem.Consume(Mathf.Abs(item.anxietyChange > 0 ? item.anxietyChange : (item.anxietyChange < 0 ? -item.anxietyChange : 30f)), item.staminaChange);
+        }
+
         Debug.Log($"Used {item.itemName}: Anxiety {item.anxietyChange}, Stamina {item.staminaChange}");
 
         InventoryManager.Instance.RemoveItem(item, 1);

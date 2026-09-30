@@ -126,6 +126,7 @@ public class TheProctorAI : MonoBehaviour
     private Vector3 _lastHeardSoundPosition;
 
     private bool _hasCaughtPlayer = false;
+    private bool _isTraversingLink = false;
     private List<Bounds> _cachedRoomBounds = new List<Bounds>();
 
     private void Awake()
@@ -157,8 +158,9 @@ public class TheProctorAI : MonoBehaviour
 
         _footstepAudio = gameObject.AddComponent<AudioSource>();
         _footstepAudio.spatialBlend = 1.0f;
-        _footstepAudio.minDistance = 2.0f;
-        _footstepAudio.maxDistance = 20.0f;
+        _footstepAudio.minDistance = 1.2f;
+        _footstepAudio.maxDistance = 11.0f;
+        _footstepAudio.rolloffMode = AudioRolloffMode.Logarithmic;
         _footstepAudio.playOnAwake = false;
 
         LoadAudioAssets();
@@ -190,6 +192,29 @@ public class TheProctorAI : MonoBehaviour
 
         // Keep player reference warm
         if (_playerTransform == null) FindPlayerReferences();
+
+        // Dynamically track and update current floor boundaries based on elevation
+        if (!_isTraversingLink)
+        {
+            int currentFloor = GetFloorFromY(transform.position.y);
+            if (currentFloor != assignedFloor)
+            {
+                UpdateFloorBoundaries(currentFloor);
+            }
+        }
+
+        // Handle stair NavMeshLink traversal
+        if (!_isTraversingLink && _agent != null && _agent.isOnNavMesh && _agent.isOnOffMeshLink)
+        {
+            StartCoroutine(TraverseOffMeshLinkRoutine());
+            return;
+        }
+
+        if (_isTraversingLink)
+        {
+            UpdateFootstepAudio();
+            return;
+        }
 
         UpdateAIBehavior();
         UpdateFootstepAudio();
@@ -418,19 +443,113 @@ public class TheProctorAI : MonoBehaviour
         }
     }
 
+    public int GetFloorFromY(float y)
+    {
+        if (y < 5.5f) return 1;
+        if (y < 11.5f) return 2;
+        return 3;
+    }
+
+    public void UpdateFloorBoundaries(int floor)
+    {
+        assignedFloor = floor;
+        hallwayCenterX = -84.0f;
+        switch (floor)
+        {
+            case 1:
+                assignedHallway = "Hallway_1F";
+                hallwayMinZ = -16.0f;
+                hallwayMaxZ = 28.0f;
+                hallwayHalfWidth = 3.6f; // Lobby area on 1F is wider
+                break;
+            case 2:
+                assignedHallway = "Hallway_2F";
+                hallwayMinZ = -16.0f;
+                hallwayMaxZ = 32.0f;
+                hallwayHalfWidth = 2.4f;
+                break;
+            case 3:
+                assignedHallway = "Hallway_3F";
+                hallwayMinZ = -16.0f;
+                hallwayMaxZ = 46.0f;
+                hallwayHalfWidth = 2.4f;
+                break;
+        }
+    }
+
+    public bool IsInStairZone(Vector3 pos)
+    {
+        // Staircase region encompassing 1F, 2F, and 3F flights and mid-landings
+        return (pos.x >= -94.0f && pos.x <= -83.0f && pos.z >= 10.0f && pos.z <= 23.0f);
+    }
+
+    /// <summary>
+    /// Smoothly walks/runs The Proctor along the stair NavMeshLinks between floors.
+    /// Faces along the flight and maintains menacing posture without awkward snapping.
+    /// </summary>
+    private IEnumerator TraverseOffMeshLinkRoutine()
+    {
+        _isTraversingLink = true;
+        OffMeshLinkData linkData = _agent.currentOffMeshLinkData;
+        Vector3 startPos = transform.position;
+        Vector3 endPos = linkData.endPos + Vector3.up * _agent.baseOffset;
+
+        float dist = Vector3.Distance(startPos, endPos);
+        bool isChasing = (currentState == ProctorState.Chasing || _alertHuntTimer > 0f);
+        float speed = isChasing ? chaseSpeed : patrolSpeed;
+        float duration = dist / Mathf.Max(speed, 0.5f);
+        float elapsed = 0f;
+
+        Vector3 flatDir = endPos - startPos;
+        flatDir.y = 0;
+        Quaternion targetRot = flatDir.sqrMagnitude > 0.01f ? Quaternion.LookRotation(flatDir) : transform.rotation;
+
+        if (_animator != null)
+        {
+            _animator.SetFloat("Speed", isChasing ? 2.0f : 1.0f);
+            _animator.SetBool("Chasing", isChasing);
+            _animator.speed = isChasing ? 1.30f : 1.0f;
+        }
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+
+            transform.position = Vector3.Lerp(startPos, endPos, t);
+
+            if (flatDir.sqrMagnitude > 0.01f)
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 10f);
+            }
+
+            yield return null;
+        }
+
+        transform.position = endPos;
+        if (_agent != null && _agent.isOnNavMesh && _agent.isOnOffMeshLink)
+        {
+            _agent.CompleteOffMeshLink();
+        }
+
+        int newFloor = GetFloorFromY(transform.position.y);
+        UpdateFloorBoundaries(newFloor);
+        _isTraversingLink = false;
+    }
+
     private void UpdateAIBehavior()
     {
         if (_playerTransform == null) return;
 
         float distToPlayer = Vector3.Distance(transform.position, _playerTransform.position);
+        float dy = Mathf.Abs(_playerTransform.position.y - transform.position.y);
+        bool sameFloor = dy < 3.2f;
+
         bool playerHidden = LockerHideManager.IsPlayerHidden;
         bool playerInRoom = IsPositionInsideAnyRoom(_playerTransform.position);
 
-        // Check if player is on the same floor elevation
-        bool sameFloor = Mathf.Abs(_playerTransform.position.y - transform.position.y) < 3.2f;
-
-        // 1. CATCH CHECK: Can only catch if player is in the hallway on the same floor, NOT hidden, NOT inside a room
-        if (sameFloor && !playerHidden && !playerInRoom && distToPlayer <= catchDistance)
+        // 1. CATCH CHECK: Can only catch if player is in hallway/stairs, NOT hidden, NOT in room, close distance and similar elevation
+        if (!playerHidden && !playerInRoom && distToPlayer <= catchDistance && dy < 1.9f)
         {
             TriggerCatchJumpscare();
             return;
@@ -448,26 +567,43 @@ public class TheProctorAI : MonoBehaviour
 
         bool heardSoundNow = false;
 
-        if (sameFloor && !playerHidden)
+        if (!playerHidden)
         {
-            if (isSprinting && distToPlayer <= sprintHearingRange)
+            if (sameFloor)
             {
-                heardSoundNow = true;
+                if (isSprinting && distToPlayer <= sprintHearingRange)
+                {
+                    heardSoundNow = true;
+                }
+                else if (isWalking && distToPlayer <= baseHearingRange)
+                {
+                    heardSoundNow = true;
+                }
             }
-            else if (isWalking && distToPlayer <= baseHearingRange)
+            else
             {
-                heardSoundNow = true;
+                // Cross-floor acoustic detection:
+                // Heavy sprinting vibrations reverberate through the floor slabs and stairwells!
+                if (isSprinting && distToPlayer <= sprintHearingRange * 0.75f)
+                {
+                    heardSoundNow = true;
+                }
+                // Walking is audible across floors only if close to or in the open stairwell
+                else if (isWalking && distToPlayer <= baseHearingRange * 0.65f && (IsInStairZone(transform.position) || IsInStairZone(_playerTransform.position)))
+                {
+                    heardSoundNow = true;
+                }
             }
         }
 
         if (heardSoundNow)
         {
-            // Fresh sound heard! Alert and hunt toward sound source for 4.5 seconds
+            // Fresh sound heard! Alert and hunt toward sound source for 5.5 seconds (enough to route through stairs)
             if (_alertHuntTimer <= 0f && alertStingClip != null && _audioSource != null)
             {
                 _audioSource.PlayOneShot(alertStingClip, 0.75f);
             }
-            _alertHuntTimer = 4.5f;
+            _alertHuntTimer = 5.5f;
             _lastHeardSoundPosition = _playerTransform.position;
         }
 
@@ -480,25 +616,27 @@ public class TheProctorAI : MonoBehaviour
         bool isHunting = (_alertHuntTimer > 0f);
 
         // 3. BEHAVIOR EXECUTION:
-        if (isHunting && sameFloor)
+        if (isHunting)
         {
             currentState = ProctorState.Chasing;
             _agent.speed = chaseSpeed;
 
-            Vector3 huntTarget = GetHallwayConstrainedPosition(_lastHeardSoundPosition);
-            _agent.SetDestination(huntTarget);
+            Vector3 huntTarget = GetHallwayOrStairTarget(_lastHeardSoundPosition);
+            if (_agent.isOnNavMesh)
+            {
+                _agent.SetDestination(huntTarget);
+            }
         }
         else
         {
-            // Searching/Patrolling the hallway:
+            // Searching/Patrolling the current floor hallway:
             currentState = ProctorState.Searching;
             _agent.speed = patrolSpeed;
 
             _searchWanderTimer -= Time.deltaTime;
-            if (_searchWanderTimer <= 0f || _agent.remainingDistance < 0.6f)
+            if (_searchWanderTimer <= 0f || (_agent.isOnNavMesh && _agent.remainingDistance < 0.6f))
             {
                 _searchWanderTimer = Random.Range(3.5f, 6.0f);
-                // Stalk towards the player's sector of the hallway instead of aimlessly wandering away!
                 PickHallwayPatrolTargetTowardsPlayer();
             }
         }
@@ -532,7 +670,7 @@ public class TheProctorAI : MonoBehaviour
 
     private void PickHallwayPatrolTargetTowardsPlayer()
     {
-        // Patrol along corridor biased towards player's Z location to maintain suspense
+        // Patrol along current floor corridor biased towards player's Z location to maintain suspense
         float playerZ = (_playerTransform != null) ? _playerTransform.position.z : (hallwayMinZ + hallwayMaxZ) * 0.5f;
 
         // Step 6-12m in the general direction of the player, clamped within the hallway
@@ -548,21 +686,37 @@ public class TheProctorAI : MonoBehaviour
         if (NavMesh.SamplePosition(rawTarget, out hit, 3.0f, NavMesh.AllAreas))
         {
             _currentWanderTarget = hit.position;
-            _agent.SetDestination(_currentWanderTarget);
+            if (_agent.isOnNavMesh) _agent.SetDestination(_currentWanderTarget);
         }
     }
 
-    private Vector3 GetHallwayConstrainedPosition(Vector3 desiredPos)
+    private Vector3 GetHallwayOrStairTarget(Vector3 desiredPos)
     {
-        // Clamps target strictly to the hallway bounds so Proctor never routes into a classroom or room
-        float clampedX = Mathf.Clamp(desiredPos.x, hallwayCenterX - hallwayHalfWidth, hallwayCenterX + hallwayHalfWidth);
-        float clampedZ = Mathf.Clamp(desiredPos.z, hallwayMinZ, hallwayMaxZ);
-        return new Vector3(clampedX, transform.position.y, clampedZ);
+        // If the position is within the staircase zone, allow direct stair routing!
+        if (IsInStairZone(desiredPos))
+        {
+            return desiredPos;
+        }
+
+        int targetFloor = GetFloorFromY(desiredPos.y);
+        float minZ = -16.0f;
+        float maxZ = 28.0f;
+        float halfW = 2.4f;
+
+        if (targetFloor == 1) { minZ = -16.0f; maxZ = 28.0f; halfW = 3.6f; }
+        else if (targetFloor == 2) { minZ = -16.0f; maxZ = 32.0f; halfW = 2.4f; }
+        else if (targetFloor == 3) { minZ = -16.0f; maxZ = 46.0f; halfW = 2.4f; }
+
+        float clampedX = Mathf.Clamp(desiredPos.x, hallwayCenterX - halfW, hallwayCenterX + halfW);
+        float clampedZ = Mathf.Clamp(desiredPos.z, minZ, maxZ);
+        return new Vector3(clampedX, desiredPos.y, clampedZ);
     }
 
     private void ClampPositionToAssignedHallway()
     {
-        // Strict boundary fence: ensures agent never drifts into side rooms
+        // If traversing stairs or inside the stairwell enclosure, skip hallway corridor clamping
+        if (_isTraversingLink || IsInStairZone(transform.position)) return;
+
         Vector3 pos = transform.position;
         float clampedX = Mathf.Clamp(pos.x, hallwayCenterX - hallwayHalfWidth, hallwayCenterX + hallwayHalfWidth);
         float clampedZ = Mathf.Clamp(pos.z, hallwayMinZ, hallwayMaxZ);
@@ -572,17 +726,28 @@ public class TheProctorAI : MonoBehaviour
             pos.x = clampedX;
             pos.z = clampedZ;
             transform.position = pos;
-            if (_agent.isOnNavMesh) _agent.Warp(pos);
+            if (_agent != null && _agent.isOnNavMesh) _agent.Warp(pos);
         }
     }
 
     private bool IsPositionInsideAnyRoom(Vector3 pos)
     {
+        // Staircases and landings are part of circulation, never classified as rooms
+        if (IsInStairZone(pos)) return false;
+
+        int floor = GetFloorFromY(pos.y);
+        float minZ = -16.0f;
+        float maxZ = 28.0f;
+        float halfW = 2.4f;
+        if (floor == 1) { maxZ = 28.0f; halfW = 3.6f; }
+        else if (floor == 2) { maxZ = 32.0f; halfW = 2.4f; }
+        else if (floor == 3) { maxZ = 46.0f; halfW = 2.4f; }
+
         // 1. If pos is outside hallway corridor laterally, it's definitely inside a side room or office
-        bool inCorridor = (pos.x >= hallwayCenterX - (hallwayHalfWidth + 0.6f)) &&
-                          (pos.x <= hallwayCenterX + (hallwayHalfWidth + 0.6f)) &&
-                          (pos.z >= hallwayMinZ - 1.0f) &&
-                          (pos.z <= hallwayMaxZ + 1.0f);
+        bool inCorridor = (pos.x >= hallwayCenterX - (halfW + 0.6f)) &&
+                          (pos.x <= hallwayCenterX + (halfW + 0.6f)) &&
+                          (pos.z >= minZ - 1.0f) &&
+                          (pos.z <= maxZ + 1.0f);
 
         if (!inCorridor) return true;
 
@@ -645,17 +810,28 @@ public class TheProctorAI : MonoBehaviour
     {
         if (_footstepAudio == null || footstepClip == null) return;
 
-        bool isMoving = _agent != null && _agent.isOnNavMesh && !_agent.isStopped && _agent.velocity.magnitude > 0.15f;
+        bool isMoving = _isTraversingLink || (_agent != null && _agent.isOnNavMesh && !_agent.isStopped && _agent.velocity.magnitude > 0.15f);
         if (!isMoving) return;
 
         _footstepTimer -= Time.deltaTime;
         if (_footstepTimer <= 0f)
         {
             // Rapid terrifying stomping footsteps when sprinting, heavy dragging when patrolling
-            bool isChasing = (currentState == ProctorState.Chasing);
+            bool isChasing = (currentState == ProctorState.Chasing || _alertHuntTimer > 0f);
             _footstepTimer = isChasing ? 0.28f : 0.85f;
             _footstepAudio.pitch = isChasing ? Random.Range(0.95f, 1.15f) : Random.Range(0.75f, 0.90f);
             float vol = isChasing ? 0.90f : 0.65f;
+
+            // Muffle footsteps heavily if player is on a different floor (through thick concrete floor slabs)
+            if (_playerTransform != null)
+            {
+                float dy = Mathf.Abs(_playerTransform.position.y - transform.position.y);
+                if (dy > 3.2f)
+                {
+                    vol *= 0.12f;
+                }
+            }
+
             _footstepAudio.PlayOneShot(footstepClip, vol);
         }
     }
