@@ -46,6 +46,16 @@ public class BlackoutManager : MonoBehaviour
     [Tooltip("Maximum duration the blackout lasts before power restoration starts.")]
     public float blackoutDurationMax = 24f;
 
+    [Header("Dynamic Scaling with Clearance Signatures")]
+    [Tooltip("If true, blackouts become progressively more frequent as the player collects more signatures on their clearance paper.")]
+    public bool scaleFrequencyWithSignatures = true;
+
+    [Tooltip("Minimum allowed interval between blackouts at maximum signatures (prevents excessive spam).")]
+    public float minIntervalCap = 38f;
+
+    [Tooltip("Maximum allowed interval between blackouts at maximum signatures.")]
+    public float maxIntervalCap = 60f;
+
     // ── Audio ─────────────────────────────────────────────────────────────────
     [Header("Audio")]
     [Tooltip("FNAF Power Outage sound (power cuts out). Leave null to auto-load from Resources.")]
@@ -208,12 +218,53 @@ public class BlackoutManager : MonoBehaviour
 
         while (true)
         {
-            float waitTime = UnityEngine.Random.Range(intervalMin, intervalMax);
+            float waitTime = CalculateNextInterval();
             yield return new WaitForSeconds(waitTime);
 
             float duration = UnityEngine.Random.Range(blackoutDurationMin, blackoutDurationMax);
             yield return BlackoutSequence(duration);
         }
+    }
+
+    /// <summary>
+    /// Computes the wait time until the next blackout based on how many signatures
+    /// have been stamped on the clearance slip (0 to 6).
+    /// As the player progresses through their clearance requirements, blackouts gradually
+    /// become more frequent, creating rising tension without excessive spamming.
+    /// </summary>
+    public float CalculateNextInterval()
+    {
+        int signatures = 0;
+        if (ClearanceManager.Instance != null)
+        {
+            signatures = Mathf.Clamp(ClearanceManager.Instance.SignatureCount, 0, 6);
+        }
+
+        if (!scaleFrequencyWithSignatures || signatures <= 0)
+        {
+            return UnityEngine.Random.Range(intervalMin, intervalMax);
+        }
+
+        // Progression curve: 0/6 -> [intervalMin, intervalMax] (e.g. 90-180s)
+        //                    6/6 -> [minIntervalCap, maxIntervalCap] (e.g. 38-60s)
+        float factor = signatures / 6.0f;
+        float scaledMin = Mathf.Lerp(intervalMin, minIntervalCap, factor);
+        float scaledMax = Mathf.Lerp(intervalMax, maxIntervalCap, factor);
+
+        float waitTime = UnityEngine.Random.Range(scaledMin, scaledMax);
+        Debug.Log($"[BlackoutManager] Clearance Signatures: {signatures}/6 -> Next blackout scheduled in {waitTime:F1}s (Range: {scaledMin:F0}s - {scaledMax:F0}s)");
+        return waitTime;
+    }
+
+    /// <summary>
+    /// Restores power to the building, triggering the flickering light surge and ambient recovery.
+    /// Called when The Proctor either catches the player or when the blackout chase timer expires.
+    /// </summary>
+    public void RestorePower()
+    {
+        if (!IsBlackoutActive) return;
+        if (_blackoutCoroutine != null) StopCoroutine(_blackoutCoroutine);
+        _blackoutCoroutine = StartCoroutine(PowerRestorationRoutine());
     }
 
     private IEnumerator BlackoutSequence(float duration)
@@ -250,10 +301,18 @@ public class BlackoutManager : MonoBehaviour
         RenderSettings.skybox = null;
 
         // ── PHASE 3: Darkness hold ────────────────────────────────────────────
-        // Stay dark for the blackout duration minus 5 seconds (restoration lead-up)
-        float holdTime = Mathf.Max(1f, duration - 5f);
-        yield return new WaitForSeconds(holdTime);
+        // If TheProctorManager is active, it controls when RestorePower() is invoked (chase timer / catch).
+        // Otherwise, wait for duration as fallback.
+        if (TheProctorManager.Instance == null)
+        {
+            float holdTime = Mathf.Max(1f, duration - 5f);
+            yield return new WaitForSeconds(holdTime);
+            yield return PowerRestorationRoutine();
+        }
+    }
 
+    private IEnumerator PowerRestorationRoutine()
+    {
         // ── PHASE 4: Power restoration wind-up ───────────────────────────────
         // Play the reversed power-up sound as the building power charges back up
         if (powerUpClip != null)

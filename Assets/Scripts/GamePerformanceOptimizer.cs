@@ -60,6 +60,10 @@ public class GamePerformanceOptimizer : MonoBehaviour
             return;
         }
         Instance = this;
+
+        // Enforce smooth 60 FPS pacing and prevent unbounded GPU thermal throttling in standalone builds
+        QualitySettings.vSyncCount = 1;
+        Application.targetFrameRate = 60;
     }
 
     private void Start()
@@ -120,9 +124,19 @@ public class GamePerformanceOptimizer : MonoBehaviour
         var list = new System.Collections.Generic.List<Light>(rawLights.Length);
         for (int i = 0; i < rawLights.Length; i++)
         {
-            if (rawLights[i] != null && rawLights[i].gameObject.name != "FlashlightLight")
+            var l = rawLights[i];
+            if (l == null) continue;
+
+            // Punctual point/spot lights in the school do not need heavy geometric shadows (e.g. 6-pass cubemaps)
+            // which thrash the shadow atlas and cause buffer overflows
+            if (l.type != LightType.Directional && l.gameObject.name != "FlashlightLight")
             {
-                list.Add(rawLights[i]);
+                l.shadows = LightShadows.None;
+            }
+
+            if (l.gameObject.name != "FlashlightLight")
+            {
+                list.Add(l);
             }
         }
 

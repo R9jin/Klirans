@@ -28,6 +28,19 @@ public class MainMenuController : MonoBehaviour
     public Slider sensitivitySlider;
     public Text sensitivityValueText;
 
+    [Header("Audio Balancing")]
+    [Tooltip("Volume level for the Main Menu background music.")]
+    [Range(0f, 1f)]
+    public float bgmVolume = 0.65f;
+
+    [Tooltip("Volume level for the subtle hallway ambient bed.")]
+    [Range(0f, 1f)]
+    public float ambientVolume = 0.20f;
+
+    [Tooltip("Volume level for UI clicks and interactions.")]
+    [Range(0f, 1f)]
+    public float sfxVolume = 0.85f;
+
     [Header("Audio Clips")]
     public AudioClip menuBGM;
     public AudioClip clickClip;
@@ -40,25 +53,46 @@ public class MainMenuController : MonoBehaviour
 
     private void Awake()
     {
-        // Setup BGM source
+        // Enforce smooth 60 FPS pacing and prevent unbounded GPU thermal throttling in standalone builds
+        QualitySettings.vSyncCount = 1;
+        Application.targetFrameRate = 60;
+
+        // Ensure an AudioListener exists so music and sound can be heard
+        if (FindAnyObjectByType<AudioListener>() == null)
+        {
+            Camera cam = Camera.main ?? FindAnyObjectByType<Camera>();
+            if (cam != null) cam.gameObject.AddComponent<AudioListener>();
+            else gameObject.AddComponent<AudioListener>();
+        }
+
+        // Auto-load main-menu-music.mp3 if menuBGM is not assigned
+        if (menuBGM == null)
+        {
+#if UNITY_EDITOR
+            menuBGM = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/main-menu-music.mp3");
+#endif
+            if (menuBGM == null) menuBGM = Resources.Load<AudioClip>("main-menu-music");
+        }
+
+        // Setup BGM source (2D stereo background music)
         _bgmSource = gameObject.AddComponent<AudioSource>();
         _bgmSource.playOnAwake = false;
         _bgmSource.loop = true;
         _bgmSource.spatialBlend = 0f;
-        _bgmSource.volume = 0.5f;
+        _bgmSource.volume = bgmVolume;
 
         // Setup SFX source
         _sfxSource = gameObject.AddComponent<AudioSource>();
         _sfxSource.playOnAwake = false;
         _sfxSource.spatialBlend = 0f;
-        _sfxSource.volume = 0.8f;
+        _sfxSource.volume = sfxVolume;
 
         // Setup hallway ambient source
         _ambientSource = gameObject.AddComponent<AudioSource>();
         _ambientSource.playOnAwake = false;
         _ambientSource.loop = true;
         _ambientSource.spatialBlend = 0f;
-        _ambientSource.volume = 0.35f;
+        _ambientSource.volume = ambientVolume;
 
         // Immediately hide notice in Awake if already shown this session to avoid any frame flicker
         if (HasShownHeadphoneNotice && headphoneNoticePanel != null)
@@ -140,14 +174,14 @@ public class MainMenuController : MonoBehaviour
             if (menuBGM != null && _bgmSource != null)
             {
                 _bgmSource.clip = menuBGM;
-                _bgmSource.volume = 0.5f;
+                _bgmSource.volume = bgmVolume;
                 _bgmSource.Play();
             }
 
             if (hallwayAmbientClip != null && _ambientSource != null)
             {
                 _ambientSource.clip = hallwayAmbientClip;
-                _ambientSource.volume = 0.35f;
+                _ambientSource.volume = ambientVolume;
                 _ambientSource.Play();
             }
         }
@@ -214,9 +248,9 @@ public class MainMenuController : MonoBehaviour
         if (mainButtonsPanel != null) mainButtonsPanel.SetActive(true);
 
         float fadeTimer = 0f;
-        float targetBgmVolume = 1f;
+        float targetBgmVolume = bgmVolume;
 
-        float targetAmbientVolume = 1f;
+        float targetAmbientVolume = ambientVolume;
 
         while (fadeTimer < noticeFadeDuration)
         {
