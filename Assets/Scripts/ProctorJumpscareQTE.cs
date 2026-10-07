@@ -171,15 +171,15 @@ public class ProctorJumpscareQTE : MonoBehaviour
         if (loadedFont != null) horrorFont = loadedFont;
 #endif
 
-        // Root container - Positioned lower-middle of the screen
+        // Root container - Positioned sleekly at bottom of screen (leaves face completely visible)
         _rootUI = new GameObject("ProctorQTEContainer", typeof(RectTransform), typeof(CanvasGroup));
         _rootUI.transform.SetParent(hud.transform, false);
         _containerRect = _rootUI.GetComponent<RectTransform>();
-        _containerRect.anchorMin = new Vector2(0.5f, 0.22f);
-        _containerRect.anchorMax = new Vector2(0.5f, 0.22f);
-        _containerRect.pivot = new Vector2(0.5f, 0.5f);
+        _containerRect.anchorMin = new Vector2(0.5f, 0.04f);
+        _containerRect.anchorMax = new Vector2(0.5f, 0.04f);
+        _containerRect.pivot = new Vector2(0.5f, 0f);
         _containerRect.anchoredPosition = Vector2.zero;
-        _containerRect.sizeDelta = new Vector2(400f, 170f);
+        _containerRect.sizeDelta = new Vector2(380f, 105f);
 
         _canvasGroup = _rootUI.GetComponent<CanvasGroup>();
         _canvasGroup.alpha = 0f;
@@ -194,12 +194,12 @@ public class ProctorJumpscareQTE : MonoBehaviour
         bannerRT.anchorMax = new Vector2(0.5f, 1f);
         bannerRT.pivot = new Vector2(0.5f, 1f);
         bannerRT.anchoredPosition = new Vector2(0f, 0f);
-        bannerRT.sizeDelta = new Vector2(380f, 40f);
+        bannerRT.sizeDelta = new Vector2(360f, 26f);
 
         _bannerText = bannerGO.GetComponent<Text>();
         _bannerText.text = "BREAK FREE!";
         _bannerText.font = horrorFont;
-        _bannerText.fontSize = 28;
+        _bannerText.fontSize = 24;
         _bannerText.alignment = TextAnchor.MiddleCenter;
         _bannerText.color = new Color(0.95f, 0.18f, 0.18f, 1f); // Deep survival horror red
 
@@ -211,11 +211,11 @@ public class ProctorJumpscareQTE : MonoBehaviour
         var keyBadgeGO = new GameObject("KeyBadge", typeof(RectTransform), typeof(Image), typeof(Outline));
         keyBadgeGO.transform.SetParent(_rootUI.transform, false);
         _keyBadgeRect = keyBadgeGO.GetComponent<RectTransform>();
-        _keyBadgeRect.anchorMin = new Vector2(0.5f, 0.5f);
-        _keyBadgeRect.anchorMax = new Vector2(0.5f, 0.5f);
-        _keyBadgeRect.pivot = new Vector2(0.5f, 0.5f);
-        _keyBadgeRect.anchoredPosition = new Vector2(0f, 16f);
-        _keyBadgeRect.sizeDelta = new Vector2(62f, 56f);
+        _keyBadgeRect.anchorMin = new Vector2(0.5f, 0f);
+        _keyBadgeRect.anchorMax = new Vector2(0.5f, 0f);
+        _keyBadgeRect.pivot = new Vector2(0.5f, 0f);
+        _keyBadgeRect.anchoredPosition = new Vector2(0f, 44f);
+        _keyBadgeRect.sizeDelta = new Vector2(46f, 40f);
 
         _keyBadgeBg = keyBadgeGO.GetComponent<Image>();
         _keyBadgeBg.color = new Color(0.10f, 0.10f, 0.14f, 0.95f); // Dark charcoal badge
@@ -237,7 +237,7 @@ public class ProctorJumpscareQTE : MonoBehaviour
         _keyText.text = qteKey.ToString();
         _keyText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         _keyText.fontStyle = FontStyle.Bold;
-        _keyText.fontSize = 32;
+        _keyText.fontSize = 24;
         _keyText.alignment = TextAnchor.MiddleCenter;
         _keyText.color = new Color(1f, 0.95f, 0.95f, 1f);
 
@@ -252,8 +252,8 @@ public class ProctorJumpscareQTE : MonoBehaviour
         _barRect.anchorMin = new Vector2(0.5f, 0f);
         _barRect.anchorMax = new Vector2(0.5f, 0f);
         _barRect.pivot = new Vector2(0.5f, 0f);
-        _barRect.anchoredPosition = new Vector2(0f, 28f);
-        _barRect.sizeDelta = new Vector2(340f, 24f);
+        _barRect.anchoredPosition = new Vector2(0f, 22f);
+        _barRect.sizeDelta = new Vector2(320f, 18f);
 
         var barBgImg = barBgGO.GetComponent<Image>();
         barBgImg.color = new Color(0.06f, 0.06f, 0.08f, 0.92f);
@@ -268,8 +268,8 @@ public class ProctorJumpscareQTE : MonoBehaviour
         var fillRT = fillGO.GetComponent<RectTransform>();
         fillRT.anchorMin = Vector2.zero;
         fillRT.anchorMax = Vector2.one;
-        fillRT.offsetMin = new Vector2(3f, 3f);
-        fillRT.offsetMax = new Vector2(-3f, -3f);
+        fillRT.offsetMin = new Vector2(2f, 2f);
+        fillRT.offsetMax = new Vector2(-2f, -2f);
 
         _barFill = fillGO.GetComponent<Image>();
         _barFill.type = Image.Type.Filled;
@@ -291,7 +291,7 @@ public class ProctorJumpscareQTE : MonoBehaviour
         _barText.text = "0%";
         _barText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         _barText.fontStyle = FontStyle.Bold;
-        _barText.fontSize = 13;
+        _barText.fontSize = 12;
         _barText.alignment = TextAnchor.MiddleCenter;
         _barText.color = new Color(1f, 0.95f, 0.95f, 0.95f);
 
@@ -306,13 +306,13 @@ public class ProctorJumpscareQTE : MonoBehaviour
         warnRT.anchorMin = new Vector2(0.5f, 0f);
         warnRT.anchorMax = new Vector2(0.5f, 0f);
         warnRT.pivot = new Vector2(0.5f, 0f);
-        warnRT.anchoredPosition = new Vector2(0f, 6f);
-        warnRT.sizeDelta = new Vector2(380f, 18f);
+        warnRT.anchoredPosition = new Vector2(0f, 4f);
+        warnRT.sizeDelta = new Vector2(360f, 15f);
 
         _warningText = warnGO.GetComponent<Text>();
         _warningText.text = $"SPAM [{qteKey}] TO ESCAPE! — ANXIETY RISING!";
         _warningText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        _warningText.fontSize = 12;
+        _warningText.fontSize = 11;
         _warningText.alignment = TextAnchor.MiddleCenter;
         _warningText.color = new Color(0.90f, 0.75f, 0.75f, 0.95f);
 
@@ -430,12 +430,16 @@ public class ProctorJumpscareQTE : MonoBehaviour
                 // Punch UI key badge
                 StartCoroutine(PunchKeyBadgeRoutine());
 
-                // Tangible physical pushback: player pushes Proctor back slightly
-                pushbackOffset += -faceDir * (0.045f * Mathf.Min(pressAmount, 3f));
+                // Tangible physical pushback: player pushes Proctor back slightly, clamped so he never retreats behind UI
+                pushbackOffset += -faceDir * (0.025f * Mathf.Min(pressAmount, 2f));
+                if (pushbackOffset.magnitude > 0.14f)
+                {
+                    pushbackOffset = pushbackOffset.normalized * 0.14f;
+                }
 
                 // Frantic camera impulse & visual FOV kick
-                cameraJolt = UnityEngine.Random.insideUnitSphere * 0.035f;
-                if (playerCam != null) playerCam.fieldOfView = 42.5f;
+                cameraJolt = UnityEngine.Random.insideUnitSphere * 0.025f;
+                if (playerCam != null) playerCam.fieldOfView = 42.0f;
             }
 
             // 3. Subtle Progress Decay (forces active, continuous spamming)
@@ -453,21 +457,21 @@ public class ProctorJumpscareQTE : MonoBehaviour
 
             // 6. Proctor Violent Jumpscare Wiggle & Twitch (FNAF Help Wanted VR in-your-face shudder)
             float tremorFreq = 28.0f;
-            float tremorAmp = 0.032f;
+            float tremorAmp = 0.026f;
             Vector3 tremor = new Vector3(
-                Mathf.Sin(struggleTimer * tremorFreq) * tremorAmp + UnityEngine.Random.Range(-0.010f, 0.010f),
-                Mathf.Cos(struggleTimer * tremorFreq * 1.35f) * (tremorAmp * 0.75f) + UnityEngine.Random.Range(-0.008f, 0.008f),
-                Mathf.Sin(struggleTimer * tremorFreq * 0.65f) * 0.012f
+                Mathf.Sin(struggleTimer * tremorFreq) * tremorAmp + UnityEngine.Random.Range(-0.008f, 0.008f),
+                Mathf.Cos(struggleTimer * tremorFreq * 1.35f) * (tremorAmp * 0.75f) + UnityEngine.Random.Range(-0.006f, 0.006f),
+                Mathf.Sin(struggleTimer * tremorFreq * 0.65f) * 0.010f
             );
 
             if (proctor != null)
             {
                 proctor.transform.position = targetProctorPos + pushbackOffset + tremor;
 
-                // Rotational twitching & head spasms directly looking into camera lens
-                float yawShake = Mathf.Sin(struggleTimer * 26f) * 3.5f + UnityEngine.Random.Range(-1.5f, 1.5f);
-                float pitchShake = Mathf.Cos(struggleTimer * 22f) * 2.2f + UnityEngine.Random.Range(-1.5f, 1.5f);
-                float rollShake = Mathf.Sin(struggleTimer * 18f) * 4.0f;
+                // High-frequency horror spasms directly facing the player with no sideways turning
+                float yawShake = Mathf.Sin(struggleTimer * 28f) * 1.8f + UnityEngine.Random.Range(-0.8f, 0.8f);
+                float pitchShake = Mathf.Cos(struggleTimer * 24f) * 1.5f + UnityEngine.Random.Range(-0.8f, 0.8f);
+                float rollShake = Mathf.Sin(struggleTimer * 20f) * 1.5f;
                 proctor.transform.rotation = Quaternion.LookRotation(faceDir) * Quaternion.Euler(pitchShake, yawShake, rollShake);
             }
 
@@ -476,7 +480,7 @@ public class ProctorJumpscareQTE : MonoBehaviour
             {
                 playerCam.fieldOfView = Mathf.Lerp(playerCam.fieldOfView, 40.0f, dt * 10f);
 
-                Vector3 currentHeadPos = (headBone != null) ? headBone.position : (proctor.transform.position + Vector3.up * headOffsetFromRootY);
+                Vector3 currentHeadPos = (headBone != null) ? (headBone.position - Vector3.up * 0.20f) : (proctor.transform.position + Vector3.up * headOffsetFromRootY);
                 Vector3 lookDir = currentHeadPos - playerCam.transform.position;
                 if (lookDir.sqrMagnitude > 0.0001f)
                 {

@@ -67,10 +67,13 @@ public class NPCJumpscareManager : MonoBehaviour
     public float startDistance = 0.58f;
 
     [Tooltip("End distance of the lunging face at closest point (right in your face).")]
-    public float closestDistance = 0.25f;
+    public float closestDistance = 0.38f;
 
     [Tooltip("Face scale multiplier to fill the screen.")]
-    public float faceScale = 2.45f;
+    public float faceScale = 1.55f;
+
+    [Tooltip("Height offset of the lunging face relative to camera center (positive elevates head).")]
+    public float headHeightOffset = 0.03f;
 
     [Header("Audio Settings")]
     [Range(0f, 1f)]
@@ -108,7 +111,10 @@ public class NPCJumpscareManager : MonoBehaviour
         "ClearanceNPC_Josua",
         "ClearanceNPC_Jessa",
         "ClearanceNPC_Glad",
-        "ClearanceNPC_Ira"
+        "ClearanceNPC_Ira",
+        "ClearanceNPC_Rachel",
+        "ClearanceNPC_Bene",
+        "ClearanceNPC_JP"
     };
 
     private readonly List<WanderingNPCData> _cachedNPCs = new List<WanderingNPCData>();
@@ -184,8 +190,35 @@ public class NPCJumpscareManager : MonoBehaviour
     {
         _cachedNPCs.Clear();
 
+        // 1. Check parent ClearanceNPCs root if present
+        var parent = GameObject.Find("ClearanceNPCs");
+        if (parent != null)
+        {
+            var ais = parent.GetComponentsInChildren<ProctorAI>(true);
+            foreach (var ai in ais)
+            {
+                if (ai == null || ai.name.Contains("TheProctor")) continue;
+                var smr = ai.GetComponentInChildren<SkinnedMeshRenderer>();
+                var col = ai.GetComponent<Collider>() ?? ai.GetComponentInChildren<Collider>();
+                if (smr != null && smr.sharedMesh != null)
+                {
+                    _cachedNPCs.Add(new WanderingNPCData
+                    {
+                        name = ai.name,
+                        gameObject = ai.gameObject,
+                        transform = ai.transform,
+                        smr = smr,
+                        collider = col,
+                        proctorAI = ai
+                    });
+                }
+            }
+        }
+
+        // 2. Add any listed student names not yet added
         foreach (var name in _wanderingStudentNames)
         {
+            if (_cachedNPCs.Exists(n => n.name == name)) continue;
             var go = GameObject.Find(name);
             if (go != null)
             {
@@ -276,7 +309,7 @@ public class NPCJumpscareManager : MonoBehaviour
 
         _scareRig = new GameObject("NPC_Fortnite_ScareRig");
         _scareRig.transform.SetParent(_playerCam.transform, false);
-        _scareRig.transform.localPosition = new Vector3(0f, 0f, startDistance);
+        _scareRig.transform.localPosition = new Vector3(0f, headHeightOffset, startDistance);
         _scareRig.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         _scareRig.transform.localScale = Vector3.one * faceScale;
 
@@ -437,7 +470,7 @@ public class NPCJumpscareManager : MonoBehaviour
 
         foreach (var npc in _cachedNPCs)
         {
-            if (npc == null || npc.gameObject == null) continue;
+            if (npc == null || npc.gameObject == null || !npc.gameObject.activeInHierarchy) continue;
             if (go == npc.gameObject || go.transform.IsChildOf(npc.transform))
             {
                 return npc;
@@ -464,7 +497,7 @@ public class NPCJumpscareManager : MonoBehaviour
 
         foreach (var npc in _cachedNPCs)
         {
-            if (npc == null || npc.gameObject == null) continue;
+            if (npc == null || npc.gameObject == null || !npc.gameObject.activeInHierarchy) continue;
 
             Vector3 npcPos = npc.transform.position;
             float distY = Mathf.Abs(playerPos.y - npcPos.y);
@@ -499,7 +532,7 @@ public class NPCJumpscareManager : MonoBehaviour
 
         foreach (var npc in _cachedNPCs)
         {
-            if (npc == null || npc.gameObject == null) continue;
+            if (npc == null || npc.gameObject == null || !npc.gameObject.activeInHierarchy) continue;
 
             Vector3 headPos = npc.transform.position + Vector3.up * 1.55f;
             Vector3 toHead = headPos - camPos;
@@ -527,6 +560,7 @@ public class NPCJumpscareManager : MonoBehaviour
         if (PauseMenu.GameIsPaused) return false;
         if (LockerHideManager.IsPlayerHidden) return false;
         if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return false;
+        if (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive) return false;
 
         var guidancePuzzle = GuidanceWordPuzzle.Instance;
         if (guidancePuzzle != null && guidancePuzzle.IsOpen) return false;
@@ -623,20 +657,58 @@ public class NPCJumpscareManager : MonoBehaviour
             if (rawVerts[i].y < minY) minY = rawVerts[i].y;
         }
 
-        // Compute true face center (eyes and bridge of nose)
-        float eyeY = maxY - 0.15f;
-        float sumZ = 0f;
-        int countZ = 0;
-        for (int i = 0; i < rawVerts.Length; i++)
+        // Neutralize head bone rotation/tilt from walking animation
+        Transform headBone = null;
+        if (chosenSMR.bones != null)
         {
-            if (rawVerts[i].y >= maxY - 0.25f)
+            foreach (var b in chosenSMR.bones)
             {
-                sumZ += rawVerts[i].z;
-                countZ++;
+                if (b != null && b.name.EndsWith("Head")) { headBone = b; break; }
             }
         }
-        float centerZ = countZ > 0 ? (sumZ / countZ) : 0f;
-        Vector3 faceCenter = new Vector3(0f, eyeY, centerZ);
+
+        Quaternion headCancelRot = Quaternion.identity;
+        Vector3 headBoneLocalPos = Vector3.zero;
+        if (headBone != null)
+        {
+            Quaternion headLocalRot = Quaternion.Inverse(chosenSMR.transform.rotation) * headBone.rotation;
+            headCancelRot = Quaternion.Inverse(headLocalRot);
+            headBoneLocalPos = chosenSMR.transform.InverseTransformPoint(headBone.position);
+        }
+
+        Vector3[] neutralVerts = new Vector3[rawVerts.Length];
+        for (int i = 0; i < rawVerts.Length; i++)
+        {
+            Vector3 v = rawVerts[i];
+            if (headBone != null && v.y >= maxY - 0.40f)
+                neutralVerts[i] = headCancelRot * (v - headBoneLocalPos) + headBoneLocalPos;
+            else
+                neutralVerts[i] = v;
+        }
+
+        maxY = float.MinValue;
+        for (int i = 0; i < neutralVerts.Length; i++)
+        {
+            if (neutralVerts[i].y > maxY) maxY = neutralVerts[i].y;
+        }
+
+        // Compute true face center (eyes and bridge of nose)
+        float eyeY = maxY - 0.12f;
+        float sumX = 0f;
+        float sumZ = 0f;
+        int countXZ = 0;
+        for (int i = 0; i < neutralVerts.Length; i++)
+        {
+            if (neutralVerts[i].y >= maxY - 0.25f)
+            {
+                sumX += neutralVerts[i].x;
+                sumZ += neutralVerts[i].z;
+                countXZ++;
+            }
+        }
+        float centerX = countXZ > 0 ? (sumX / countXZ) : 0f;
+        float centerZ = countXZ > 0 ? (sumZ / countXZ) : 0f;
+        Vector3 faceCenter = new Vector3(centerX, eyeY, centerZ);
 
         // 2. Center vertices directly on eyes/nose and isolate head & face triangles
         var newVerts = new List<Vector3>();
@@ -650,9 +722,9 @@ public class NPCJumpscareManager : MonoBehaviour
         for (int i = 0; i < rawTris.Length; i += 3)
         {
             int i1 = rawTris[i], i2 = rawTris[i + 1], i3 = rawTris[i + 2];
-            Vector3 v1 = rawVerts[i1] - faceCenter;
-            Vector3 v2 = rawVerts[i2] - faceCenter;
-            Vector3 v3 = rawVerts[i3] - faceCenter;
+            Vector3 v1 = neutralVerts[i1] - faceCenter;
+            Vector3 v2 = neutralVerts[i2] - faceCenter;
+            Vector3 v3 = neutralVerts[i3] - faceCenter;
 
             if ((v1.y >= keepMinY && v1.y <= keepMaxY) ||
                 (v2.y >= keepMinY && v2.y <= keepMaxY) ||
@@ -727,9 +799,8 @@ public class NPCJumpscareManager : MonoBehaviour
         float baseScale = faceScale;
 
         // 7. Screamer Loop:
-        // Lunging head staring straight into camera lens with violent tilt, jitter, and screen shudder
-        float randomTilt = Random.Range(-10f, 10f);
-        float basePitch = 15.0f; // Stare straight into camera lens
+        // Lunging head elevated slightly higher and staring straight into camera lens with violent tremors
+        float basePitch = 0.0f; // Upright direct eye contact with camera lens
 
         while (elapsed < scareDuration)
         {
@@ -740,20 +811,20 @@ public class NPCJumpscareManager : MonoBehaviour
             float lungeCurve = Mathf.Pow(Mathf.Sin(t * Mathf.PI * 0.5f), 0.6f);
             float lungeZ = Mathf.Lerp(startDistance, closestDistance, lungeCurve);
 
-            // Violent high-frequency jitter
+            // Violent high-frequency jitter (centered around headHeightOffset, no sideways tilt)
             float intensity = 1.0f - (t * 0.30f);
-            float jitterX = Random.Range(-0.024f, 0.024f) * intensity;
-            float jitterY = Random.Range(-0.024f, 0.024f) * intensity;
-            float jitterZ = Random.Range(-0.012f, 0.012f) * intensity;
+            float jitterX = Random.Range(-0.016f, 0.016f) * intensity;
+            float jitterY = Random.Range(-0.016f, 0.016f) * intensity;
+            float jitterZ = Random.Range(-0.008f, 0.008f) * intensity;
 
-            float pitchJitter = Random.Range(-6f, 6f) * intensity;
-            float yawJitter = Random.Range(-8f, 8f) * intensity;
-            float rollJitter = randomTilt + Random.Range(-5f, 5f) * intensity;
+            float pitchJitter = Random.Range(-2.5f, 2.5f) * intensity;
+            float yawJitter = Random.Range(-2.5f, 2.5f) * intensity;
+            float rollJitter = Random.Range(-2.5f, 2.5f) * intensity;
 
             float scalePulse = baseScale * (1.0f + Random.Range(-0.035f, 0.035f) * intensity);
 
             _scareRig.transform.localScale = Vector3.one * scalePulse;
-            _scareRig.transform.localPosition = new Vector3(jitterX, jitterY, lungeZ + jitterZ);
+            _scareRig.transform.localPosition = new Vector3(jitterX, headHeightOffset + jitterY, lungeZ + jitterZ);
             _scareRig.transform.localRotation = Quaternion.Euler(basePitch + pitchJitter, 180f + yawJitter, rollJitter);
 
             if (_flashOverlay != null)

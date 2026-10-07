@@ -29,7 +29,10 @@ public static class SetupNPCJumpscareScene
             jumpscareMgr.jumpscareGlobalCooldown = 18.0f;
             jumpscareMgr.touchRerollCooldown = 5.0f;
             jumpscareMgr.flashlightInFaceRadius = 3.5f;
-            jumpscareMgr.flashlightBlindingThreshold = 1.0f;
+            jumpscareMgr.startDistance = 0.58f;
+            jumpscareMgr.closestDistance = 0.38f;
+            jumpscareMgr.faceScale = 1.55f;
+            jumpscareMgr.headHeightOffset = 0.03f;
 
             EditorUtility.SetDirty(jumpscareMgr);
             Debug.Log("[SetupNPCJumpscareScene] NPCJumpscareManager in scene configured with audio clips and error punishment settings!");
