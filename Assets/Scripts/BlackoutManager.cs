@@ -114,6 +114,9 @@ public class BlackoutManager : MonoBehaviour
     private Coroutine _blackoutCoroutine;
     private Coroutine _scheduleCoroutine;
 
+    // Wandering student NPCs that are despawned during blackouts
+    private List<GameObject> _cachedWanderingNPCs = new List<GameObject>();
+
     // Names of lights to KEEP on during blackouts (emergency / player flashlight / main pipeline sun)
     private static readonly HashSet<string> _protectedLightNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -177,6 +180,9 @@ public class BlackoutManager : MonoBehaviour
 
         // Cache all scene lights (excluding protected ones)
         CacheLights();
+
+        // Cache wandering student NPCs for blackout despawning
+        CacheWanderingNPCs();
 
         // Kick off the random blackout schedule
         if (!disableBlackouts)
@@ -285,6 +291,9 @@ public class BlackoutManager : MonoBehaviour
         if (powerDownClip != null)
             _audioSource.PlayOneShot(powerDownClip, powerDownVolume);
 
+        // Despawn wandering student NPCs during blackout sequence
+        DespawnWanderingNPCs();
+
         // Kill all non-protected lights
         SetAllLightsEnabled(false);
 
@@ -347,6 +356,9 @@ public class BlackoutManager : MonoBehaviour
         RenderSettings.ambientMode = _originalAmbientMode;
         RenderSettings.ambientLight = _originalAmbientColor;
         RenderSettings.ambientIntensity = _originalAmbientIntensity;
+
+        // Restore wandering student NPCs to the hallways
+        RestoreWanderingNPCs();
 
         // Notify listeners
         IsBlackoutActive = false;
@@ -441,12 +453,85 @@ public class BlackoutManager : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Wandering NPC Blackout Control
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void CacheWanderingNPCs()
+    {
+        _cachedWanderingNPCs.Clear();
+        var parent = GameObject.Find("ClearanceNPCs");
+        if (parent != null)
+        {
+            var ais = parent.GetComponentsInChildren<ProctorAI>(true);
+            foreach (var ai in ais)
+            {
+                if (ai != null && !_cachedWanderingNPCs.Contains(ai.gameObject))
+                {
+                    _cachedWanderingNPCs.Add(ai.gameObject);
+                }
+            }
+        }
+
+        // Fallback: search scene for any ProctorAI not named TheProctor
+        if (_cachedWanderingNPCs.Count == 0)
+        {
+            var allAIs = FindObjectsByType<ProctorAI>(FindObjectsInactive.Include);
+            foreach (var ai in allAIs)
+            {
+                if (ai != null && !ai.name.Contains("TheProctor") && !_cachedWanderingNPCs.Contains(ai.gameObject))
+                {
+                    _cachedWanderingNPCs.Add(ai.gameObject);
+                }
+            }
+        }
+        Debug.Log($"[BlackoutManager] Cached {_cachedWanderingNPCs.Count} wandering student NPCs for blackout despawning.");
+    }
+
+    private void DespawnWanderingNPCs()
+    {
+        if (_cachedWanderingNPCs.Count == 0) CacheWanderingNPCs();
+        int count = 0;
+        foreach (var npc in _cachedWanderingNPCs)
+        {
+            if (npc != null && npc.activeSelf)
+            {
+                npc.SetActive(false);
+                count++;
+            }
+        }
+        Debug.Log($"[BlackoutManager] Despawned {count} wandering student NPCs during blackout sequence.");
+    }
+
+    private void RestoreWanderingNPCs()
+    {
+        if (_cachedWanderingNPCs.Count == 0) CacheWanderingNPCs();
+        int count = 0;
+        foreach (var npc in _cachedWanderingNPCs)
+        {
+            if (npc != null)
+            {
+                npc.SetActive(true);
+                var agent = npc.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                if (agent != null && !agent.isOnNavMesh)
+                {
+                    if (UnityEngine.AI.NavMesh.SamplePosition(npc.transform.position, out UnityEngine.AI.NavMeshHit hit, 2.5f, UnityEngine.AI.NavMesh.AllAreas))
+                    {
+                        agent.Warp(hit.position);
+                    }
+                }
+                count++;
+            }
+        }
+        Debug.Log($"[BlackoutManager] Restored {count} wandering student NPCs after blackout ended.");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Cleanup on Destroy
     // ─────────────────────────────────────────────────────────────────────────
 
     private void OnDestroy()
     {
-        // Restore ambient, skybox, sun if we get destroyed mid-blackout
+        // Restore ambient, skybox, sun and wandering NPCs if destroyed mid-blackout
         if (IsBlackoutActive)
         {
             SetAllLightsEnabled(true);
@@ -458,6 +543,7 @@ public class BlackoutManager : MonoBehaviour
             RenderSettings.ambientMode = _originalAmbientMode;
             RenderSettings.ambientLight = _originalAmbientColor;
             RenderSettings.ambientIntensity = _originalAmbientIntensity;
+            RestoreWanderingNPCs();
         }
     }
 }

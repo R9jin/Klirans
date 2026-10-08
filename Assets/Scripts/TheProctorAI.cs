@@ -877,27 +877,24 @@ public class TheProctorAI : MonoBehaviour
         float startFOV = _playerCam.fieldOfView;
         float jumpscareFOV = 40.0f; // Extreme FNAF Help Wanted VR close-up zoom!
 
-        // Turn Proctor face directly toward camera horizontally
-        Vector3 faceDir = (camPos - transform.position);
-        faceDir.y = 0f;
-        if (faceDir.sqrMagnitude < 0.001f)
-        {
-            faceDir = -_playerCam.transform.forward;
-            faceDir.y = 0f;
-        }
-        faceDir.Normalize();
+        // Turn Proctor face directly toward camera squarely
+        Vector3 camFwd = _playerCam.transform.forward;
+        camFwd.y = 0f;
+        if (camFwd.sqrMagnitude < 0.001f) camFwd = Vector3.forward;
+        camFwd.Normalize();
+
+        Vector3 faceDir = -camFwd; // Face directly back at player camera
         transform.rotation = Quaternion.LookRotation(faceDir);
 
-        // Compute exact head offset relative to Proctor's root position
-        Vector3 headOffset = (_headBone != null) ? (_headBone.position - transform.position) : new Vector3(0f, targetHeightMeters * 0.90f, 0f);
+        // Compute exact true face center offset (eyes & nose bridge, 0.20m below top skull bone)
+        Vector3 faceOffset = (_headBone != null) ? (_headBone.position - Vector3.up * 0.20f - transform.position) : new Vector3(0f, targetHeightMeters * 0.90f, 0f);
 
-        // Desired head position in world space:
-        // Positioned 0.25m in front of camera, at EXACT camera eye-level height!
-        // Camera look direction is strictly horizontal (-faceDir): zero downward pitch!
-        Vector3 desiredHeadPos = camPos - faceDir * 0.25f;
-        desiredHeadPos.y = camPos.y; // Eye-level horizontal alignment!
+        // Desired face position in world space:
+        // Positioned 0.58m in front of camera, elevated higher relative to camera eye-level
+        Vector3 desiredFacePos = camPos + camFwd * 0.58f;
+        desiredFacePos.y = camPos.y + 0.08f; // Face elevated slightly higher relative to camera
 
-        Vector3 targetProctorPos = desiredHeadPos - headOffset;
+        Vector3 targetProctorPos = desiredFacePos - faceOffset;
         Vector3 initialProctorPos = transform.position;
 
         // 3. Audio Horror Screamer
@@ -928,17 +925,17 @@ public class TheProctorAI : MonoBehaviour
             // Dramatic vertigo camera zoom directly into his face
             _playerCam.fieldOfView = Mathf.Lerp(startFOV, jumpscareFOV, ease);
 
-            // Continuously lock camera directly on his face throughout the scare
-            Vector3 currentHeadPos = (_headBone != null) ? _headBone.position : (transform.position + headOffset);
-            Vector3 lookDir = currentHeadPos - _playerCam.transform.position;
+            // Continuously lock camera directly on his true face center (eyes & nose bridge)
+            Vector3 currentFacePos = (_headBone != null) ? (_headBone.position - Vector3.up * 0.20f) : (transform.position + faceOffset);
+            Vector3 lookDir = currentFacePos - _playerCam.transform.position;
             if (lookDir.sqrMagnitude > 0.0001f)
             {
                 _playerCam.transform.rotation = Quaternion.LookRotation(lookDir);
             }
 
             // Violent shudder shake
-            float shakeX = Random.Range(-0.035f, 0.035f);
-            float shakeY = Random.Range(-0.035f, 0.035f);
+            float shakeX = Random.Range(-0.025f, 0.025f);
+            float shakeY = Random.Range(-0.025f, 0.025f);
             _playerCam.transform.localPosition = camBaseLocalPos + new Vector3(shakeX, shakeY, 0f);
 
             yield return null;
@@ -959,7 +956,7 @@ public class TheProctorAI : MonoBehaviour
             _headBone,
             targetProctorPos,
             faceDir,
-            headOffset.y,
+            faceOffset.y,
             camBaseLocalPos,
             (escaped) => { playerEscaped = escaped; }
         ));
@@ -1021,14 +1018,10 @@ public class TheProctorAI : MonoBehaviour
             _audioSource.PlayOneShot(staticHissClip, 0.7f);
         }
 
-        // Hold solid white for 0.35s while teleporting
+        // Hold solid white for 0.35s during shock
         yield return new WaitForSeconds(0.35f);
 
-        // Teleport player back to last safe zone
-        if (_playerTransform != null && SafeZoneManager.Instance != null)
-        {
-            SafeZoneManager.Instance.TeleportToSafeZone(_playerTransform.gameObject);
-        }
+        // Student remains in the same spot (does NOT respawn at the safe zone / spawn point)
 
         // Smooth fade down from whiteout and restore camera FOV
         float fadeElapsed = 0f;
