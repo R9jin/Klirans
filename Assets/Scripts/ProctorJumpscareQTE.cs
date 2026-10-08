@@ -175,11 +175,11 @@ public class ProctorJumpscareQTE : MonoBehaviour
         _rootUI = new GameObject("ProctorQTEContainer", typeof(RectTransform), typeof(CanvasGroup));
         _rootUI.transform.SetParent(hud.transform, false);
         _containerRect = _rootUI.GetComponent<RectTransform>();
-        _containerRect.anchorMin = new Vector2(0.5f, 0.04f);
-        _containerRect.anchorMax = new Vector2(0.5f, 0.04f);
+        _containerRect.anchorMin = new Vector2(0.5f, 0.015f);
+        _containerRect.anchorMax = new Vector2(0.5f, 0.015f);
         _containerRect.pivot = new Vector2(0.5f, 0f);
         _containerRect.anchoredPosition = Vector2.zero;
-        _containerRect.sizeDelta = new Vector2(380f, 105f);
+        _containerRect.sizeDelta = new Vector2(360f, 92f);
 
         _canvasGroup = _rootUI.GetComponent<CanvasGroup>();
         _canvasGroup.alpha = 0f;
@@ -480,8 +480,8 @@ public class ProctorJumpscareQTE : MonoBehaviour
             {
                 playerCam.fieldOfView = Mathf.Lerp(playerCam.fieldOfView, 40.0f, dt * 10f);
 
-                Vector3 currentHeadPos = (headBone != null) ? (headBone.position - Vector3.up * 0.20f) : (proctor.transform.position + Vector3.up * headOffsetFromRootY);
-                Vector3 lookDir = currentHeadPos - playerCam.transform.position;
+                Vector3 currentHeadPos = (headBone != null) ? (headBone.position - Vector3.up * 0.10f) : (proctor.transform.position + Vector3.up * headOffsetFromRootY);
+                Vector3 lookDir = (currentHeadPos - Vector3.up * 0.12f) - playerCam.transform.position;
                 if (lookDir.sqrMagnitude > 0.0001f)
                 {
                     playerCam.transform.rotation = Quaternion.LookRotation(lookDir);

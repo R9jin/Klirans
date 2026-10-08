@@ -14,10 +14,26 @@ using UnityEngine.UI;
 /// SETUP:
 ///   Attach this to your HUD / GameManager GameObject.
 ///   The peep overlay panels are created automatically at runtime on the HudCanvas.
-/// </summary>
 public class LockerHideManager : MonoBehaviour
 {
-    public static LockerHideManager Instance { get; private set; }
+    private static LockerHideManager _instance;
+    public static LockerHideManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindAnyObjectByType<LockerHideManager>();
+                if (_instance == null)
+                {
+                    var gm = GameObject.Find("GameManager") ?? new GameObject("LockerHideManager");
+                    _instance = gm.GetComponent<LockerHideManager>() ?? gm.AddComponent<LockerHideManager>();
+                }
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     // ── Static flag read by ProctorAI / NPCJumpscareManager ─────────────────
     public static bool IsPlayerHidden { get; private set; } = false;
@@ -138,9 +154,13 @@ public class LockerHideManager : MonoBehaviour
             _playerCam.transform.SetParent(null, worldPositionStays: true);
         }
 
-        // Freeze player movement
+        // Freeze player movement and disable character controller so player body does not block NPCs in hallway
         if (_playerMovement != null)
+        {
             _playerMovement.SetControlsEnabled(false);
+            var cc = _playerMovement.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false;
+        }
 
         // Lock cursor remains locked — player can still look left/right a tiny bit
         // (movement is frozen but mouse is not freed so it feels like peering)
@@ -249,9 +269,13 @@ public class LockerHideManager : MonoBehaviour
             _playerCam.fieldOfView             = _savedFOV;
         }
 
-        // Re-enable movement
+        // Re-enable movement and character controller
         if (_playerMovement != null)
+        {
+            var cc = _playerMovement.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = true;
             _playerMovement.SetControlsEnabled(true);
+        }
 
         // Sync pitch to avoid camera snap
         if (_playerMovement != null && _playerCam != null)

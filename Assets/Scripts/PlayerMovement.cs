@@ -90,6 +90,8 @@ public class PlayerMovement : MonoBehaviour
 
         characterController.height = defaultHeight;
         characterController.center = new Vector3(0f, defaultCenterY, 0f);
+        if (characterController.radius < 0.28f) characterController.radius = 0.28f;
+        characterController.skinWidth = 0.04f;
 
         if (playerCamera != null)
         {
@@ -144,7 +146,25 @@ public class PlayerMovement : MonoBehaviour
     {
         isMoving = canMove && (Mathf.Abs(Input.GetAxis("Horizontal")) > 0.01f || Mathf.Abs(Input.GetAxis("Vertical")) > 0.01f);
         isRunning = Input.GetKey(KeyCode.LeftShift) && isMoving && canMove && staminaSystem != null && staminaSystem.CanSprint;
-        isCrouching = Input.GetKey(KeyCode.C) && canMove;
+        
+        bool wantsCrouch = Input.GetKey(KeyCode.C) && canMove;
+        if (!wantsCrouch && isCrouching)
+        {
+            // Only uncrouch if there's enough ceiling clearance
+            isCrouching = !CanUncrouch();
+        }
+        else
+        {
+            isCrouching = wantsCrouch;
+        }
+    }
+
+    private bool CanUncrouch()
+    {
+        if (characterController == null) return true;
+        Vector3 bottom = transform.position + Vector3.up * characterController.radius;
+        Vector3 top = transform.position + Vector3.up * (defaultHeight - characterController.radius);
+        return !Physics.CheckCapsule(bottom, top, characterController.radius * 0.95f, ~0, QueryTriggerInteraction.Ignore);
     }
 
     private void HandleMovement()
@@ -181,20 +201,22 @@ public class PlayerMovement : MonoBehaviour
 
         float curSpeedX = canMove ? currentSpeed * Input.GetAxis("Vertical") : 0f;
         float curSpeedY = canMove ? currentSpeed * Input.GetAxis("Horizontal") : 0f;
-        float movementDirectionY = moveDirection.y;
 
         moveDirection = (forward * curSpeedX) + (right * curSpeedY);
 
-        if (Input.GetButton("Jump") && canMove && characterController.isGrounded)
+        if (characterController.isGrounded)
         {
-            moveDirection.y = jumpPower;
+            if (Input.GetButton("Jump") && canMove)
+            {
+                moveDirection.y = jumpPower;
+            }
+            else
+            {
+                // Firm downward snap to eliminate slope and stair bouncing/jitter
+                moveDirection.y = -2.0f;
+            }
         }
         else
-        {
-            moveDirection.y = movementDirectionY;
-        }
-
-        if (!characterController.isGrounded)
         {
             moveDirection.y -= gravity * Time.deltaTime;
         }
