@@ -892,7 +892,7 @@ public class TheProctorAI : MonoBehaviour
         // Desired face position in world space:
         // Positioned 0.58m in front of camera, elevated higher relative to camera eye-level
         Vector3 desiredFacePos = camPos + camFwd * 0.58f;
-        desiredFacePos.y = camPos.y + 0.08f; // Face elevated slightly higher relative to camera
+        desiredFacePos.y = camPos.y + 0.16f; // Elevated higher relative to camera
 
         Vector3 targetProctorPos = desiredFacePos - faceOffset;
         Vector3 initialProctorPos = transform.position;
@@ -925,9 +925,9 @@ public class TheProctorAI : MonoBehaviour
             // Dramatic vertigo camera zoom directly into his face
             _playerCam.fieldOfView = Mathf.Lerp(startFOV, jumpscareFOV, ease);
 
-            // Continuously lock camera directly on his true face center (eyes & nose bridge)
-            Vector3 currentFacePos = (_headBone != null) ? (_headBone.position - Vector3.up * 0.20f) : (transform.position + faceOffset);
-            Vector3 lookDir = currentFacePos - _playerCam.transform.position;
+            // Continuously lock camera directly on his true face center (framed high and clear of UI)
+            Vector3 currentFacePos = (_headBone != null) ? (_headBone.position - Vector3.up * 0.12f) : (transform.position + faceOffset);
+            Vector3 lookDir = (currentFacePos - Vector3.up * 0.12f) - _playerCam.transform.position;
             if (lookDir.sqrMagnitude > 0.0001f)
             {
                 _playerCam.transform.rotation = Quaternion.LookRotation(lookDir);

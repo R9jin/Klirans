@@ -73,7 +73,7 @@ public class NPCJumpscareManager : MonoBehaviour
     public float faceScale = 1.55f;
 
     [Tooltip("Height offset of the lunging face relative to camera center (positive elevates head).")]
-    public float headHeightOffset = 0.03f;
+    public float headHeightOffset = 0.085f;
 
     [Header("Audio Settings")]
     [Range(0f, 1f)]
