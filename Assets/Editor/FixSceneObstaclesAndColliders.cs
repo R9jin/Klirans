@@ -147,27 +147,27 @@ public static class FixSceneObstaclesAndColliders
             }
         }
 
-        // 5. Adjust Player CharacterController physical presence
+        // 5. Adjust Player CharacterController physical presence (calibrated to fit 1.85m door lintels)
         var player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
             var cc = player.GetComponent<CharacterController>();
             if (cc != null)
             {
-                cc.radius = 0.28f;
-                cc.height = 1.80f;
-                cc.center = new Vector3(0f, 0.90f, 0f);
-                cc.skinWidth = 0.04f;
+                cc.radius = 0.25f;
+                cc.height = 1.50f;
+                cc.center = new Vector3(0f, 0.75f, 0f);
+                cc.skinWidth = 0.03f;
                 cc.stepOffset = 0.30f;
                 EditorUtility.SetDirty(player);
-                Debug.Log("[FixSceneObstacles] Upgraded Player CharacterController to radius=0.28, height=1.80!");
+                Debug.Log("[FixSceneObstacles] Configured Player CharacterController to radius=0.25, height=1.50!");
             }
 
             var pm = player.GetComponent<PlayerMovement>();
             if (pm != null)
             {
-                pm.defaultHeight = 1.80f;
-                pm.crouchHeight = 1.20f;
+                pm.defaultHeight = 1.50f;
+                pm.crouchHeight = 1.10f;
                 EditorUtility.SetDirty(player);
             }
         }

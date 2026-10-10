@@ -458,29 +458,38 @@ public class TheProctorAI : MonoBehaviour
         {
             case 1:
                 assignedHallway = "Hallway_1F";
-                hallwayMinZ = -16.0f;
-                hallwayMaxZ = 28.0f;
+                hallwayMinZ = -22.0f;
+                hallwayMaxZ = 55.0f;
                 hallwayHalfWidth = 3.6f; // Lobby area on 1F is wider
                 break;
             case 2:
                 assignedHallway = "Hallway_2F";
-                hallwayMinZ = -16.0f;
-                hallwayMaxZ = 32.0f;
-                hallwayHalfWidth = 2.4f;
+                hallwayMinZ = -18.0f;
+                hallwayMaxZ = 51.0f;
+                hallwayHalfWidth = 2.8f;
                 break;
             case 3:
                 assignedHallway = "Hallway_3F";
-                hallwayMinZ = -16.0f;
-                hallwayMaxZ = 46.0f;
-                hallwayHalfWidth = 2.4f;
+                hallwayMinZ = -18.0f;
+                hallwayMaxZ = 51.0f;
+                hallwayHalfWidth = 2.8f;
                 break;
         }
     }
 
     public bool IsInStairZone(Vector3 pos)
     {
-        // Staircase region encompassing 1F, 2F, and 3F flights and mid-landings
-        return (pos.x >= -94.0f && pos.x <= -83.0f && pos.z >= 10.0f && pos.z <= 23.0f);
+        // Covers all 3 staircase enclosures (MainStairs, RightStairs, LeftStairs) across all floors
+        if (pos.x < -94.0f || pos.x > -83.0f) return false;
+
+        // MainStairs (center)
+        if (pos.z >= 11.0f && pos.z <= 22.0f) return true;
+        // RightStairs (north wing)
+        if (pos.z >= 45.0f && pos.z <= 54.0f) return true;
+        // LeftStairs (south wing)
+        if (pos.z >= -21.0f && pos.z <= -12.0f) return true;
+
+        return false;
     }
 
     /// <summary>
@@ -699,13 +708,13 @@ public class TheProctorAI : MonoBehaviour
         }
 
         int targetFloor = GetFloorFromY(desiredPos.y);
-        float minZ = -16.0f;
-        float maxZ = 28.0f;
-        float halfW = 2.4f;
+        float minZ = -18.0f;
+        float maxZ = 51.0f;
+        float halfW = 2.8f;
 
-        if (targetFloor == 1) { minZ = -16.0f; maxZ = 28.0f; halfW = 3.6f; }
-        else if (targetFloor == 2) { minZ = -16.0f; maxZ = 32.0f; halfW = 2.4f; }
-        else if (targetFloor == 3) { minZ = -16.0f; maxZ = 46.0f; halfW = 2.4f; }
+        if (targetFloor == 1) { minZ = -22.0f; maxZ = 55.0f; halfW = 3.6f; }
+        else if (targetFloor == 2) { minZ = -18.0f; maxZ = 51.0f; halfW = 2.8f; }
+        else if (targetFloor == 3) { minZ = -18.0f; maxZ = 51.0f; halfW = 2.8f; }
 
         float clampedX = Mathf.Clamp(desiredPos.x, hallwayCenterX - halfW, hallwayCenterX + halfW);
         float clampedZ = Mathf.Clamp(desiredPos.z, minZ, maxZ);
@@ -736,12 +745,12 @@ public class TheProctorAI : MonoBehaviour
         if (IsInStairZone(pos)) return false;
 
         int floor = GetFloorFromY(pos.y);
-        float minZ = -16.0f;
-        float maxZ = 28.0f;
-        float halfW = 2.4f;
-        if (floor == 1) { maxZ = 28.0f; halfW = 3.6f; }
-        else if (floor == 2) { maxZ = 32.0f; halfW = 2.4f; }
-        else if (floor == 3) { maxZ = 46.0f; halfW = 2.4f; }
+        float minZ = -18.0f;
+        float maxZ = 51.0f;
+        float halfW = 2.8f;
+        if (floor == 1) { minZ = -22.0f; maxZ = 55.0f; halfW = 3.6f; }
+        else if (floor == 2) { minZ = -18.0f; maxZ = 51.0f; halfW = 2.8f; }
+        else if (floor == 3) { minZ = -18.0f; maxZ = 51.0f; halfW = 2.8f; }
 
         // 1. If pos is outside hallway corridor laterally, it's definitely inside a side room or office
         bool inCorridor = (pos.x >= hallwayCenterX - (halfW + 0.6f)) &&
@@ -886,13 +895,13 @@ public class TheProctorAI : MonoBehaviour
         Vector3 faceDir = -camFwd; // Face directly back at player camera
         transform.rotation = Quaternion.LookRotation(faceDir);
 
-        // Compute exact true face center offset (eyes & nose bridge, 0.20m below top skull bone)
-        Vector3 faceOffset = (_headBone != null) ? (_headBone.position - Vector3.up * 0.20f - transform.position) : new Vector3(0f, targetHeightMeters * 0.90f, 0f);
+        // Compute exact true face center offset (eyes & nose bridge, 0.10m below top skull bone)
+        Vector3 faceOffset = (_headBone != null) ? (_headBone.position - Vector3.up * 0.10f - transform.position) : new Vector3(0f, targetHeightMeters * 0.88f, 0f);
 
         // Desired face position in world space:
-        // Positioned 0.58m in front of camera, elevated higher relative to camera eye-level
-        Vector3 desiredFacePos = camPos + camFwd * 0.58f;
-        desiredFacePos.y = camPos.y + 0.16f; // Elevated higher relative to camera
+        // Positioned 0.68m in front of camera, elevated +0.04m above camera eye-level
+        // This frames face center at exact viewport center (0.50, 0.50), top of skull at y=0.97, and chin at y=0.26 (fully above QTE UI)
+        Vector3 desiredFacePos = camPos + camFwd * 0.68f + Vector3.up * 0.04f;
 
         Vector3 targetProctorPos = desiredFacePos - faceOffset;
         Vector3 initialProctorPos = transform.position;
@@ -925,9 +934,9 @@ public class TheProctorAI : MonoBehaviour
             // Dramatic vertigo camera zoom directly into his face
             _playerCam.fieldOfView = Mathf.Lerp(startFOV, jumpscareFOV, ease);
 
-            // Continuously lock camera directly on his true face center (framed high and clear of UI)
-            Vector3 currentFacePos = (_headBone != null) ? (_headBone.position - Vector3.up * 0.12f) : (transform.position + faceOffset);
-            Vector3 lookDir = (currentFacePos - Vector3.up * 0.12f) - _playerCam.transform.position;
+            // Continuously lock camera directly on his true face center (eyes & nose bridge)
+            Vector3 currentFacePos = (_headBone != null) ? (_headBone.position - Vector3.up * 0.10f) : (transform.position + faceOffset);
+            Vector3 lookDir = currentFacePos - _playerCam.transform.position;
             if (lookDir.sqrMagnitude > 0.0001f)
             {
                 _playerCam.transform.rotation = Quaternion.LookRotation(lookDir);

@@ -29,8 +29,8 @@ public class PlayerMovement : MonoBehaviour
     public float lookXLimit = 85f;
 
     [Header("Crouching")]
-    public float defaultHeight = 1.5f;
-    public float crouchHeight = 1.2f;
+    public float defaultHeight = 1.50f;
+    public float crouchHeight = 1.10f;
     public float crouchSpeed = 2f;
 
     [Header("Head Bobbing")]
@@ -59,6 +59,7 @@ public class PlayerMovement : MonoBehaviour
     public bool isJumpscareCameraOverride = false;
 
     private Vector3 moveDirection = Vector3.zero;
+    private float verticalVelocity = 0f;
     private float rotationX = 0f;
     private float headBobTimer = 0f;
 
@@ -85,13 +86,18 @@ public class PlayerMovement : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
+        // Ensure player height doesn't exceed 1.55m so player can walk under 1.85m door lintels
+        if (defaultHeight > 1.55f) defaultHeight = 1.50f;
+        if (crouchHeight > 1.15f) crouchHeight = 1.10f;
+
         defaultCenterY = defaultHeight / 2f;
         crouchCenterY = crouchHeight / 2f;
 
         characterController.height = defaultHeight;
         characterController.center = new Vector3(0f, defaultCenterY, 0f);
-        if (characterController.radius < 0.28f) characterController.radius = 0.28f;
-        characterController.skinWidth = 0.04f;
+        characterController.radius = 0.25f;
+        characterController.skinWidth = 0.03f;
+        characterController.stepOffset = 0.30f;
 
         if (playerCamera != null)
         {
@@ -147,10 +153,10 @@ public class PlayerMovement : MonoBehaviour
         isMoving = canMove && (Mathf.Abs(Input.GetAxis("Horizontal")) > 0.01f || Mathf.Abs(Input.GetAxis("Vertical")) > 0.01f);
         isRunning = Input.GetKey(KeyCode.LeftShift) && isMoving && canMove && staminaSystem != null && staminaSystem.CanSprint;
         
-        bool wantsCrouch = Input.GetKey(KeyCode.C) && canMove;
+        bool wantsCrouch = (Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl)) && canMove;
         if (!wantsCrouch && isCrouching)
         {
-            // Only uncrouch if there's enough ceiling clearance
+            // Only remain crouched if there is a low ceiling/obstacle blocking standing up
             isCrouching = !CanUncrouch();
         }
         else
@@ -162,9 +168,24 @@ public class PlayerMovement : MonoBehaviour
     private bool CanUncrouch()
     {
         if (characterController == null) return true;
-        Vector3 bottom = transform.position + Vector3.up * characterController.radius;
-        Vector3 top = transform.position + Vector3.up * (defaultHeight - characterController.radius);
-        return !Physics.CheckCapsule(bottom, top, characterController.radius * 0.95f, ~0, QueryTriggerInteraction.Ignore);
+
+        // Check overhead clearance from crouchHeight to defaultHeight
+        float radius = characterController.radius * 0.8f;
+        Vector3 point1 = transform.position + Vector3.up * crouchHeight;
+        Vector3 point2 = transform.position + Vector3.up * Mathf.Max(crouchHeight + 0.05f, defaultHeight - radius);
+
+        Collider[] hits = Physics.OverlapCapsule(point1, point2, radius, ~0, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider col = hits[i];
+            // Ignore player's own colliders, controller, and any child attachments
+            if (col == characterController || col.transform == transform || col.transform.IsChildOf(transform))
+                continue;
+
+            return false; // Overhead obstruction present
+        }
+
+        return true;
     }
 
     private void HandleMovement()
@@ -202,24 +223,27 @@ public class PlayerMovement : MonoBehaviour
         float curSpeedX = canMove ? currentSpeed * Input.GetAxis("Vertical") : 0f;
         float curSpeedY = canMove ? currentSpeed * Input.GetAxis("Horizontal") : 0f;
 
-        moveDirection = (forward * curSpeedX) + (right * curSpeedY);
-
         if (characterController.isGrounded)
         {
             if (Input.GetButton("Jump") && canMove)
             {
-                moveDirection.y = jumpPower;
+                verticalVelocity = jumpPower;
             }
             else
             {
                 // Firm downward snap to eliminate slope and stair bouncing/jitter
-                moveDirection.y = -2.0f;
+                verticalVelocity = -2.0f;
             }
         }
         else
         {
-            moveDirection.y -= gravity * Time.deltaTime;
+            // Accumulate downward velocity properly while airborne
+            verticalVelocity -= gravity * Time.deltaTime;
+            if (verticalVelocity < -35f) verticalVelocity = -35f;
         }
+
+        moveDirection = (forward * curSpeedX) + (right * curSpeedY);
+        moveDirection.y = verticalVelocity;
 
         characterController.Move(moveDirection * Time.deltaTime);
 

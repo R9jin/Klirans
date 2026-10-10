@@ -481,7 +481,7 @@ public class ProctorJumpscareQTE : MonoBehaviour
                 playerCam.fieldOfView = Mathf.Lerp(playerCam.fieldOfView, 40.0f, dt * 10f);
 
                 Vector3 currentHeadPos = (headBone != null) ? (headBone.position - Vector3.up * 0.10f) : (proctor.transform.position + Vector3.up * headOffsetFromRootY);
-                Vector3 lookDir = (currentHeadPos - Vector3.up * 0.12f) - playerCam.transform.position;
+                Vector3 lookDir = currentHeadPos - playerCam.transform.position;
                 if (lookDir.sqrMagnitude > 0.0001f)
                 {
                     playerCam.transform.rotation = Quaternion.LookRotation(lookDir);
