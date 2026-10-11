@@ -120,8 +120,27 @@ public class InventoryDragHandler : MonoBehaviour
     private System.Collections.IEnumerator CleanupAfterFrame()
     {
         yield return null;              // One-frame wait
-        if (!dropHandled)               // Drop() was never called → dropped on nothing
+        if (!dropHandled && sourceSlotUI != null) // Drop() was never called → dragged outside slot grid into world!
+        {
+            InventorySlot src = sourceSlotUI.BoundSlot;
+            if (src != null && !src.IsEmpty && src.item != null)
+            {
+                if (src.item.canBeDropped)
+                {
+                    InventoryItem itemToDrop = src.item;
+                    int qty = src.quantity;
+                    src.Clear();
+                    sourceSlotUI.Owner?.GetContainer()?.NotifyChanged();
+                    InventoryEquipController.Instance?.SpawnDroppedItemInWorld(itemToDrop, qty);
+                    Debug.Log($"[InventoryDragHandler] Dragged {itemToDrop.itemName} out of inventory -> dropped in world!");
+                }
+                else
+                {
+                    Debug.Log($"[InventoryDragHandler] {src.item.itemName} cannot be dropped (quest item).");
+                }
+            }
             sourceSlotUI = null;
+        }
         dropHandled = false;            // Reset for next drag
     }
 

@@ -26,6 +26,110 @@ public class LockerHide : MonoBehaviour, IInteractable
     [Tooltip("Optional label shown in the interaction prompt, e.g. 'Staff Locker', '2F Locker'.")]
     public string lockerLabel = "Locker";
 
+    [Header("Lock Settings")]
+    [Tooltip("Is this locker locked? Requires a Locker Key to unlock before the player can hide.")]
+    public bool isLocked = false;
+
+    [Tooltip("Specific key item required. If null, any item named 'Locker Key' is accepted.")]
+    public InventoryItem requiredKey;
+
+    [Tooltip("If true, removes 1 key from inventory when successfully unlocking.")]
+    public bool consumeKeyOnUnlock = true;
+
+    [Tooltip("Sound played when successfully unlocking the locker.")]
+    public AudioClip unlockAudio;
+
+    [Tooltip("Sound played when trying to open a locked locker without a key.")]
+    public AudioClip lockedRattleAudio;
+
+    private AudioSource _audioSource;
+
+    private void Awake()
+    {
+        _audioSource = GetComponent<AudioSource>();
+        if (_audioSource == null)
+        {
+            _audioSource = gameObject.AddComponent<AudioSource>();
+            _audioSource.spatialBlend = 1.0f;
+            _audioSource.minDistance = 1.0f;
+            _audioSource.maxDistance = 10.0f;
+            _audioSource.playOnAwake = false;
+        }
+
+#if UNITY_EDITOR
+        if (unlockAudio == null)
+            unlockAudio = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/yodguard-door-opening-slowly-1-535465.mp3");
+        if (lockedRattleAudio == null)
+            lockedRattleAudio = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/door_closing.mp3");
+#endif
+    }
+
+    // ── Key Verification ─────────────────────────────────────────────────────
+
+    public bool HasRequiredKey()
+    {
+        // 1. Check hotbar inventory
+        if (InventoryManager.Instance != null)
+        {
+            if (requiredKey != null && InventoryManager.Instance.HasItem(requiredKey)) return true;
+            foreach (var slot in InventoryManager.Instance.Slots)
+            {
+                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf("Locker Key", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+        }
+
+        // 2. Check storage bag
+        if (StorageManager.Instance != null)
+        {
+            if (requiredKey != null && StorageManager.Instance.HasItem(requiredKey)) return true;
+            foreach (var slot in StorageManager.Instance.Slots)
+            {
+                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf("Locker Key", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void ConsumeKey()
+    {
+        if (InventoryManager.Instance != null)
+        {
+            if (requiredKey != null && InventoryManager.Instance.HasItem(requiredKey))
+            {
+                InventoryManager.Instance.RemoveItem(requiredKey, 1);
+                return;
+            }
+            foreach (var slot in InventoryManager.Instance.Slots)
+            {
+                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf("Locker Key", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    InventoryManager.Instance.RemoveItem(slot.item, 1);
+                    return;
+                }
+            }
+        }
+
+        if (StorageManager.Instance != null)
+        {
+            if (requiredKey != null && StorageManager.Instance.HasItem(requiredKey))
+            {
+                StorageManager.Instance.RemoveItem(requiredKey, 1);
+                return;
+            }
+            foreach (var slot in StorageManager.Instance.Slots)
+            {
+                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf("Locker Key", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    StorageManager.Instance.RemoveItem(slot.item, 1);
+                    return;
+                }
+            }
+        }
+    }
+
     // ── IInteractable ────────────────────────────────────────────────────────
 
     public string GetPrompt()
@@ -33,18 +137,51 @@ public class LockerHide : MonoBehaviour, IInteractable
         // Don't show prompt if player is already hiding somewhere
         if (LockerHideManager.IsPlayerHidden) return string.Empty;
 
+        if (isLocked)
+        {
+            bool hasKey = HasRequiredKey();
+            return hasKey ? $"[E] Unlock {lockerLabel} with Key" : $"[Locked {lockerLabel}] (Requires Locker Key)";
+        }
+
         return $"[E] Hide in {lockerLabel}";
     }
 
     public void Interact()
     {
-        // Already hidden — treat E as exit if the player is interacting with
-        // the same locker they're in (edge case: they shouldn't reach another
-        // locker's collider while inside one anyway)
+        // Already hidden — treat E as exit
         if (LockerHideManager.IsPlayerHidden)
         {
             LockerHideManager.Instance?.ExitLocker();
             return;
+        }
+
+        // Check if locked
+        if (isLocked)
+        {
+            if (HasRequiredKey())
+            {
+                if (consumeKeyOnUnlock) ConsumeKey();
+                isLocked = false;
+
+                if (_audioSource != null && unlockAudio != null)
+                {
+                    _audioSource.pitch = 1.15f;
+                    _audioSource.PlayOneShot(unlockAudio, 0.85f);
+                }
+
+                Debug.Log($"[LockerHide] Unlocked {lockerLabel} with Locker Key!");
+                // Continue execution below to immediately enter the unlocked locker
+            }
+            else
+            {
+                if (_audioSource != null && lockedRattleAudio != null)
+                {
+                    _audioSource.pitch = 1.4f;
+                    _audioSource.PlayOneShot(lockedRattleAudio, 0.6f);
+                }
+                Debug.Log($"[LockerHide] {lockerLabel} is locked! Locker Key required.");
+                return;
+            }
         }
 
         if (LockerHideManager.Instance == null)
@@ -60,15 +197,21 @@ public class LockerHide : MonoBehaviour, IInteractable
             anchor = transform.Find("PeekAnchor");
             if (anchor == null)
             {
-                // Create a fallback anchor at the locker's center facing outward
+                // Create a fallback anchor positioned inside looking toward the hallway corridor
                 var anchorGO = new GameObject("PeekAnchor");
                 anchorGO.transform.SetParent(transform, false);
-                // Place it slightly in from the front face, at eye height
-                anchorGO.transform.localPosition = new Vector3(0f, 1.55f, 0.05f);
-                anchorGO.transform.localRotation = Quaternion.identity; // forward = locker forward
+
+                // Position slightly inside the locker at eye level (~1.55m)
+                anchorGO.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+
+                // Look straight out into the hallway corridor center (X = -84.0f)
+                Vector3 corridorCenter = new Vector3(-84.0f, transform.position.y, transform.position.z);
+                Vector3 worldDir = (corridorCenter - transform.position).normalized;
+                anchorGO.transform.rotation = Quaternion.LookRotation(worldDir, Vector3.up);
+
                 anchor = anchorGO.transform;
                 peekAnchor = anchor;
-                Debug.LogWarning($"[LockerHide] No PeekAnchor found on {name}. Created a default one — please adjust it in the scene.");
+                Debug.Log($"[LockerHide] Created PeekAnchor on {name} looking toward hallway ({worldDir}).");
             }
         }
 

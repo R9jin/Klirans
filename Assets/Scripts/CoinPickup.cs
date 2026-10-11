@@ -186,6 +186,9 @@ public class CoinPickup : MonoBehaviour, IInteractable
         {
             r.enabled = active;
         }
+
+        var highlight = GetComponent<ItemVisualHighlight>();
+        if (highlight != null) highlight.SetHighlightVisible(active);
     }
 
     private void EnsureVisualMesh()

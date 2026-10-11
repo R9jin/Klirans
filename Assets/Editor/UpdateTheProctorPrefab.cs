@@ -65,7 +65,7 @@ public static class UpdateTheProctorPrefab
 
             // Load and serialize AudioClips
             proctorAI.alertStingClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/encountering a proctor.mp3");
-            proctorAI.jumpscareScreamClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/you died (lobotomy sound).mp3");
+            proctorAI.jumpscareScreamClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/theProctorJumpscare.mp3");
             proctorAI.footstepClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/footsteps walking & running.mp3");
             proctorAI.staticHissClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/vhs static.mp3");
         }

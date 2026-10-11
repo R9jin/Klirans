@@ -29,6 +29,12 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
     [Tooltip("Optional voucher required for Head Librarian (signatureIndex 0).")]
     public InventoryItem libraryVoucherItem;
 
+    [Tooltip("Optional ComLab Accountability Form required for CCS Dean (signatureIndex 2).")]
+    public InventoryItem comlabFormItem;
+
+    [Tooltip("Optional University Seal Stamp required for Executive Vice President (signatureIndex 5).")]
+    public InventoryItem executiveSealItem;
+
     [Header("Interaction Range")]
     [Tooltip("Maximum distance (in meters) the player can be from the NPC to interact.")]
     public float interactionRange = 4.0f;
@@ -251,6 +257,27 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             }
         }
 
+        // Gate 4.5: CCS Dean / Department Head (signatureIndex 2) requires ComLab Accountability Form from the 1st Floor ComLab
+        if (signatureIndex == 2)
+        {
+            bool hasComLabForm = (comlabFormItem != null && PlayerHasItem(comlabFormItem)) || PlayerHasItemNamed("ComLab Accountability Form");
+            if (!hasComLabForm)
+            {
+                ShowDialogue("College of Computing Studies. Before I can sign your Department Clearance, the database flags your terminal account with an UNRESOLVED COMPUTER LAB TERMINAL HOLD. The ComLab custodian left your official ComLab Accountability Form in the 1st Floor Computer Laboratory (Room 105). Retrieve your ComLab Accountability Form from the ComLab desk and bring it to my desk!");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("ComLab Terminal Hold", "Retrieve your ComLab Accountability Form from the 1st Floor Computer Lab in Room 105.");
+                }
+                return;
+            }
+            else
+            {
+                if (comlabFormItem != null && PlayerHasItem(comlabFormItem)) RemoveItemFromPlayer(comlabFormItem, 1);
+                else RemoveItemNamed("ComLab Accountability Form", 1);
+                Debug.Log("[ClearanceNPC] CCS Dean accepted the ComLab Accountability Form!");
+            }
+        }
+
         // Gate 5: University Registrar (signatureIndex 3) requires solving the Document Sort Puzzle
         if (signatureIndex == 3)
         {
@@ -290,6 +317,27 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             {
                 Debug.LogError("[ClearanceNPC] CashierBalancePuzzle could not be found in scene!");
                 return;
+            }
+        }
+
+        // Gate 7: Executive Vice President (signatureIndex 5) requires the Official University Seal Stamp from 2nd Floor Records Locker
+        if (signatureIndex == 5)
+        {
+            bool hasSeal = (executiveSealItem != null && PlayerHasItem(executiveSealItem)) || PlayerHasItemNamed("Official University Seal Stamp");
+            if (!hasSeal)
+            {
+                ShowDialogue("Office of the Executive Vice President. All department approvals are in order, but protocol dictates that the Official University Embossing Seal must be affixed before final executive endorsement. Retrieve the University Seal Stamp from the Department Records Locker in the 2nd Floor Faculty Cubicle Office!");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Executive Endorsement Seal", "Retrieve the Official University Seal Stamp from the Department Records Locker in the 2nd Floor Faculty Office.");
+                }
+                return;
+            }
+            else
+            {
+                if (executiveSealItem != null && PlayerHasItem(executiveSealItem)) RemoveItemFromPlayer(executiveSealItem, 1);
+                else RemoveItemNamed("Official University Seal Stamp", 1);
+                Debug.Log("[ClearanceNPC] EVP accepted the Official University Seal Stamp!");
             }
         }
 
@@ -437,6 +485,53 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         else if (StorageManager.Instance != null && StorageManager.Instance.HasItem(item))
         {
             StorageManager.Instance.RemoveItem(item, amount);
+        }
+    }
+
+    private bool PlayerHasItemNamed(string partialName)
+    {
+        if (InventoryManager.Instance != null)
+        {
+            foreach (var slot in InventoryManager.Instance.Slots)
+            {
+                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf(partialName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+        }
+        if (StorageManager.Instance != null)
+        {
+            foreach (var slot in StorageManager.Instance.Slots)
+            {
+                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf(partialName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private void RemoveItemNamed(string partialName, int amount = 1)
+    {
+        if (InventoryManager.Instance != null)
+        {
+            foreach (var slot in InventoryManager.Instance.Slots)
+            {
+                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf(partialName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    InventoryManager.Instance.RemoveItem(slot.item, amount);
+                    return;
+                }
+            }
+        }
+        if (StorageManager.Instance != null)
+        {
+            foreach (var slot in StorageManager.Instance.Slots)
+            {
+                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf(partialName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    StorageManager.Instance.RemoveItem(slot.item, amount);
+                    return;
+                }
+            }
         }
     }
 

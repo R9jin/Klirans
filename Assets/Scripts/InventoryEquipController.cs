@@ -96,9 +96,34 @@ public class InventoryEquipController : MonoBehaviour
 
     private void Update()
     {
+        ValidateActiveEquippedSlot();
         HandleHotkeyInput();
         HandleDropInput();
         UpdateViewmodelPosition();
+    }
+
+    /// <summary>
+    /// Validates that the active equipped slot still holds a valid item.
+    /// If the item was dropped, swapped, or removed via UI, automatically unequips it to prevent phantom held items.
+    /// </summary>
+    public void ValidateActiveEquippedSlot()
+    {
+        if (activeSlotIndex < 0) return;
+
+        InventoryManager inventory = InventoryManager.Instance;
+        if (inventory == null) return;
+
+        if (activeSlotIndex >= inventory.Slots.Count)
+        {
+            UnequipCurrentItem();
+            return;
+        }
+
+        InventorySlot slot = inventory.Slots[activeSlotIndex];
+        if (slot == null || slot.IsEmpty || slot.item == null)
+        {
+            UnequipCurrentItem();
+        }
     }
 
     /// <summary>
@@ -336,6 +361,17 @@ public class InventoryEquipController : MonoBehaviour
 
         SlotMenu.Instance?.PingVisibility();
 
+        SpawnDroppedItemInWorld(item, qtyToDrop);
+    }
+
+    /// <summary>
+    /// Spawns a physical pickup in the world in front of the player for the dropped item.
+    /// Used by hotkey drop, StorageMenu Drop button, and drag-and-drop out of inventory.
+    /// </summary>
+    public GameObject SpawnDroppedItemInWorld(InventoryItem item, int quantity = 1)
+    {
+        if (item == null) return null;
+
         // Determine spawn position: slightly in front and at waist height
         Camera cam = Camera.main;
         if (cam == null) cam = GetComponentInChildren<Camera>();
@@ -363,7 +399,7 @@ public class InventoryEquipController : MonoBehaviour
         }
         else
         {
-            // Fallback for items with no world prefab (e.g. Blank_Paper, Voucher, Printer_Paper)
+            // Fallback for items with no world prefab
             dropped = GameObject.CreatePrimitive(PrimitiveType.Cube);
             dropped.name = $"{item.itemName}_Dropped";
             dropped.transform.position = spawnPos;
@@ -431,7 +467,11 @@ public class InventoryEquipController : MonoBehaviour
             PickupItem pickup = dropped.GetComponent<PickupItem>();
             if (pickup == null) pickup = dropped.AddComponent<PickupItem>();
             pickup.itemData = item;
-            pickup.amount = qtyToDrop;
+            pickup.amount = quantity;
+
+            // Attach ItemVisualHighlight so dropped item sparkles and glows
+            var highlight = dropped.GetComponent<ItemVisualHighlight>();
+            if (highlight == null) highlight = dropped.AddComponent<ItemVisualHighlight>();
 
             // Ensure layer is Default for PlayerInteract raycasting
             dropped.layer = LayerMask.NameToLayer("Default");
@@ -440,8 +480,10 @@ public class InventoryEquipController : MonoBehaviour
                 c.gameObject.layer = LayerMask.NameToLayer("Default");
             }
 
-            Debug.Log($"[InventoryEquipController] Dropped {item.itemName} x{qtyToDrop} safely at {spawnPos}.");
+            Debug.Log($"[InventoryEquipController] Dropped {item.itemName} x{quantity} safely at {spawnPos}.");
         }
+
+        return dropped;
     }
 
     public int GetActiveSlotIndex() => activeSlotIndex;

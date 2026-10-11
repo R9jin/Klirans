@@ -22,3 +22,15 @@ MonoBehaviour:
   anxietyChange: 0
   staminaChange: 0
   canBeDropped: 1
+  isInspectable: 1
+  inspectionTitle: Official University Clearance Slip
+  inspectionText: "========================================\nPAMANTASAN NG CABUYAO\nOFFICIAL
+    SENIOR GRADUATION CLEARANCE SLIP\n========================================\nStudent
+    Name: Dela Cruz, Juan M.\nStudent ID: 2021-08492\nAcademic Year: Senior Year
+    (Graduating Status)\n\nSIGNATURE ACCOUNTABILITIES (IN SEQUENCE):\n[1] University
+    Library (3rd Floor Room 308)\n[2] Guidance & Counseling Office (2nd Floor Room
+    207)\n[3] College of Computing Studies Dean (2nd Floor Room 205)\n[4] University
+    Registrar (Ground Floor Window 2 Room 104)\n[5] University Cashier (Ground Floor
+    Window 2 Room 102)\n[6] Office of the Executive Vice President (Ground Floor
+    Room 101)\n\n* FINAL SUBMISSION: Surrender fully signed slip to Registrar Window
+    2\n  to authorize release and unlock the campus main gate.\n========================================"

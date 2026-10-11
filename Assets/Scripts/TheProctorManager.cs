@@ -322,22 +322,22 @@ public class TheProctorManager : MonoBehaviour
     private void ConfigureHallwayBoundaries(TheProctorAI ai, int floor)
     {
         ai.hallwayCenterX = -84.0f;
-        ai.hallwayHalfWidth = 2.4f;
+        ai.hallwayHalfWidth = 2.8f;
 
         switch (floor)
         {
             case 1:
-                ai.hallwayMinZ = -16.0f;
-                ai.hallwayMaxZ = 28.0f;
+                ai.hallwayMinZ = -22.0f;
+                ai.hallwayMaxZ = 55.0f;
                 ai.hallwayHalfWidth = 3.6f; // Lobby area on 1F is wider
                 break;
             case 2:
-                ai.hallwayMinZ = -16.0f;
-                ai.hallwayMaxZ = 32.0f;
+                ai.hallwayMinZ = -18.0f;
+                ai.hallwayMaxZ = 51.0f;
                 break;
             case 3:
-                ai.hallwayMinZ = -16.0f;
-                ai.hallwayMaxZ = 46.0f;
+                ai.hallwayMinZ = -18.0f;
+                ai.hallwayMaxZ = 51.0f;
                 break;
         }
     }
@@ -345,22 +345,22 @@ public class TheProctorManager : MonoBehaviour
     private void ConfigureWeepingHallwayBoundaries(WeepingStudentAI ai, int floor)
     {
         ai.hallwayCenterX = -84.0f;
-        ai.hallwayHalfWidth = 2.4f;
+        ai.hallwayHalfWidth = 2.8f;
 
         switch (floor)
         {
             case 1:
-                ai.hallwayMinZ = -16.0f;
-                ai.hallwayMaxZ = 28.0f;
+                ai.hallwayMinZ = -22.0f;
+                ai.hallwayMaxZ = 55.0f;
                 ai.hallwayHalfWidth = 3.6f; // Lobby area on 1F is wider
                 break;
             case 2:
-                ai.hallwayMinZ = -16.0f;
-                ai.hallwayMaxZ = 32.0f;
+                ai.hallwayMinZ = -18.0f;
+                ai.hallwayMaxZ = 51.0f;
                 break;
             case 3:
-                ai.hallwayMinZ = -16.0f;
-                ai.hallwayMaxZ = 46.0f;
+                ai.hallwayMinZ = -18.0f;
+                ai.hallwayMaxZ = 51.0f;
                 break;
         }
     }
@@ -368,11 +368,11 @@ public class TheProctorManager : MonoBehaviour
     private Vector3 CalculateHallwaySpawnPosition(Vector3 playerPos)
     {
         float floorY = 2.43f;
-        float minZ = -16.0f;
-        float maxZ = 28.0f;
+        float minZ = -22.0f;
+        float maxZ = 55.0f;
 
-        if (proctorAssignedFloor == 2) { floorY = 8.35f; minZ = -16.0f; maxZ = 32.0f; }
-        else if (proctorAssignedFloor == 3) { floorY = 14.34f; minZ = -16.0f; maxZ = 46.0f; }
+        if (proctorAssignedFloor == 2) { floorY = 8.35f; minZ = -18.0f; maxZ = 51.0f; }
+        else if (proctorAssignedFloor == 3) { floorY = 14.34f; minZ = -18.0f; maxZ = 51.0f; }
 
         // Choose to spawn North or South of the player along the corridor depending on available space
         float targetZ;

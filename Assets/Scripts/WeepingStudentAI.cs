@@ -81,6 +81,8 @@ public class WeepingStudentAI : MonoBehaviour
     public AudioClip freezeStingClip;
     public AudioClip jumpscareScreamClip;
     public AudioClip staticHissClip;
+    [Tooltip("Continuous 3D spatial weeping sound emitted by the entity. Attenuates realistically over distance so the player hears it getting closer and closer as it approaches.")]
+    public AudioClip weepingSoundClip;
 
     [Header("Horror & Balancing")]
     [Tooltip("Amount of anxiety added to the AnxietyMeter on jumpscare.")]
@@ -94,6 +96,7 @@ public class WeepingStudentAI : MonoBehaviour
     private Animator _animator;
     private AudioSource _audioSource;
     private AudioSource _footstepAudio;
+    private AudioSource _weepingAudio;
 
     private Transform _playerTransform;
     private PlayerMovement _playerMovement;
@@ -138,6 +141,19 @@ public class WeepingStudentAI : MonoBehaviour
     {
         currentState = WeepingState.Spawning;
         StartCoroutine(SpawnSequence());
+        StartWeepingAudio();
+    }
+
+    private void StartWeepingAudio()
+    {
+        if (_weepingAudio == null) return;
+        if (weepingSoundClip == null) LoadDefaultAudio();
+
+        if (weepingSoundClip != null && !_weepingAudio.isPlaying)
+        {
+            _weepingAudio.clip = weepingSoundClip;
+            _weepingAudio.Play();
+        }
     }
 
     private void Update()
@@ -154,6 +170,13 @@ public class WeepingStudentAI : MonoBehaviour
 
         if (_playerTransform == null) FindPlayerReferences();
         if (_playerTransform == null) return;
+
+        // Dynamically track and update current floor boundaries based on elevation
+        int currentFloor = GetFloorFromY(transform.position.y);
+        if (currentFloor != assignedFloor)
+        {
+            UpdateFloorBoundaries(currentFloor);
+        }
 
         // 1. Vision Check: Is the player looking at me?
         if (Time.time >= _nextVisionCheckTime)
@@ -183,6 +206,17 @@ public class WeepingStudentAI : MonoBehaviour
         _footstepAudio.maxDistance = 12.0f;
         _footstepAudio.rolloffMode = AudioRolloffMode.Logarithmic;
         _footstepAudio.playOnAwake = false;
+
+        // Dedicated 3D spatial audio source for the entity's continuous weeping sound
+        _weepingAudio = gameObject.AddComponent<AudioSource>();
+        _weepingAudio.spatialBlend = 1.0f; // 100% 3D spatial audio
+        _weepingAudio.rolloffMode = AudioRolloffMode.Linear; // Linear attenuation for realistic, clear proximity sensing
+        _weepingAudio.minDistance = 2.0f; // Full volume within 2 meters
+        _weepingAudio.maxDistance = 28.0f; // Audible up to 28 meters down hallways
+        _weepingAudio.loop = true;
+        _weepingAudio.playOnAwake = false;
+        _weepingAudio.volume = 0.90f;
+        _weepingAudio.dopplerLevel = 0.1f;
     }
 
     private void LoadDefaultAudio()
@@ -199,6 +233,9 @@ public class WeepingStudentAI : MonoBehaviour
 
         if (staticHissClip == null)
             staticHissClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/vhs static.mp3");
+
+        if (weepingSoundClip == null)
+            weepingSoundClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/weepingStudentSoundEffect.mp3");
 #endif
         if (jumpscareScreamClip == null)
             jumpscareScreamClip = Resources.Load<AudioClip>("Sounds/you died (lobotomy sound)");
@@ -208,6 +245,8 @@ public class WeepingStudentAI : MonoBehaviour
             footstepClip = Resources.Load<AudioClip>("Sounds/footsteps walking & running");
         if (staticHissClip == null)
             staticHissClip = Resources.Load<AudioClip>("Sounds/vhs static");
+        if (weepingSoundClip == null)
+            weepingSoundClip = Resources.Load<AudioClip>("Sounds/weepingStudentSoundEffect");
     }
 
     private void ConfigureNavMeshAgent()
@@ -257,6 +296,8 @@ public class WeepingStudentAI : MonoBehaviour
         currentState = WeepingState.Stalking;
         Debug.Log($"[WeepingStudentAI] Spawned and stalking in {assignedHallway} at {transform.position}");
 
+        StartWeepingAudio();
+
         // Play sudden ominous alert sting
         if (_audioSource != null && alertStingClip != null)
         {
@@ -305,27 +346,10 @@ public class WeepingStudentAI : MonoBehaviour
         // 2. Line of Sight Raycast Check (not blocked by walls or closed doors)
         Vector3 toHead = headPos - eyePos;
         float distToHead = toHead.magnitude;
-        Ray ray = new Ray(eyePos, toHead.normalized);
+        bool headVisible = HasClearLineOfSight(eyePos, headPos);
+        bool chestVisible = HasClearLineOfSight(eyePos, chestPos);
 
-        // Raycast hitting environment geometry
-        if (Physics.Raycast(ray, out RaycastHit hit, distToHead - 0.2f, ~0, QueryTriggerInteraction.Ignore))
-        {
-            // If ray hit an obstacle that is NOT part of this enemy or player, view is occluded
-            if (!hit.transform.IsChildOf(transform) && hit.transform != _playerTransform)
-            {
-                // Try chest as secondary line of sight
-                Vector3 toChest = chestPos - eyePos;
-                float distToChest = toChest.magnitude;
-                Ray chestRay = new Ray(eyePos, toChest.normalized);
-                if (Physics.Raycast(chestRay, out RaycastHit chestHit, distToChest - 0.2f, ~0, QueryTriggerInteraction.Ignore))
-                {
-                    if (!chestHit.transform.IsChildOf(transform) && chestHit.transform != _playerTransform)
-                    {
-                        return false; // Occluded by wall/obstacle
-                    }
-                }
-            }
-        }
+        if (!headVisible && !chestVisible) return false;
 
         // 3. Darkness / Flashlight Visibility Rule:
         // In pitch black blackout:
@@ -336,11 +360,22 @@ public class WeepingStudentAI : MonoBehaviour
         }
 
         // B) If Flashlight is ON, check if within illumination cone
-        if (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn)
+        bool isFlashlightOn = (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn);
+        if (!isFlashlightOn)
+        {
+            var fl = GameObject.Find("FlashlightLight");
+            if (fl != null)
+            {
+                var l = fl.GetComponent<Light>();
+                if (l != null && l.enabled && l.intensity > 0.05f) isFlashlightOn = true;
+            }
+        }
+
+        if (isFlashlightOn)
         {
             float angleToEnemy = Vector3.Angle(_playerCam.transform.forward, toHead);
             float spotAngle = 56.0f; // matches FlashlightController
-            if (angleToEnemy <= (spotAngle * 0.5f + 10.0f) && distToHead <= 25.0f)
+            if (angleToEnemy <= (spotAngle * 0.5f + 12.0f) && distToHead <= 25.0f)
             {
                 return true; // Caught in the flashlight beam!
             }
@@ -355,6 +390,28 @@ public class WeepingStudentAI : MonoBehaviour
         return true;
     }
 
+    private bool HasClearLineOfSight(Vector3 eyePos, Vector3 targetPos)
+    {
+        Vector3 dir = targetPos - eyePos;
+        float dist = dir.magnitude;
+        if (dist <= 0.1f) return true;
+
+        Ray ray = new Ray(eyePos, dir.normalized);
+        if (Physics.Raycast(ray, out RaycastHit hit, dist - 0.15f, ~0, QueryTriggerInteraction.Ignore))
+        {
+            if (!hit.transform.IsChildOf(transform) && hit.transform != _playerTransform)
+            {
+                // If it hit a thin baluster or fence post, don't count as complete wall occlusion
+                if (hit.collider != null && hit.collider.bounds.size.magnitude < 0.25f)
+                {
+                    return true;
+                }
+                return false;
+            }
+        }
+        return true;
+    }
+
     // ── Stalking Movement & Catch Checking ───────────────────────────────────
 
     private void UpdateStalkingBehavior()
@@ -365,8 +422,9 @@ public class WeepingStudentAI : MonoBehaviour
         bool playerHidden = (LockerHideManager.IsPlayerHidden);
         bool playerInRoom = IsPositionInsideAnyRoom(_playerTransform.position);
 
-        // Catch check: catches player if close and player is not hidden in a locker
-        if (!playerHidden && !playerInRoom && distToPlayer <= catchDistance && dy < 1.9f)
+        // Catch check: Weeping Angel ONLY catches the player when NOT observed!
+        // When observed, it is a frozen stone statue and cannot attack!
+        if (!_isObserved && !playerHidden && !playerInRoom && distToPlayer <= catchDistance && dy < 1.9f)
         {
             TriggerCatchJumpscare();
             return;
@@ -408,11 +466,23 @@ public class WeepingStudentAI : MonoBehaviour
 
             if (_animator != null)
             {
-                _animator.speed = 1.6f; // Rapid terrifying pursuit motion
-                _animator.SetFloat(_speedHash, 1.0f);
+                _animator.speed = 1.35f; // Rapid terrifying pursuit motion
+                _animator.SetFloat(_speedHash, 2.0f); // Full running motion
             }
 
             UpdateFootstepAudio();
+        }
+
+        // Dynamically ensure 3D weeping audio is active and modulate volume/pitch
+        if (_weepingAudio != null)
+        {
+            if (!_weepingAudio.isPlaying) StartWeepingAudio();
+
+            // When moving/stalking unobserved, weeping intensifies in volume and pitch
+            float targetVol = _isObserved ? 0.70f : 1.0f;
+            float targetPitch = _isObserved ? 0.95f : 1.06f;
+            _weepingAudio.volume = Mathf.MoveTowards(_weepingAudio.volume, targetVol, Time.deltaTime * 1.5f);
+            _weepingAudio.pitch = Mathf.MoveTowards(_weepingAudio.pitch, targetPitch, Time.deltaTime * 1.5f);
         }
     }
 
@@ -432,16 +502,57 @@ public class WeepingStudentAI : MonoBehaviour
         }
     }
 
+    public void UpdateFloorBoundaries(int floor)
+    {
+        assignedFloor = floor;
+        hallwayCenterX = -84.0f;
+        switch (floor)
+        {
+            case 1:
+                assignedHallway = "Hallway_1F";
+                hallwayMinZ = -22.0f;
+                hallwayMaxZ = 55.0f;
+                hallwayHalfWidth = 3.6f;
+                break;
+            case 2:
+                assignedHallway = "Hallway_2F";
+                hallwayMinZ = -18.0f;
+                hallwayMaxZ = 51.0f;
+                hallwayHalfWidth = 2.8f;
+                break;
+            case 3:
+                assignedHallway = "Hallway_3F";
+                hallwayMinZ = -18.0f;
+                hallwayMaxZ = 51.0f;
+                hallwayHalfWidth = 2.8f;
+                break;
+        }
+    }
+
+    public bool IsInStairZone(Vector3 pos)
+    {
+        // Covers all 3 staircase enclosures (MainStairs, RightStairs, LeftStairs) across all floors
+        if (pos.x < -94.0f || pos.x > -83.0f) return false;
+
+        if (pos.z >= 11.0f && pos.z <= 22.0f) return true;  // MainStairs
+        if (pos.z >= 45.0f && pos.z <= 54.0f) return true;  // RightStairs
+        if (pos.z >= -21.0f && pos.z <= -12.0f) return true; // LeftStairs
+
+        return false;
+    }
+
     private Vector3 GetHallwayTarget(Vector3 desiredPos)
     {
-        int targetFloor = GetFloorFromY(desiredPos.y);
-        float minZ = -16.0f;
-        float maxZ = 28.0f;
-        float halfW = 2.4f;
+        if (IsInStairZone(desiredPos)) return desiredPos;
 
-        if (targetFloor == 1) { minZ = -16.0f; maxZ = 28.0f; halfW = 3.6f; }
-        else if (targetFloor == 2) { minZ = -16.0f; maxZ = 32.0f; halfW = 2.4f; }
-        else if (targetFloor == 3) { minZ = -16.0f; maxZ = 46.0f; halfW = 2.4f; }
+        int targetFloor = GetFloorFromY(desiredPos.y);
+        float minZ = -18.0f;
+        float maxZ = 51.0f;
+        float halfW = 2.8f;
+
+        if (targetFloor == 1) { minZ = -22.0f; maxZ = 55.0f; halfW = 3.6f; }
+        else if (targetFloor == 2) { minZ = -18.0f; maxZ = 51.0f; halfW = 2.8f; }
+        else if (targetFloor == 3) { minZ = -18.0f; maxZ = 51.0f; halfW = 2.8f; }
 
         float clampedX = Mathf.Clamp(desiredPos.x, hallwayCenterX - halfW, hallwayCenterX + halfW);
         float clampedZ = Mathf.Clamp(desiredPos.z, minZ, maxZ);
@@ -450,6 +561,9 @@ public class WeepingStudentAI : MonoBehaviour
 
     private void ClampPositionToAssignedHallway()
     {
+        // Skip corridor clamping while in any of the stairwells
+        if (IsInStairZone(transform.position)) return;
+
         Vector3 pos = transform.position;
         float clampedX = Mathf.Clamp(pos.x, hallwayCenterX - hallwayHalfWidth, hallwayCenterX + hallwayHalfWidth);
         float clampedZ = Mathf.Clamp(pos.z, hallwayMinZ, hallwayMaxZ);
@@ -517,18 +631,23 @@ public class WeepingStudentAI : MonoBehaviour
         Vector3 faceDir = -camFwd; // Face directly back at player camera
         transform.rotation = Quaternion.LookRotation(faceDir);
 
-        // Compute face offset relative to root
-        Vector3 faceOffset = (_headBone != null) ? (_headBone.position - transform.position) : new Vector3(0f, 1.55f, 0f);
+        // Compute face offset relative to root (face center is 0.08m below head bone top)
+        Vector3 faceOffset = (_headBone != null) ? (_headBone.position - Vector3.up * 0.08f - transform.position) : new Vector3(0f, 1.55f * 0.90f, 0f);
 
         // Desired face position in world space:
-        // Positioned 0.40m in front of camera, elevated slightly higher relative to camera eye-level
-        Vector3 desiredFacePos = camPos + camFwd * 0.40f;
-        desiredFacePos.y = camPos.y + 0.04f;
+        // Positioned 0.55m in front of camera, elevated +0.04m above camera eye-level
+        // Frames face center at exact viewport center (0.50, 0.50), top of skull at y=0.97
+        Vector3 desiredFacePos = camPos + camFwd * 0.55f + Vector3.up * 0.04f;
 
         Vector3 targetPos = desiredFacePos - faceOffset;
         Vector3 initialPos = transform.position;
 
         // 3. Audio Horror Screamer
+        if (_weepingAudio != null && _weepingAudio.isPlaying)
+        {
+            _weepingAudio.Stop();
+        }
+
         if (_audioSource != null)
         {
             if (jumpscareScreamClip == null) LoadDefaultAudio();
@@ -553,7 +672,7 @@ public class WeepingStudentAI : MonoBehaviour
             transform.position = Vector3.Lerp(initialPos, targetPos, ease);
             _playerCam.fieldOfView = Mathf.Lerp(startFOV, jumpscareFOV, ease);
 
-            Vector3 currentFacePos = (_headBone != null) ? _headBone.position : (transform.position + faceOffset);
+            Vector3 currentFacePos = (_headBone != null) ? (_headBone.position - Vector3.up * 0.08f) : (transform.position + faceOffset);
             Vector3 lookDir = currentFacePos - _playerCam.transform.position;
             if (lookDir.sqrMagnitude > 0.0001f)
             {
@@ -716,6 +835,11 @@ public class WeepingStudentAI : MonoBehaviour
     public void Despawn()
     {
         currentState = WeepingState.Despawning;
+
+        if (_weepingAudio != null && _weepingAudio.isPlaying)
+        {
+            _weepingAudio.Stop();
+        }
 
         if (_agent != null && _agent.isOnNavMesh)
         {

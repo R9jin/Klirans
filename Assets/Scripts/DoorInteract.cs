@@ -26,14 +26,43 @@ public class DoorInteract : MonoBehaviour, IInteractable
     [Tooltip("Is this door currently locked?")]
     public bool isLocked = false;
 
+    [Tooltip("Is this door currently locked by the emergency campus blackout?")]
+    public bool isBlackoutLocked = false;
+
+    private bool _wasLockedBeforeBlackout = false;
+
     [Tooltip("Specific lockpin item required. If null, any item named 'Lockpin' works.")]
     public InventoryItem requiredLockpinItem;
+
+    private void OnEnable()
+    {
+        if (BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.OnBlackoutStart += HandleBlackoutStart;
+            BlackoutManager.Instance.OnBlackoutEnd += HandleBlackoutEnd;
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.OnBlackoutStart -= HandleBlackoutStart;
+            BlackoutManager.Instance.OnBlackoutEnd -= HandleBlackoutEnd;
+        }
+    }
 
     private void Start()
     {
         closedRotation = transform.localRotation;
         openRotation = closedRotation * Quaternion.AngleAxis(openAngle, rotationAxis);
         targetRotation = closedRotation;
+
+        // If spawned while blackout is already active, lock immediately
+        if (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive)
+        {
+            LockForBlackout();
+        }
     }
 
     private void Update()
@@ -62,6 +91,18 @@ public class DoorInteract : MonoBehaviour, IInteractable
 
         if (isLocked)
         {
+            if (isBlackoutLocked)
+            {
+                // Play locked handle jiggle rattling sound
+                if (audioSource == null) audioSource = GetComponent<AudioSource>();
+                if (audioSource != null && closeSound != null)
+                {
+                    audioSource.pitch = 1.35f;
+                    audioSource.PlayOneShot(closeSound, 0.45f);
+                }
+                return;
+            }
+
             if (LockpickingMinigame.Instance != null)
             {
                 LockpickingMinigame.Instance.StartLockpicking(this);
@@ -79,7 +120,74 @@ public class DoorInteract : MonoBehaviour, IInteractable
     public void UnlockDoor()
     {
         isLocked = false;
+        isBlackoutLocked = false;
         ToggleDoor();
+    }
+
+    // ── Campus Blackout Emergency Locking ─────────────────────────────────────
+
+    private void HandleBlackoutStart()
+    {
+        LockForBlackout();
+    }
+
+    private void HandleBlackoutEnd()
+    {
+        UnlockFromBlackout();
+    }
+
+    /// <summary>
+    /// Locks down this door when campus blackout strikes.
+    /// Closes the door if open and locks it until power is restored.
+    /// </summary>
+    public void LockForBlackout()
+    {
+        if (isBlackoutLocked) return;
+
+        _wasLockedBeforeBlackout = isLocked;
+        isLocked = true;
+        isBlackoutLocked = true;
+
+        // If door was currently open, slam it shut!
+        if (isOpen)
+        {
+            ToggleDoor();
+        }
+    }
+
+    /// <summary>
+    /// Restores the door to its pre-blackout state once power returns.
+    /// </summary>
+    public void UnlockFromBlackout()
+    {
+        if (!isBlackoutLocked) return;
+
+        isLocked = _wasLockedBeforeBlackout;
+        isBlackoutLocked = false;
+    }
+
+    /// <summary>
+    /// Authoritative helper: locks down all doors in the scene when power cuts out.
+    /// </summary>
+    public static void LockAllDoorsForBlackout()
+    {
+        var doors = Object.FindObjectsByType<DoorInteract>(FindObjectsInactive.Include);
+        foreach (var d in doors)
+        {
+            if (d != null) d.LockForBlackout();
+        }
+    }
+
+    /// <summary>
+    /// Authoritative helper: restores all doors once power is back.
+    /// </summary>
+    public static void UnlockAllDoorsFromBlackout()
+    {
+        var doors = Object.FindObjectsByType<DoorInteract>(FindObjectsInactive.Include);
+        foreach (var d in doors)
+        {
+            if (d != null) d.UnlockFromBlackout();
+        }
     }
 
     [Header("Audio Settings")]
@@ -141,6 +249,11 @@ public class DoorInteract : MonoBehaviour, IInteractable
 
         if (isLocked)
         {
+            if (isBlackoutLocked)
+            {
+                return "[Locked — Emergency Lockdown Active]";
+            }
+
             bool hasPin = LockpickingMinigame.HasLockpin(requiredLockpinItem);
             return hasPin ? "Press E to Pick Lock" : "Locked (Requires Lockpin)";
         }

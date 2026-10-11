@@ -123,6 +123,7 @@ GameObject:
   - component: {fileID: 2556354962511615422}
   - component: {fileID: 2816370582070975212}
   - component: {fileID: 3438605104013729673}
+  - component: {fileID: 1606500206705115518}
   m_Layer: 0
   m_Name: LockpinPrefab
   m_TagString: Untagged
@@ -189,6 +190,28 @@ MonoBehaviour:
   walkBobAmountX: 0.012
   walkBobRotationAmount: 2.5
   bobSmoothness: 10
+--- !u!114 &1606500206705115518
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1805192057701968248}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d76de536d1f2084ba7b118e09b51d15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ItemVisualHighlight
+  category: 0
+  glowColor: {r: 1, g: 0.85, b: 0.4, a: 1}
+  glintInterval: 2.4
+  glintDuration: 0.42
+  sparkleScale: 0.22
+  sparkleHeightOffset: 0.05
+  lightRange: 1.15
+  lightBaseIntensity: 0.65
+  lightGlintFlashBoost: 0.85
+  maxActiveDistance: 25
 --- !u!1 &3267304740828193008
 GameObject:
   m_ObjectHideFlags: 0

@@ -157,6 +157,12 @@ public class DroppedItemFailsafe : MonoBehaviour
             rootPickup.itemData = _pickupItem.itemData;
             rootPickup.amount = _pickupItem.amount;
         }
+
+        // Ensure dropped item has visual glint highlight so player can easily spot it
+        if (GetComponent<ItemVisualHighlight>() == null)
+        {
+            gameObject.AddComponent<ItemVisualHighlight>();
+        }
     }
 
     private void OnCollisionEnter(Collision collision)

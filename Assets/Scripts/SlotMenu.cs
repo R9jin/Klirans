@@ -147,7 +147,7 @@ public class SlotMenu : MonoBehaviour, ISlotOwner
 
         // Show preview only while inventory panel is open
         if (InventoryScreen.Instance != null && InventoryScreen.Instance.IsOpen)
-            StorageMenu.ShowPreview(slot.item);
+            StorageMenu.ShowPreview(slot.item, slot, InventoryManager.Instance);
 
         // Equip clicked slot if equip controller is present
         if (InventoryEquipController.Instance != null && slot != null && InventoryManager.Instance != null)

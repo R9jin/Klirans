@@ -124,6 +124,7 @@ public class BlackoutManager : MonoBehaviour
         "StatusLED",
         "ExitSign_RedLight",
         "PaperGlintLight",
+        "ItemGlintLight",
         "Outdoor_Gate_Illumination",
         "Directional Light"
     };
@@ -294,6 +295,9 @@ public class BlackoutManager : MonoBehaviour
         // Despawn wandering student NPCs during blackout sequence
         DespawnWanderingNPCs();
 
+        // Lock all doors during blackout sequence
+        DoorInteract.LockAllDoorsForBlackout();
+
         // Kill all non-protected lights
         SetAllLightsEnabled(false);
 
@@ -360,6 +364,9 @@ public class BlackoutManager : MonoBehaviour
         // Restore wandering student NPCs to the hallways
         RestoreWanderingNPCs();
 
+        // Unlock all doors locked by the blackout
+        DoorInteract.UnlockAllDoorsFromBlackout();
+
         // Notify listeners
         IsBlackoutActive = false;
         OnBlackoutEnd?.Invoke();
@@ -376,8 +383,8 @@ public class BlackoutManager : MonoBehaviour
         foreach (var l in allLights)
         {
             if (l == null) continue;
-            // Skip protected lights (flashlight, status LEDs, exit signs, etc.)
-            if (_protectedLightNames.Contains(l.gameObject.name)) continue;
+            // Skip protected lights (flashlight, status LEDs, exit signs, item glint lights, etc.)
+            if (_protectedLightNames.Contains(l.gameObject.name) || l.GetComponentInParent<ItemVisualHighlight>() != null) continue;
             _cachedLights.Add(new LightState
             {
                 light = l,
