@@ -131,22 +131,105 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
                 itemDescriptionText = existing.GetComponent<Text>();
             else
                 itemDescriptionText = CreateText(descPanel, "ItemDescText",
-                    fontSize: 20,
+                    fontSize: 18,
                     fontStyle: FontStyle.Bold,
                     alignment: TextAnchor.UpperLeft,
                     color: Color.black,
-                    anchorMin: Vector2.zero,
+                    anchorMin: new Vector2(0f, 0.18f),
                     anchorMax: new Vector2(1f, 0.75f),
-                    offsetMin: new Vector2(16f, 12f),
+                    offsetMin: new Vector2(16f, 5f),
                     offsetMax: new Vector2(-16f, -5f));
         }
 
         if (itemDescriptionText != null)
         {
-            itemDescriptionText.fontSize = 20;
+            itemDescriptionText.fontSize = 18;
             itemDescriptionText.fontStyle = FontStyle.Bold;
             itemDescriptionText.color = Color.black;
+            var rt = itemDescriptionText.rectTransform;
+            rt.anchorMin = new Vector2(0f, 0.18f);
+            rt.anchorMax = new Vector2(1f, 0.75f);
         }
+
+        // 3. Create or find Inspect Button and Drop Button
+        if (_inspectButton == null)
+        {
+            Transform existing = descPanel.Find("InspectItemButton");
+            if (existing != null)
+            {
+                _inspectButton = existing.GetComponent<Button>();
+            }
+            else
+            {
+                _inspectButton = CreateButton(descPanel, "InspectItemButton", "Inspect / Read",
+                    anchorMin: new Vector2(0.04f, 0.02f), anchorMax: new Vector2(0.48f, 0.16f),
+                    bgColor: new Color(0.18f, 0.14f, 0.10f, 0.95f),
+                    textColor: new Color(0.96f, 0.93f, 0.86f, 1f),
+                    outlineColor: new Color(0.85f, 0.70f, 0.35f, 0.75f));
+                _inspectButton.onClick.AddListener(InspectSelectedItem);
+            }
+        }
+
+        if (_dropButton == null)
+        {
+            Transform existing = descPanel.Find("DropItemButton");
+            if (existing != null)
+            {
+                _dropButton = existing.GetComponent<Button>();
+                _dropButtonText = existing.GetComponentInChildren<Text>();
+            }
+            else
+            {
+                _dropButton = CreateButton(descPanel, "DropItemButton", "Drop Item",
+                    anchorMin: new Vector2(0.52f, 0.02f), anchorMax: new Vector2(0.96f, 0.16f),
+                    bgColor: new Color(0.24f, 0.12f, 0.12f, 0.95f),
+                    textColor: new Color(1f, 0.92f, 0.92f, 1f),
+                    outlineColor: new Color(0.85f, 0.25f, 0.25f, 0.75f));
+                _dropButtonText = _dropButton.GetComponentInChildren<Text>();
+                _dropButton.onClick.AddListener(DropSelectedItem);
+            }
+        }
+    }
+
+    private Button CreateButton(Transform parent, string goName, string text,
+        Vector2 anchorMin, Vector2 anchorMax,
+        Color bgColor, Color textColor, Color outlineColor)
+    {
+        var go = new GameObject(goName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(Outline));
+        go.transform.SetParent(parent, false);
+
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = anchorMin;
+        rt.anchorMax = anchorMax;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+
+        var img = go.GetComponent<Image>();
+        img.color = bgColor;
+
+        var outline = go.GetComponent<Outline>();
+        outline.effectColor = outlineColor;
+        outline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        var textGO = new GameObject("BtnText", typeof(RectTransform), typeof(Text));
+        textGO.transform.SetParent(go.transform, false);
+        var trt = textGO.GetComponent<RectTransform>();
+        trt.anchorMin = Vector2.zero;
+        trt.anchorMax = Vector2.one;
+
+        var txt = textGO.GetComponent<Text>();
+        txt.text = text;
+        txt.fontSize = 15;
+        txt.fontStyle = FontStyle.Bold;
+        txt.alignment = TextAnchor.MiddleCenter;
+        txt.color = textColor;
+        txt.raycastTarget = false;
+
+        Font builtIn = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
+                    ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+        txt.font = builtIn;
+
+        return go.GetComponent<Button>();
     }
 
     private Text CreateText(Transform parent, string goName,
@@ -180,6 +263,48 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
         return txt;
     }
 
+    // ─── Button Actions ──────────────────────────────────────────────
+
+    private void InspectSelectedItem()
+    {
+        if (_selectedItem == null) return;
+        ItemInspectionModal.Inspect(_selectedItem);
+    }
+
+    private void DropSelectedItem()
+    {
+        if (_selectedSlot == null || _selectedSlot.IsEmpty || _selectedSlot.item == null) return;
+
+        if (!_selectedSlot.item.canBeDropped)
+        {
+            Debug.Log($"[StorageMenu] Cannot drop {_selectedSlot.item.itemName} (quest item).");
+            return;
+        }
+
+        InventoryItem itemToDrop = _selectedSlot.item;
+        _selectedSlot.quantity -= 1;
+        if (_selectedSlot.quantity <= 0)
+        {
+            _selectedSlot.Clear();
+        }
+
+        _selectedContainer?.NotifyChanged();
+
+        if (InventoryEquipController.Instance != null)
+        {
+            InventoryEquipController.Instance.SpawnDroppedItemInWorld(itemToDrop, 1);
+        }
+
+        if (_selectedSlot.IsEmpty)
+        {
+            HidePreview();
+        }
+        else
+        {
+            ShowPreview(_selectedSlot.item, _selectedSlot, _selectedContainer);
+        }
+    }
+
     // ─── ISlotOwner ──────────────────────────────────────────────────
 
     /// <summary>Returns the backing data container for drag-and-drop.</summary>
@@ -188,7 +313,12 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
     /// <summary>Single click on a bag slot -> show item preview.</summary>
     public void OnSlotClicked(InventorySlot slot)
     {
-        ShowPreview(slot.item);
+        if (slot == null || slot.IsEmpty)
+        {
+            HidePreview();
+            return;
+        }
+        ShowPreview(slot.item, slot, StorageManager.Instance);
     }
 
     /// <summary>Double click on a bag slot -> move to 6-slot hotbar if there's room.</summary>
@@ -210,6 +340,7 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
             slot.quantity -= qty;
             if (slot.quantity <= 0) slot.Clear();
             StorageManager.Instance.NotifyChanged();
+            HidePreview();
         }
     }
 
@@ -221,15 +352,25 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
 
     // ─── Static Preview API ──────────────────────────────────────────
 
+    private Button _inspectButton;
+    private Button _dropButton;
+    private Text _dropButtonText;
+    private InventoryItem _selectedItem;
+    private InventorySlot _selectedSlot;
+    private SlotContainer _selectedContainer;
+
     /// <summary>
-    /// Show an item's icon and description in the preview panel.
-    /// Called by both StorageMenu.OnSlotClicked and SlotMenu.OnSlotClicked
-    /// (hotbar slot - only when Tab inventory is open).
+    /// Show an item's icon, description, and action buttons in the preview panel.
+    /// Called by both StorageMenu.OnSlotClicked and SlotMenu.OnSlotClicked.
     /// </summary>
-    public static void ShowPreview(InventoryItem item)
+    public static void ShowPreview(InventoryItem item, InventorySlot slot = null, SlotContainer container = null)
     {
         if (Instance == null || item == null) return;
         if (Instance.inventoryDescription == null) return;
+
+        Instance._selectedItem = item;
+        Instance._selectedSlot = slot;
+        Instance._selectedContainer = container;
 
         Instance.inventoryDescription.SetActive(true);
 
@@ -257,12 +398,33 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
             Instance.itemDescriptionText.color = Color.black;
             Instance.itemDescriptionText.fontStyle = FontStyle.Bold;
         }
+
+        // Action Buttons
+        if (Instance._inspectButton != null)
+        {
+            bool canInspect = item.isInspectable || !string.IsNullOrEmpty(item.inspectionText);
+            Instance._inspectButton.gameObject.SetActive(canInspect);
+        }
+
+        if (Instance._dropButton != null)
+        {
+            Instance._dropButton.gameObject.SetActive(slot != null);
+            Instance._dropButton.interactable = item.canBeDropped;
+            if (Instance._dropButtonText != null)
+            {
+                Instance._dropButtonText.text = item.canBeDropped ? "Drop Item" : "Quest Item";
+            }
+        }
     }
 
     /// <summary>Hide the item preview panel and clear all preview image and text content.</summary>
     public static void HidePreview()
     {
         if (Instance == null) return;
+
+        Instance._selectedItem = null;
+        Instance._selectedSlot = null;
+        Instance._selectedContainer = null;
 
         if (Instance.itemImage != null)
         {

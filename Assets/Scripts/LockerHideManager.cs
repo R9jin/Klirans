@@ -58,6 +58,13 @@ public class LockerHideManager : MonoBehaviour
     [Tooltip("Key to exit the locker (in addition to pressing E again near the locker).")]
     public KeyCode exitKey = KeyCode.F;
 
+    [Header("Heartbeat Sound Inside Locker")]
+    [Tooltip("Frantic heartbeat audio played while hiding inside lockers.")]
+    public AudioClip heartbeatAudio;
+
+    [Range(0f, 1f)]
+    public float heartbeatVolume = 0.85f;
+
     // ── Private runtime ──────────────────────────────────────────────────────
     private Camera          _playerCam;
     private PlayerMovement  _playerMovement;
@@ -71,6 +78,11 @@ public class LockerHideManager : MonoBehaviour
 
     // Peek anchor (the LockerHide sets this)
     private Transform _peekAnchor;
+    private float _peekYaw = 0f;
+    private float _peekPitch = 0f;
+
+    // Audio
+    private AudioSource _heartbeatSource;
 
     // UI
     private RectTransform _topPanel;
@@ -79,6 +91,7 @@ public class LockerHideManager : MonoBehaviour
     private CanvasGroup   _overlayGroup;
 
     private bool _isTransitioning = false;
+    private int _enterFrame = -1;
 
     // ── Unity ────────────────────────────────────────────────────────────────
 
@@ -100,6 +113,20 @@ public class LockerHideManager : MonoBehaviour
         if (_playerCam == null)
             _playerCam = Camera.main;
 
+#if UNITY_EDITOR
+        if (heartbeatAudio == null)
+            heartbeatAudio = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/fast heart beat.mp3");
+#endif
+        if (heartbeatAudio == null)
+            heartbeatAudio = Resources.Load<AudioClip>("Sounds/fast heart beat");
+
+        _heartbeatSource = gameObject.AddComponent<AudioSource>();
+        _heartbeatSource.spatialBlend = 0f;
+        _heartbeatSource.loop = true;
+        _heartbeatSource.clip = heartbeatAudio;
+        _heartbeatSource.volume = 0f;
+        _heartbeatSource.playOnAwake = false;
+
         BuildPeekOverlayUI();
         SetOverlayVisible(false, instant: true);
     }
@@ -108,9 +135,16 @@ public class LockerHideManager : MonoBehaviour
     {
         if (!IsPlayerHidden) return;
 
-        // Smooth camera drift toward peek anchor each frame
+        // Smooth camera drift toward peek anchor and allow mouse peering through locker louvers
         if (_peekAnchor != null && _playerCam != null && !_isTransitioning)
         {
+            float mx = Input.GetAxis("Mouse X");
+            float my = Input.GetAxis("Mouse Y");
+            _peekYaw = Mathf.Clamp(_peekYaw + mx * 1.8f, -28f, 28f);
+            _peekPitch = Mathf.Clamp(_peekPitch - my * 1.8f, -10f, 10f);
+
+            Quaternion targetRot = _peekAnchor.rotation * Quaternion.Euler(_peekPitch, _peekYaw, 0f);
+
             _playerCam.transform.position = Vector3.Lerp(
                 _playerCam.transform.position,
                 _peekAnchor.position,
@@ -118,13 +152,44 @@ public class LockerHideManager : MonoBehaviour
             );
             _playerCam.transform.rotation = Quaternion.Slerp(
                 _playerCam.transform.rotation,
-                _peekAnchor.rotation,
+                targetRot,
                 cameraTransitionSpeed * Time.deltaTime
             );
         }
 
-        // Exit on F key or Escape
-        if (Input.GetKeyDown(exitKey) || Input.GetKeyDown(KeyCode.Escape))
+        // Dynamic terror heartbeat: accelerates when enemy AI is outside the locker
+        if (_heartbeatSource != null && _heartbeatSource.isPlaying)
+        {
+            float nearestEnemyDist = float.MaxValue;
+            if (TheProctorAI.ActiveProctor != null)
+            {
+                float d = Vector3.Distance(_playerCam.transform.position, TheProctorAI.ActiveProctor.transform.position);
+                if (d < nearestEnemyDist) nearestEnemyDist = d;
+            }
+            if (WeepingStudentAI.ActiveWeepingStudent != null)
+            {
+                float d = Vector3.Distance(_playerCam.transform.position, WeepingStudentAI.ActiveWeepingStudent.transform.position);
+                if (d < nearestEnemyDist) nearestEnemyDist = d;
+            }
+
+            if (nearestEnemyDist < 12.0f)
+            {
+                float terror = Mathf.Clamp01(1.0f - (nearestEnemyDist / 12.0f));
+                _heartbeatSource.pitch = Mathf.Lerp(1.0f, 1.40f, terror);
+                _heartbeatSource.volume = Mathf.Lerp(heartbeatVolume, 1.0f, terror);
+            }
+            else
+            {
+                _heartbeatSource.pitch = Mathf.MoveTowards(_heartbeatSource.pitch, 1.0f, Time.deltaTime * 0.5f);
+                _heartbeatSource.volume = Mathf.MoveTowards(_heartbeatSource.volume, heartbeatVolume, Time.deltaTime * 0.5f);
+            }
+        }
+
+        // Prevent exit on the same frame player entered (avoids consuming same 'E' key press)
+        if (Time.frameCount == _enterFrame) return;
+
+        // Exit on F key, E key, or Escape
+        if (Input.GetKeyDown(exitKey) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Escape))
         {
             ExitLocker();
         }
@@ -139,6 +204,7 @@ public class LockerHideManager : MonoBehaviour
     {
         if (IsPlayerHidden || _isTransitioning) return;
 
+        _enterFrame = Time.frameCount;
         _currentLocker = locker;
         _peekAnchor    = peekAnchor;
 
@@ -185,14 +251,27 @@ public class LockerHideManager : MonoBehaviour
     private IEnumerator TransitionIn()
     {
         _isTransitioning = true;
+        _peekYaw = 0f;
+        _peekPitch = 0f;
 
-        // Fade overlay in
+        // Start looping heartbeat sound
+        if (_heartbeatSource != null && heartbeatAudio != null)
+        {
+            _heartbeatSource.pitch = 1.0f;
+            _heartbeatSource.volume = 0f;
+            _heartbeatSource.Play();
+        }
+
+        // Fade overlay in and ramp heartbeat volume
         float t = 0f;
         while (t < 1f)
         {
             t += Time.deltaTime * cameraTransitionSpeed;
             if (_overlayGroup != null)
                 _overlayGroup.alpha = Mathf.Clamp01(t);
+
+            if (_heartbeatSource != null)
+                _heartbeatSource.volume = Mathf.Lerp(0f, heartbeatVolume, t);
 
             // Move camera toward peek anchor
             if (_playerCam != null && _peekAnchor != null)
@@ -221,6 +300,9 @@ public class LockerHideManager : MonoBehaviour
             _playerCam.fieldOfView        = peekFOV;
         }
 
+        if (_heartbeatSource != null)
+            _heartbeatSource.volume = heartbeatVolume;
+
         SetOverlayVisible(true, instant: true);
         _isTransitioning = false;
     }
@@ -235,13 +317,16 @@ public class LockerHideManager : MonoBehaviour
             _playerCam.transform.SetParent(_savedCamParent, worldPositionStays: true);
         }
 
-        // Fade overlay out and restore camera
+        // Fade overlay out and fade heartbeat out
         float t = 0f;
         while (t < 1f)
         {
             t += Time.deltaTime * cameraTransitionSpeed;
             if (_overlayGroup != null)
                 _overlayGroup.alpha = Mathf.Clamp01(1f - t);
+
+            if (_heartbeatSource != null)
+                _heartbeatSource.volume = Mathf.Lerp(heartbeatVolume, 0f, t);
 
             if (_playerCam != null)
             {
@@ -259,6 +344,13 @@ public class LockerHideManager : MonoBehaviour
             }
 
             yield return null;
+        }
+
+        // Stop heartbeat audio
+        if (_heartbeatSource != null)
+        {
+            _heartbeatSource.Stop();
+            _heartbeatSource.volume = 0f;
         }
 
         // Snap final
@@ -298,7 +390,7 @@ public class LockerHideManager : MonoBehaviour
     // ── UI Overlay ───────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Builds the black top/bottom panels and interior tint on HudCanvas at runtime.
+    /// Builds the locker peek hole overlay UI with metal doors, ventilation slats, and exit prompt on HudCanvas.
     /// </summary>
     private void BuildPeekOverlayUI()
     {
@@ -322,29 +414,80 @@ public class LockerHideManager : MonoBehaviour
         _overlayGroup.blocksRaycasts = false;
         _overlayGroup.interactable   = false;
 
-        // Interior darkness tint (full screen, behind the gap panels)
+        // Interior darkness tint (full screen)
         _interiorTintImage = CreatePanel(overlayRoot.transform, "LockerTint",
             new Vector2(0f, 0f), new Vector2(1f, 1f), lockerInteriorTint);
 
-        // Top black panel — covers top portion of screen
+        // Heavy dark metal locker frame:
+        float slitLeft = 0.16f;
+        float slitRight = 0.84f;
+        float slitBottom = blackPanelFraction;
+        float slitTop = 1f - blackPanelFraction;
+
+        // 1. Left locker door panel
+        CreatePanel(overlayRoot.transform, "PeekDoorLeft",
+            new Vector2(0f, 0f), new Vector2(slitLeft, 1f),
+            new Color(0.04f, 0.04f, 0.05f, 0.98f));
+
+        // 2. Right locker door panel
+        CreatePanel(overlayRoot.transform, "PeekDoorRight",
+            new Vector2(slitRight, 0f), new Vector2(1f, 1f),
+            new Color(0.04f, 0.04f, 0.05f, 0.98f));
+
+        // 3. Top locker door panel
         var topImg = CreatePanel(overlayRoot.transform, "PeekTop",
-            new Vector2(0f, 1f - blackPanelFraction), new Vector2(1f, 1f),
-            Color.black);
+            new Vector2(slitLeft, slitTop), new Vector2(slitRight, 1f),
+            new Color(0.03f, 0.03f, 0.04f, 0.98f));
         _topPanel = topImg.GetComponent<RectTransform>();
 
-        // Bottom black panel — covers bottom portion of screen
+        // 4. Bottom locker door panel
         var botImg = CreatePanel(overlayRoot.transform, "PeekBottom",
-            new Vector2(0f, 0f), new Vector2(1f, blackPanelFraction),
-            Color.black);
+            new Vector2(slitLeft, 0f), new Vector2(slitRight, slitBottom),
+            new Color(0.03f, 0.03f, 0.04f, 0.98f));
         _bottomPanel = botImg.GetComponent<RectTransform>();
 
-        // Thin dark edges on left and right of the slit (simulates locker door frame)
-        CreatePanel(overlayRoot.transform, "PeekLeft",
-            new Vector2(0f, blackPanelFraction), new Vector2(0.012f, 1f - blackPanelFraction),
-            new Color(0f, 0f, 0f, 0.85f));
-        CreatePanel(overlayRoot.transform, "PeekRight",
-            new Vector2(0.988f, blackPanelFraction), new Vector2(1f, 1f - blackPanelFraction),
-            new Color(0f, 0f, 0f, 0.85f));
+        // 5. Locker Ventilation Louver Slats (horizontal dark shadows across the vent slit)
+        float midY1 = Mathf.Lerp(slitBottom, slitTop, 0.35f);
+        float midY2 = Mathf.Lerp(slitBottom, slitTop, 0.68f);
+
+        CreatePanel(overlayRoot.transform, "LockerSlat_1",
+            new Vector2(slitLeft, midY1 - 0.008f), new Vector2(slitRight, midY1 + 0.008f),
+            new Color(0.08f, 0.08f, 0.10f, 0.92f));
+
+        CreatePanel(overlayRoot.transform, "LockerSlat_2",
+            new Vector2(slitLeft, midY2 - 0.008f), new Vector2(slitRight, midY2 + 0.008f),
+            new Color(0.08f, 0.08f, 0.10f, 0.92f));
+
+        // 6. Exit Prompt Badge at bottom of screen
+        var promptGO = new GameObject("ExitHintBadge", typeof(RectTransform), typeof(Image), typeof(Outline));
+        promptGO.transform.SetParent(overlayRoot.transform, false);
+        var promptRT = promptGO.GetComponent<RectTransform>();
+        promptRT.anchorMin = new Vector2(0.5f, 0.08f);
+        promptRT.anchorMax = new Vector2(0.5f, 0.08f);
+        promptRT.pivot = new Vector2(0.5f, 0.5f);
+        promptRT.sizeDelta = new Vector2(240f, 32f);
+
+        var promptImg = promptGO.GetComponent<Image>();
+        promptImg.color = new Color(0.05f, 0.05f, 0.07f, 0.88f);
+
+        var promptOutline = promptGO.GetComponent<Outline>();
+        promptOutline.effectColor = new Color(0.6f, 0.2f, 0.2f, 0.6f);
+        promptOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        var textGO = new GameObject("ExitText", typeof(RectTransform), typeof(Text));
+        textGO.transform.SetParent(promptGO.transform, false);
+        var textRT = textGO.GetComponent<RectTransform>();
+        textRT.anchorMin = Vector2.zero;
+        textRT.anchorMax = Vector2.one;
+        textRT.offsetMin = Vector2.zero;
+        textRT.offsetMax = Vector2.zero;
+
+        var promptText = textGO.GetComponent<Text>();
+        promptText.text = "[E] or [F] to Exit Locker";
+        promptText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        promptText.fontSize = 13;
+        promptText.alignment = TextAnchor.MiddleCenter;
+        promptText.color = new Color(0.95f, 0.92f, 0.88f, 0.95f);
     }
 
     private Image CreatePanel(Transform parent, string goName, Vector2 anchorMin, Vector2 anchorMax, Color color)

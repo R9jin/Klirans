@@ -81,6 +81,8 @@ public class WeepingStudentAI : MonoBehaviour
     public AudioClip freezeStingClip;
     public AudioClip jumpscareScreamClip;
     public AudioClip staticHissClip;
+    [Tooltip("Continuous 3D spatial weeping sound emitted by the entity. Attenuates realistically over distance so the player hears it getting closer and closer as it approaches.")]
+    public AudioClip weepingSoundClip;
 
     [Header("Horror & Balancing")]
     [Tooltip("Amount of anxiety added to the AnxietyMeter on jumpscare.")]
@@ -94,6 +96,7 @@ public class WeepingStudentAI : MonoBehaviour
     private Animator _animator;
     private AudioSource _audioSource;
     private AudioSource _footstepAudio;
+    private AudioSource _weepingAudio;
 
     private Transform _playerTransform;
     private PlayerMovement _playerMovement;
@@ -138,6 +141,19 @@ public class WeepingStudentAI : MonoBehaviour
     {
         currentState = WeepingState.Spawning;
         StartCoroutine(SpawnSequence());
+        StartWeepingAudio();
+    }
+
+    private void StartWeepingAudio()
+    {
+        if (_weepingAudio == null) return;
+        if (weepingSoundClip == null) LoadDefaultAudio();
+
+        if (weepingSoundClip != null && !_weepingAudio.isPlaying)
+        {
+            _weepingAudio.clip = weepingSoundClip;
+            _weepingAudio.Play();
+        }
     }
 
     private void Update()
@@ -190,6 +206,17 @@ public class WeepingStudentAI : MonoBehaviour
         _footstepAudio.maxDistance = 12.0f;
         _footstepAudio.rolloffMode = AudioRolloffMode.Logarithmic;
         _footstepAudio.playOnAwake = false;
+
+        // Dedicated 3D spatial audio source for the entity's continuous weeping sound
+        _weepingAudio = gameObject.AddComponent<AudioSource>();
+        _weepingAudio.spatialBlend = 1.0f; // 100% 3D spatial audio
+        _weepingAudio.rolloffMode = AudioRolloffMode.Linear; // Linear attenuation for realistic, clear proximity sensing
+        _weepingAudio.minDistance = 2.0f; // Full volume within 2 meters
+        _weepingAudio.maxDistance = 28.0f; // Audible up to 28 meters down hallways
+        _weepingAudio.loop = true;
+        _weepingAudio.playOnAwake = false;
+        _weepingAudio.volume = 0.90f;
+        _weepingAudio.dopplerLevel = 0.1f;
     }
 
     private void LoadDefaultAudio()
@@ -206,6 +233,9 @@ public class WeepingStudentAI : MonoBehaviour
 
         if (staticHissClip == null)
             staticHissClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/vhs static.mp3");
+
+        if (weepingSoundClip == null)
+            weepingSoundClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/weepingStudentSoundEffect.mp3");
 #endif
         if (jumpscareScreamClip == null)
             jumpscareScreamClip = Resources.Load<AudioClip>("Sounds/you died (lobotomy sound)");
@@ -215,6 +245,8 @@ public class WeepingStudentAI : MonoBehaviour
             footstepClip = Resources.Load<AudioClip>("Sounds/footsteps walking & running");
         if (staticHissClip == null)
             staticHissClip = Resources.Load<AudioClip>("Sounds/vhs static");
+        if (weepingSoundClip == null)
+            weepingSoundClip = Resources.Load<AudioClip>("Sounds/weepingStudentSoundEffect");
     }
 
     private void ConfigureNavMeshAgent()
@@ -263,6 +295,8 @@ public class WeepingStudentAI : MonoBehaviour
 
         currentState = WeepingState.Stalking;
         Debug.Log($"[WeepingStudentAI] Spawned and stalking in {assignedHallway} at {transform.position}");
+
+        StartWeepingAudio();
 
         // Play sudden ominous alert sting
         if (_audioSource != null && alertStingClip != null)
@@ -438,6 +472,18 @@ public class WeepingStudentAI : MonoBehaviour
 
             UpdateFootstepAudio();
         }
+
+        // Dynamically ensure 3D weeping audio is active and modulate volume/pitch
+        if (_weepingAudio != null)
+        {
+            if (!_weepingAudio.isPlaying) StartWeepingAudio();
+
+            // When moving/stalking unobserved, weeping intensifies in volume and pitch
+            float targetVol = _isObserved ? 0.70f : 1.0f;
+            float targetPitch = _isObserved ? 0.95f : 1.06f;
+            _weepingAudio.volume = Mathf.MoveTowards(_weepingAudio.volume, targetVol, Time.deltaTime * 1.5f);
+            _weepingAudio.pitch = Mathf.MoveTowards(_weepingAudio.pitch, targetPitch, Time.deltaTime * 1.5f);
+        }
     }
 
     private void UpdateFootstepAudio()
@@ -597,6 +643,11 @@ public class WeepingStudentAI : MonoBehaviour
         Vector3 initialPos = transform.position;
 
         // 3. Audio Horror Screamer
+        if (_weepingAudio != null && _weepingAudio.isPlaying)
+        {
+            _weepingAudio.Stop();
+        }
+
         if (_audioSource != null)
         {
             if (jumpscareScreamClip == null) LoadDefaultAudio();
@@ -784,6 +835,11 @@ public class WeepingStudentAI : MonoBehaviour
     public void Despawn()
     {
         currentState = WeepingState.Despawning;
+
+        if (_weepingAudio != null && _weepingAudio.isPlaying)
+        {
+            _weepingAudio.Stop();
+        }
 
         if (_agent != null && _agent.isOnNavMesh)
         {

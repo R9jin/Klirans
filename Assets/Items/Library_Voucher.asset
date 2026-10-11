@@ -23,3 +23,35 @@ MonoBehaviour:
   anxietyChange: 0
   staminaChange: 0
   canBeDropped: 0
+  isInspectable: 1
+  inspectionTitle: Official Library Clearance Voucher
+  inspectionText: '========================================
+
+    UNIVERSITY LIBRARY
+    SYSTEM
+
+    ACCOUNTABILITY WAIVER & CLEARANCE VOUCHER
+
+    ========================================
+
+    Transaction
+    ID: LIB-CLR-1994-409
+
+    Student ID: 2021-08492
+
+
+    RECORD VERIFICATION:
+
+    Overdue
+    Holdings: "Introduction to Operating Systems (1988)"
+
+    Status: Account Adjusted
+    & Fine Settlement Cleared.
+
+
+    The bearer has resolved all outstanding library
+    records
+
+    and is hereby recommended for Library Clearance Signing.
+
+    ========================================'

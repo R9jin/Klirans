@@ -49,4 +49,15 @@ public class InventoryItem : ScriptableObject
 
     [Header("Quest Item Behaviour")]
     public bool canBeDropped = true;
+
+    [Header("Item Inspection & Lore")]
+    [Tooltip("If true, this item can be inspected and read in an authentic notebook/document inspection window.")]
+    public bool isInspectable = false;
+
+    [Tooltip("Header title shown at the top of the inspection modal.")]
+    public string inspectionTitle = "";
+
+    [TextArea(6, 16)]
+    [Tooltip("The full multi-line notes, text content, clues, or lore revealed upon inspecting.")]
+    public string inspectionText = "";
 }

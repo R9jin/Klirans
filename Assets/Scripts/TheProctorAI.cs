@@ -238,7 +238,7 @@ public class TheProctorAI : MonoBehaviour
             alertStingClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/encountering a proctor.mp3");
 
         if (jumpscareScreamClip == null)
-            jumpscareScreamClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/you died (lobotomy sound).mp3");
+            jumpscareScreamClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/theProctorJumpscare.mp3");
 
         if (footstepClip == null)
             footstepClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/footsteps walking & running.mp3");
@@ -248,7 +248,7 @@ public class TheProctorAI : MonoBehaviour
 #endif
         // Runtime fallback for standalone builds
         if (jumpscareScreamClip == null)
-            jumpscareScreamClip = Resources.Load<AudioClip>("Sounds/you died (lobotomy sound)");
+            jumpscareScreamClip = Resources.Load<AudioClip>("Sounds/theProctorJumpscare");
         if (alertStingClip == null)
             alertStingClip = Resources.Load<AudioClip>("Sounds/encountering a proctor");
         if (footstepClip == null)

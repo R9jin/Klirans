@@ -178,6 +178,7 @@ MonoBehaviour:
   freezeStingClip: {fileID: 0}
   jumpscareScreamClip: {fileID: 8300000, guid: c8b364fa8687a25499b288b0486c7619, type: 3}
   staticHissClip: {fileID: 8300000, guid: 3c6c64069b5e70242b86509dcb118318, type: 3}
+  weepingSoundClip: {fileID: 8300000, guid: c22c0942db4fe6742a182afc19160235, type: 3}
   jumpscareAnxietyIncrease: 15
   staminaDrain: 30
 --- !u!1 &1110054467326736740

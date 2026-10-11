@@ -54,7 +54,9 @@ public class PlayerInteract : MonoBehaviour
         if (playerCamera == null || PauseMenu.GameIsPaused || 
             (GuidanceWordPuzzle.Instance != null && GuidanceWordPuzzle.Instance.IsOpen) ||
             (CashierBalancePuzzle.Instance != null && CashierBalancePuzzle.Instance.IsOpen) ||
-            (RegistrarDocumentSortPuzzle.Instance != null && RegistrarDocumentSortPuzzle.Instance.IsOpen))
+            (RegistrarDocumentSortPuzzle.Instance != null && RegistrarDocumentSortPuzzle.Instance.IsOpen) ||
+            ItemInspectionModal.IsOpen ||
+            LockerHideManager.IsPlayerHidden)
         {
             if (promptText != null) promptText.gameObject.SetActive(false);
             return;
