@@ -134,10 +134,10 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.35
-  m_Speed: 7.2
-  m_Acceleration: 28
+  m_Speed: 8.8
+  m_Acceleration: 36
   avoidancePriority: 50
-  m_AngularSpeed: 480
+  m_AngularSpeed: 540
   m_StoppingDistance: 0.5
   m_AutoTraverseOffMeshLink: 0
   m_AutoBraking: 1
@@ -158,15 +158,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a586b357d0a8d374aace2908cfb3ce54, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WeepingStudentAI
-  currentState: 0
-  chaseSpeed: 7.2
-  acceleration: 28
-  angularSpeed: 480
-  catchDistance: 1.35
+  currentState: 2
+  chaseSpeed: 8.8
+  acceleration: 36
+  angularSpeed: 540
+  catchDistance: 1.4
   stoppingDistance: 0.5
-  requireFlashlightToFreeze: 1
-  silhouetteRadius: 2.8
+  requireFlashlightToFreeze: 0
+  silhouetteRadius: 3.8
   visionCheckInterval: 0.04
+  despawnOnBlackoutEnd: 1
   assignedHallway: Hallway_1F
   assignedFloor: 1
   hallwayMinZ: -16

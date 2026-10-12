@@ -14,7 +14,17 @@ using UnityEngine;
 /// </summary>
 public class TheProctorManager : MonoBehaviour
 {
-    public static TheProctorManager Instance { get; private set; }
+    private static TheProctorManager _instance;
+    public static TheProctorManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+                _instance = FindAnyObjectByType<TheProctorManager>();
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     [Header("Blackout & Proctor Balancing")]
     [Tooltip("How long (seconds) The Proctor stalks the hallway before power returns and it despawns.")]
@@ -86,6 +96,52 @@ public class TheProctorManager : MonoBehaviour
             weepingStudentPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/WeepingStudent.prefab");
         }
 #endif
+    }
+
+    private void Update()
+    {
+        // Debug shortcut F7: Spawn Weeping Student immediately for playtesting Weeping Angel mechanics
+        if (Input.GetKeyDown(KeyCode.F7))
+        {
+            SpawnWeepingStudentDebug();
+        }
+    }
+
+    [ContextMenu("Spawn Weeping Student (Debug F7)")]
+    public void SpawnWeepingStudentDebug()
+    {
+        var playerGO = GameObject.FindGameObjectWithTag("Player");
+        if (playerGO == null) return;
+
+        Vector3 playerPos = playerGO.transform.position;
+        DetectPlayerHallway(playerPos);
+        Vector3 spawnPos = CalculateHallwaySpawnPosition(playerPos);
+
+        Vector3 toPlayer = playerPos - spawnPos;
+        toPlayer.y = 0f;
+        Quaternion spawnRot = toPlayer.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toPlayer) : Quaternion.identity;
+
+        WeepingStudentAI.DespawnActiveWeepingStudent();
+
+        GameObject studentGO = null;
+        if (weepingStudentPrefab != null)
+        {
+            studentGO = Instantiate(weepingStudentPrefab, spawnPos, spawnRot);
+        }
+
+        if (studentGO != null)
+        {
+            var weepingAI = studentGO.GetComponent<WeepingStudentAI>();
+            if (weepingAI != null)
+            {
+                weepingAI.currentState = WeepingStudentAI.WeepingState.Stalking;
+                weepingAI.despawnOnBlackoutEnd = false; // Persistent for manual debug testing
+                weepingAI.assignedHallway = proctorAssignedHallway;
+                weepingAI.assignedFloor = proctorAssignedFloor;
+                ConfigureWeepingHallwayBoundaries(weepingAI, proctorAssignedFloor);
+            }
+            Debug.Log($"[TheProctorManager] 🚨 Debug F7: Spawned WEEPING STUDENT at {spawnPos}! Stare at her to freeze her; look away and she will rush!");
+        }
     }
 
     private void OnDestroy()
@@ -170,6 +226,8 @@ public class TheProctorManager : MonoBehaviour
                 var weepingAI = studentGO.GetComponent<WeepingStudentAI>();
                 if (weepingAI != null)
                 {
+                    weepingAI.currentState = WeepingStudentAI.WeepingState.Stalking;
+                    weepingAI.despawnOnBlackoutEnd = true;
                     weepingAI.assignedHallway = proctorAssignedHallway;
                     weepingAI.assignedFloor = proctorAssignedFloor;
                     ConfigureWeepingHallwayBoundaries(weepingAI, proctorAssignedFloor);

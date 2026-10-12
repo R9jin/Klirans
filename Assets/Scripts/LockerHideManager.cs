@@ -166,6 +166,11 @@ public class LockerHideManager : MonoBehaviour
                 float d = Vector3.Distance(_playerCam.transform.position, WeepingStudentAI.ActiveWeepingStudent.transform.position);
                 if (d < nearestEnemyDist) nearestEnemyDist = d;
             }
+            if (SecurityGuardStalkerAI.ActiveStalker != null)
+            {
+                float d = Vector3.Distance(_playerCam.transform.position, SecurityGuardStalkerAI.ActiveStalker.transform.position);
+                if (d < nearestEnemyDist) nearestEnemyDist = d;
+            }
 
             float anxietyNorm = (AnxietyManager.Instance != null && AnxietyManager.Instance.maxAnxiety > 0f)
                 ? Mathf.Clamp01(AnxietyManager.Instance.CurrentAnxiety / AnxietyManager.Instance.maxAnxiety)

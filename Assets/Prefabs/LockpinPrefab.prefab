@@ -204,14 +204,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemVisualHighlight
   category: 0
   glowColor: {r: 1, g: 0.85, b: 0.4, a: 1}
-  glintInterval: 2.4
-  glintDuration: 0.42
+  strobePeriod: 2.8
+  strobeMinIntensity: 0.003
+  strobePeakIntensity: 0.046
+  lightRange: 1.15
+  fadeStartDistance: 3.5
+  maxActiveDistance: 25
   sparkleScale: 0.22
   sparkleHeightOffset: 0.05
-  lightRange: 1.15
-  lightBaseIntensity: 0.65
+  glintDuration: 0.42
   lightGlintFlashBoost: 0.85
-  maxActiveDistance: 25
 --- !u!1 &3267304740828193008
 GameObject:
   m_ObjectHideFlags: 0

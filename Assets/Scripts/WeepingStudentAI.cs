@@ -27,7 +27,17 @@ using UnityEngine.UI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class WeepingStudentAI : MonoBehaviour
 {
-    public static WeepingStudentAI ActiveWeepingStudent { get; private set; }
+    private static WeepingStudentAI _activeWeepingStudent;
+    public static WeepingStudentAI ActiveWeepingStudent
+    {
+        get
+        {
+            if (_activeWeepingStudent == null)
+                _activeWeepingStudent = FindAnyObjectByType<WeepingStudentAI>();
+            return _activeWeepingStudent;
+        }
+        private set => _activeWeepingStudent = value;
+    }
 
     public enum WeepingState
     {
@@ -39,33 +49,36 @@ public class WeepingStudentAI : MonoBehaviour
     }
 
     [Header("Current State")]
-    public WeepingState currentState = WeepingState.Inactive;
+    public WeepingState currentState = WeepingState.Stalking;
 
     [Header("Movement & Agility")]
-    [Tooltip("Terrifying pursuit speed when the player is NOT looking.")]
-    public float chaseSpeed = 7.2f;
+    [Tooltip("Terrifying pursuit speed when the player is NOT looking (blistering rush).")]
+    public float chaseSpeed = 8.8f;
 
     [Tooltip("NavMesh agent acceleration (instant surge).")]
-    public float acceleration = 28.0f;
+    public float acceleration = 36.0f;
 
     [Tooltip("Angular turning speed.")]
-    public float angularSpeed = 480.0f;
+    public float angularSpeed = 540.0f;
 
     [Tooltip("Distance at which the Weeping Student catches the player and jumpscares.")]
-    public float catchDistance = 1.35f;
+    public float catchDistance = 1.40f;
 
     [Tooltip("NavMesh stopping distance.")]
     public float stoppingDistance = 0.5f;
 
     [Header("Observation / Weeping Angel Rules")]
-    [Tooltip("If true, requires flashlight illumination in pitch black to freeze, or within close silhouette radius.")]
-    public bool requireFlashlightToFreeze = true;
+    [Tooltip("If true, requires flashlight illumination during blackouts to freeze beyond silhouette radius. If false, freezes unconditionally whenever observed in camera view.")]
+    public bool requireFlashlightToFreeze = false;
 
     [Tooltip("Close range (meters) where the dark silhouette is clearly visible even without flashlight, freezing the enemy.")]
-    public float silhouetteRadius = 2.8f;
+    public float silhouetteRadius = 3.8f;
 
     [Tooltip("How frequently line of sight and camera visibility are tested (seconds).")]
-    public float visionCheckInterval = 0.04f;
+    public float visionCheckInterval = 0.035f;
+
+    [Tooltip("If true, automatically despawns when campus power is restored.")]
+    public bool despawnOnBlackoutEnd = false;
 
     [Header("Assigned Hallway & Floor Limits")]
     public string assignedHallway = "Hallway_1F";
@@ -130,8 +143,10 @@ public class WeepingStudentAI : MonoBehaviour
 
         if (ActiveWeepingStudent != null && ActiveWeepingStudent != this)
         {
-            Destroy(gameObject);
-            return;
+            if (ActiveWeepingStudent.gameObject != null)
+            {
+                Destroy(ActiveWeepingStudent.gameObject);
+            }
         }
         ActiveWeepingStudent = this;
 
@@ -145,13 +160,27 @@ public class WeepingStudentAI : MonoBehaviour
         FindPlayerReferences();
         FindBones();
         CacheRoomBounds();
+        currentState = WeepingState.Stalking;
     }
 
     private void Start()
     {
-        currentState = WeepingState.Spawning;
-        StartCoroutine(SpawnSequence());
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.enabled = true;
+            _agent.isStopped = false;
+        }
+
+        currentState = WeepingState.Stalking;
+        Debug.Log($"[WeepingStudentAI] Spawned and stalking in {assignedHallway} at {transform.position}");
+
         StartWeepingAudio();
+
+        // Play sudden ominous alert sting
+        if (_audioSource != null && alertStingClip != null)
+        {
+            _audioSource.PlayOneShot(alertStingClip, 0.85f);
+        }
     }
 
     private void StartWeepingAudio()
@@ -171,8 +200,8 @@ public class WeepingStudentAI : MonoBehaviour
         if (currentState == WeepingState.Inactive || currentState == WeepingState.Despawning) return;
         if (currentState == WeepingState.Jumpscare) return;
 
-        // Failsafe: if power is restored by external means, despawn immediately
-        if (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive)
+        // Failsafe: if power is restored by external means, despawn if configured
+        if (despawnOnBlackoutEnd && BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive)
         {
             Despawn();
             return;
@@ -293,27 +322,6 @@ public class WeepingStudentAI : MonoBehaviour
         }
     }
 
-    private IEnumerator SpawnSequence()
-    {
-        yield return null;
-
-        if (_agent != null && _agent.isOnNavMesh)
-        {
-            _agent.enabled = true;
-            _agent.isStopped = false;
-        }
-
-        currentState = WeepingState.Stalking;
-        Debug.Log($"[WeepingStudentAI] Spawned and stalking in {assignedHallway} at {transform.position}");
-
-        StartWeepingAudio();
-
-        // Play sudden ominous alert sting
-        if (_audioSource != null && alertStingClip != null)
-        {
-            _audioSource.PlayOneShot(alertStingClip, 0.85f);
-        }
-    }
 
     // ── Vision / Observation Detection (Weeping Angel Rules) ─────────────────
 
@@ -369,41 +377,43 @@ public class WeepingStudentAI : MonoBehaviour
         if (!headVisible && !chestVisible) return false;
 
         // 3. Darkness / Flashlight Visibility Rule:
-        // In pitch black blackout:
-        // A) If within close silhouette radius (<= 2.8m), always visible!
-        if (distToHead <= silhouetteRadius)
+        bool isBlackout = (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive);
+        if (requireFlashlightToFreeze && isBlackout)
         {
-            return true;
-        }
-
-        // B) If Flashlight is ON, check if within illumination cone
-        bool isFlashlightOn = (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn);
-        if (!isFlashlightOn)
-        {
-            var fl = GameObject.Find("FlashlightLight");
-            if (fl != null)
+            // Close silhouette is visible in the dark (within silhouetteRadius)
+            if (distToHead <= silhouetteRadius)
             {
-                var l = fl.GetComponent<Light>();
-                if (l != null && l.enabled && l.intensity > 0.05f) isFlashlightOn = true;
+                return true;
             }
-        }
 
-        if (isFlashlightOn)
-        {
-            float angleToEnemy = Vector3.Angle(_playerCam.transform.forward, toHead);
-            float spotAngle = 56.0f; // matches FlashlightController
-            if (angleToEnemy <= (spotAngle * 0.5f + 12.0f) && distToHead <= 25.0f)
+            // In pitch darkness, requires flashlight beam illumination
+            bool isFlashlightOn = (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn);
+            if (!isFlashlightOn)
             {
-                return true; // Caught in the flashlight beam!
+                var fl = GameObject.Find("FlashlightLight");
+                if (fl != null)
+                {
+                    var l = fl.GetComponent<Light>();
+                    if (l != null && l.enabled && l.intensity > 0.05f) isFlashlightOn = true;
+                }
             }
-        }
 
-        // C) In pitch darkness without flashlight and beyond close silhouette: cannot see
-        if (requireFlashlightToFreeze)
-        {
+            if (isFlashlightOn)
+            {
+                float angleToEnemy = Vector3.Angle(_playerCam.transform.forward, toHead);
+                float spotAngle = 56.0f; // matches FlashlightController
+                if (angleToEnemy <= (spotAngle * 0.5f + 14.0f) && distToHead <= 28.0f)
+                {
+                    return true; // Caught in the flashlight beam!
+                }
+            }
+
             return false;
         }
 
+        // Pure Weeping Angel / SCP-173 rule:
+        // When in camera viewport and not blocked by walls or closed doors:
+        // Clear eye contact freezes the Weeping Student instantly!
         return true;
     }
 

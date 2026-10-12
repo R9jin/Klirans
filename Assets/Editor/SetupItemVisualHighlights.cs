@@ -67,6 +67,8 @@ public static class SetupItemVisualHighlights
         var allHighlights = Object.FindObjectsByType<ItemVisualHighlight>(FindObjectsInactive.Include);
         foreach (var h in allHighlights)
         {
+            h.maxActiveDistance = 7.0f;
+            h.fadeStartDistance = 3.5f;
             h.InitializeInEditor();
             EditorUtility.SetDirty(h.gameObject);
         }

@@ -116,6 +116,9 @@ public class ClearanceManager : MonoBehaviour
     /// <summary>True when the player has returned to the Registrar with all 6 signatures and submitted their slip.</summary>
     public bool IsSlipSubmitted { get; private set; } = false;
 
+    /// <summary>Fired when the final clearance slip is officially submitted, triggering the endgame.</summary>
+    public static event System.Action OnSlipSubmittedEvent;
+
     /// <summary>
     /// Called when the player hands the fully-signed clearance slip back to the University Registrar in Room 104.
     /// </summary>
@@ -129,6 +132,7 @@ public class ClearanceManager : MonoBehaviour
 
         IsSlipSubmitted = true;
         Debug.Log("[ClearanceManager] Clearance slip officially submitted to Registrar! Campus main gate unlocked.");
+        OnSlipSubmittedEvent?.Invoke();
         return true;
     }
 
