@@ -23,3 +23,6 @@ MonoBehaviour:
   anxietyChange: 0
   staminaChange: 0
   canBeDropped: 0
+  isInspectable: 0
+  inspectionTitle: 
+  inspectionText: 

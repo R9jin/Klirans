@@ -150,6 +150,23 @@ public class RoomCardSetup : MonoBehaviour
         textObj.transform.localRotation = Quaternion.identity;
 
         var tmp = textObj.AddComponent<TextMeshPro>();
+
+        TMP_FontAsset fontAsset = null;
+#if UNITY_EDITOR
+        fontAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Examples & Extras/Resources/Fonts & Materials/Oswald Bold SDF.asset");
+#endif
+        if (fontAsset == null)
+            fontAsset = Resources.Load<TMP_FontAsset>("Fonts & Materials/Oswald Bold SDF");
+        if (fontAsset != null) tmp.font = fontAsset;
+
+        // CRUCIAL: Set CullMode = 2 (Cull Back) so text is 100% invisible from behind and cannot bleed through walls
+        if (tmp.fontSharedMaterial != null)
+        {
+            Material culledMat = new Material(tmp.fontSharedMaterial);
+            culledMat.SetFloat("_CullMode", 2); // 2 = Cull Back
+            tmp.fontMaterial = culledMat;
+        }
+
         tmp.text             = "ROOM " + roomNum;
         tmp.color            = textColor;
         tmp.alignment        = TextAlignmentOptions.Center;
@@ -181,6 +198,7 @@ public class RoomCardSetup : MonoBehaviour
         var mr = go.AddComponent<MeshRenderer>();
         var mat = new Material(FindUnlitShader());
         mat.color = color;
+        mat.SetFloat("_Cull", 2); // Cull Back
         mr.sharedMaterial = mat;
     }
 

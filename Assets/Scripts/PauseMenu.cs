@@ -86,9 +86,12 @@ public class PauseMenu : MonoBehaviour
 
     private void Update()
     {
-        // Don't allow pausing during dialogue or jumpscare
+        // Don't allow pausing during dialogue, jumpscare, vendor, minigame, or while reading an inspected note/document
         bool dialogueOpen = NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive;
-        if (dialogueOpen) return;
+        bool vendorOpen = HamAndCheeseVendorUI.Instance != null && HamAndCheeseVendorUI.Instance.IsOpen;
+        bool lockpickingActive = LockpickingMinigame.Instance != null && LockpickingMinigame.Instance.IsActive;
+        bool inspectionOpen = ItemInspectionModal.IsOpen;
+        if (dialogueOpen || vendorOpen || lockpickingActive || inspectionOpen) return;
 
         if (Input.GetKeyDown(KeyCode.Escape))
             TogglePause();

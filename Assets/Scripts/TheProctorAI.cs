@@ -125,12 +125,21 @@ public class TheProctorAI : MonoBehaviour
     private float _alertHuntTimer = 0f;
     private Vector3 _lastHeardSoundPosition;
 
+    private bool _wasPlayerHiddenLastFrame = false;
+    private float _lostPlayerSearchTimer = 0f;
+
     private bool _hasCaughtPlayer = false;
     private bool _isTraversingLink = false;
     private List<Bounds> _cachedRoomBounds = new List<Bounds>();
 
     private void Awake()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         if (ActiveProctor != null && ActiveProctor != this)
         {
             Destroy(gameObject);
@@ -555,6 +564,18 @@ public class TheProctorAI : MonoBehaviour
         bool sameFloor = dy < 3.2f;
 
         bool playerHidden = LockerHideManager.IsPlayerHidden;
+        if (playerHidden && !_wasPlayerHiddenLastFrame)
+        {
+            // Player just ducked into a locker! Search the corridor near where they were last heard
+            _lostPlayerSearchTimer = 12.0f;
+        }
+        _wasPlayerHiddenLastFrame = playerHidden;
+
+        if (playerHidden && _lostPlayerSearchTimer > 0f)
+        {
+            _lostPlayerSearchTimer -= Time.deltaTime;
+        }
+
         bool playerInRoom = IsPositionInsideAnyRoom(_playerTransform.position);
 
         // 1. CATCH CHECK: Can only catch if player is in hallway/stairs, NOT hidden, NOT in room, close distance and similar elevation
@@ -646,7 +667,21 @@ public class TheProctorAI : MonoBehaviour
             if (_searchWanderTimer <= 0f || (_agent.isOnNavMesh && _agent.remainingDistance < 0.6f))
             {
                 _searchWanderTimer = Random.Range(3.5f, 6.0f);
-                PickHallwayPatrolTargetTowardsPlayer();
+                if (playerHidden)
+                {
+                    if (_lostPlayerSearchTimer > 0f && _lastHeardSoundPosition != Vector3.zero)
+                    {
+                        PickSuspiciousPatrolTargetNearLastHeard();
+                    }
+                    else
+                    {
+                        PickRandomHallwayPatrolTarget();
+                    }
+                }
+                else
+                {
+                    PickHallwayPatrolTargetTowardsPlayer();
+                }
             }
         }
 
@@ -674,6 +709,37 @@ public class TheProctorAI : MonoBehaviour
 
             _animator.SetFloat("Speed", normSpeed);
             _animator.SetBool("Chasing", isChasing);
+        }
+    }
+
+    private void PickSuspiciousPatrolTargetNearLastHeard()
+    {
+        // Player vanished into a locker! Paces suspiciously around the last-heard corridor location
+        float centerZ = (_lastHeardSoundPosition != Vector3.zero) ? _lastHeardSoundPosition.z : (hallwayMinZ + hallwayMaxZ) * 0.5f;
+        float offsetZ = Random.Range(-4.5f, 4.5f);
+        float targetZ = Mathf.Clamp(centerZ + offsetZ, hallwayMinZ + 2f, hallwayMaxZ - 2f);
+        float targetX = hallwayCenterX + Random.Range(-hallwayHalfWidth * 0.35f, hallwayHalfWidth * 0.35f);
+        Vector3 rawTarget = new Vector3(targetX, transform.position.y, targetZ);
+
+        NavMeshHit hit;
+        if (NavMesh.SamplePosition(rawTarget, out hit, 3.0f, NavMesh.AllAreas))
+        {
+            _currentWanderTarget = hit.position;
+            if (_agent.isOnNavMesh) _agent.SetDestination(_currentWanderTarget);
+        }
+    }
+
+    private void PickRandomHallwayPatrolTarget()
+    {
+        float targetZ = Random.Range(hallwayMinZ + 2f, hallwayMaxZ - 2f);
+        float targetX = hallwayCenterX + Random.Range(-hallwayHalfWidth * 0.35f, hallwayHalfWidth * 0.35f);
+        Vector3 rawTarget = new Vector3(targetX, transform.position.y, targetZ);
+
+        NavMeshHit hit;
+        if (NavMesh.SamplePosition(rawTarget, out hit, 3.0f, NavMesh.AllAreas))
+        {
+            _currentWanderTarget = hit.position;
+            if (_agent.isOnNavMesh) _agent.SetDestination(_currentWanderTarget);
         }
     }
 

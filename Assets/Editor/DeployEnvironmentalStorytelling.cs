@@ -28,9 +28,6 @@ public static class DeployEnvironmentalStorytelling
         // 3. Deploy 12 World Notes
         DeployWorldNotes(paperMat, tapeMat, pinMat, memoIcon, diaryIcon, warningIcon);
 
-        // 4. Deploy Blackboard Chalk Scrawls
-        DeployBlackboardChalkScrawls();
-
         // 5. Save assets and active scene
         AssetDatabase.SaveAssets();
         EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
@@ -193,7 +190,7 @@ OFFICE OF THE EXECUTIVE VICE PRESIDENT
         SpawnNote(
             container: container,
             name: "Note_02_SecurityStationLog",
-            pos: new Vector3(-82.52f, 3.08f, 4.90f),
+            pos: new Vector3(-83.40f, 3.08f, 5.20f),
             rot: Quaternion.Euler(0f, -15f, 0f),
             size: new Vector3(0.24f, 0.003f, 0.32f),
             paperMat: paperMat,
@@ -307,7 +304,7 @@ Do NOT power on Terminal 14. Keep Room 105 locked until Dean inspects hardware.
         SpawnNote(
             container: container,
             name: "Note_05_RegistrarClearanceNotice",
-            pos: new Vector3(-80.50f, 3.50f, 4.50f),
+            pos: new Vector3(-83.02f, 3.45f, 2.00f),
             rot: Quaternion.Euler(0f, -90f, 0f),
             size: new Vector3(0.22f, 0.30f, 0.003f),
             paperMat: paperMat,
@@ -348,7 +345,7 @@ Bakit kailangang dumaan sa lahat bago makauwi?""
         SpawnNote(
             container: container,
             name: "Note_06_ExamPaperDesperateNote",
-            pos: new Vector3(-89.50f, 9.12f, -5.07f),
+            pos: new Vector3(-89.20f, 9.12f, -5.07f),
             rot: Quaternion.Euler(0f, -25f, 0f),
             size: new Vector3(0.24f, 0.003f, 0.32f),
             paperMat: paperMat,
@@ -385,7 +382,7 @@ He only catches you when he sees you standing.""
         SpawnNote(
             container: container,
             name: "Note_07_FacultyBeneIncident",
-            pos: new Vector3(-83.25f, 9.75f, 28.09f),
+            pos: new Vector3(-83.06f, 9.65f, 25.50f),
             rot: Quaternion.Euler(0f, -90f, 0f),
             size: new Vector3(0.22f, 0.30f, 0.003f),
             paperMat: paperMat,
@@ -456,12 +453,12 @@ I am packing my things and leaving early. May God forgive us.
 ============================================================"
         );
 
-        // Note 09: 2F East Locker Door
+        // Note 09: 2F West Corridor Solid Wall
         SpawnNote(
             container: container,
             name: "Note_09_StudentWeepingWarning",
-            pos: new Vector3(-83.15f, 9.60f, 28.10f),
-            rot: Quaternion.Euler(0f, -90f, 0f),
+            pos: new Vector3(-85.96f, 9.65f, 25.50f),
+            rot: Quaternion.Euler(0f, 90f, 0f),
             size: new Vector3(0.22f, 0.30f, 0.003f),
             paperMat: paperMat,
             detailMat: tapeMat,
@@ -495,12 +492,12 @@ Si Bene lang yan... gusto lang niyang makatapos... pero hindi na siya buhay.
 
         // ── 3F Notes ─────────────────────────────────────────────────────────
 
-        // Note 10: 3F Library Archive Desk (Room 308)
+        // Note 10: 3F Library Study Reading Table (Moved away from Librarian desk)
         SpawnNote(
             container: container,
             name: "Note_10_LibrarianDeskNotice",
-            pos: new Vector3(-76.85f, 15.06f, 44.15f),
-            rot: Quaternion.Euler(0f, 30f, 0f),
+            pos: new Vector3(-80.00f, 15.05f, 40.70f),
+            rot: Quaternion.Euler(0f, 20f, 0f),
             size: new Vector3(0.24f, 0.003f, 0.32f),
             paperMat: paperMat,
             detailMat: pinMat,
@@ -534,7 +531,7 @@ No exceptions will be made for late submissions.""
         SpawnNote(
             container: container,
             name: "Note_11_Classroom301LectureNote",
-            pos: new Vector3(-89.51f, 15.14f, 6.96f),
+            pos: new Vector3(-89.20f, 15.14f, 6.96f),
             rot: Quaternion.Euler(0f, -10f, 0f),
             size: new Vector3(0.24f, 0.003f, 0.32f),
             paperMat: paperMat,
@@ -565,11 +562,11 @@ HE LEAVES ONLY WHEN SILENCE RETURNS.""
 ============================================================"
         );
 
-        // Note 12: 1F to 2F Stairwell Landing Wall
+        // Note 12: 1F Main Stairwell Entrance Wall
         SpawnNote(
             container: container,
             name: "Note_12_StairwellEmergencyNotice",
-            pos: new Vector3(-85.86f, 6.00f, 16.65f),
+            pos: new Vector3(-85.96f, 3.45f, 16.65f),
             rot: Quaternion.Euler(0f, 90f, 0f),
             size: new Vector3(0.22f, 0.30f, 0.003f),
             paperMat: paperMat,
@@ -673,65 +670,5 @@ Wait for clearance processing or security personnel.
         hl.sparkleScale = 0.22f;
 
         EditorUtility.SetDirty(root);
-    }
-
-    private static void DeployBlackboardChalkScrawls()
-    {
-        GameObject container = GameObject.Find("BlackboardScrawlsContainer");
-        if (container == null) container = new GameObject("BlackboardScrawlsContainer");
-
-        // Blackboard Scrawl 1: Room 201 (Second Floor)
-        SpawnChalkText(
-            container: container,
-            name: "ChalkScrawl_Room201",
-            pos: new Vector3(-89.60f, 9.40f, -3.56f),
-            rot: Quaternion.Euler(0f, 180f, 0f),
-            text: "BENE IS STILL HERE\nCLEARANCE: REJECTED\nWHY WON'T YOU LET US LEAVE?",
-            fontSize: 2.2f
-        );
-
-        // Blackboard Scrawl 2: Room 301 (Third Floor)
-        SpawnChalkText(
-            container: container,
-            name: "ChalkScrawl_Room301",
-            pos: new Vector3(-89.60f, 15.40f, -3.56f),
-            rot: Quaternion.Euler(0f, 180f, 0f),
-            text: "DON'T LOOK BACK WHEN SHE CRIES\nTHE PROCTOR IS WATCHING\nSILENCE IN THE HALLWAYS",
-            fontSize: 2.2f
-        );
-
-        // Blackboard Scrawl 3: Room 105 (ComLab 1)
-        SpawnChalkText(
-            container: container,
-            name: "ChalkScrawl_Room105",
-            pos: new Vector3(-89.60f, 3.40f, 33.42f),
-            rot: Quaternion.Euler(0f, 180f, 0f),
-            text: "TERMINAL 14: DO NOT TOUCH\nHARDWARE HOLD ACTIVE\nNO SIGNATURE = NO EXIT",
-            fontSize: 2.2f
-        );
-    }
-
-    private static void SpawnChalkText(GameObject container, string name, Vector3 pos, Quaternion rot, string text, float fontSize)
-    {
-        Transform existing = container.transform.Find(name);
-        GameObject go = existing != null ? existing.gameObject : new GameObject(name);
-        go.transform.SetParent(container.transform, false);
-        go.transform.position = pos;
-        go.transform.rotation = rot;
-
-        var tmp = go.GetComponent<TextMeshPro>();
-        if (tmp == null) tmp = go.AddComponent<TextMeshPro>();
-
-        tmp.text = text;
-        tmp.fontSize = fontSize;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.color = new Color(0.92f, 0.90f, 0.85f, 0.80f); // Chalky off-white with slight translucency
-        tmp.characterSpacing = 1.2f;
-        tmp.lineSpacing = 18f;
-
-        var rt = go.GetComponent<RectTransform>();
-        if (rt != null) rt.sizeDelta = new Vector2(3.0f, 1.2f);
-
-        EditorUtility.SetDirty(go);
     }
 }

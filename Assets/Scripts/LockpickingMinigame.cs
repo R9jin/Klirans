@@ -59,6 +59,8 @@ public class LockpickingMinigame : MonoBehaviour
     // Internal state
     private DoorInteract targetDoor;
     private bool isMinigameActive = false;
+    public bool IsActive => isMinigameActive;
+    public static bool IsMinigameActive => _instance != null && _instance.isMinigameActive;
     private int selectedPinIndex = 0;
     private float timeLeft = 60f;
     private List<PinData> pins = new List<PinData>();
@@ -121,8 +123,8 @@ public class LockpickingMinigame : MonoBehaviour
             timerText.text = Mathf.CeilToInt(timeLeft).ToString() + "s";
         }
 
-        // 1. Leave Lockpicking (L / ESC)
-        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.L))
+        // 1. Leave Lockpicking (E / Q / L / ESC)
+        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.L) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Q))
         {
             EndLockpicking(false, "Lockpicking left.");
             return;
@@ -471,45 +473,45 @@ public class LockpickingMinigame : MonoBehaviour
         rootRect.anchorMax = Vector2.one;
         rootRect.sizeDelta = Vector2.zero;
 
-        // Dark Green Background Overlay
+        // Realistic Dark Steel / Gunmetal Background Overlay
         GameObject bgObj = new GameObject("Background", typeof(Image));
         bgObj.transform.SetParent(minigameUIRoot.transform, false);
         Image bgImg = bgObj.GetComponent<Image>();
-        bgImg.color = new Color(0.05f, 0.08f, 0.05f, 0.95f);
+        bgImg.color = new Color(0.04f, 0.05f, 0.07f, 0.94f);
         RectTransform bgRect = bgObj.GetComponent<RectTransform>();
         bgRect.anchorMin = Vector2.zero;
         bgRect.anchorMax = Vector2.one;
         bgRect.sizeDelta = Vector2.zero;
 
-        // Dark Green Lock Housing Block
+        // Brushed Gunmetal Steel Lock Housing Block
         GameObject lockBlockObj = new GameObject("LockHousingBlock", typeof(Image));
         lockBlockObj.transform.SetParent(minigameUIRoot.transform, false);
         Image blockImg = lockBlockObj.GetComponent<Image>();
-        blockImg.color = new Color(0.15f, 0.20f, 0.15f, 0.95f);
+        blockImg.color = new Color(0.18f, 0.20f, 0.24f, 0.98f);
         RectTransform blockRect = lockBlockObj.GetComponent<RectTransform>();
         blockRect.anchoredPosition = new Vector2(0, 20);
         blockRect.sizeDelta = new Vector2(420, 320);
 
-        // Subtle Cream Border Frame
+        // Machined Stainless Steel Bevel Frame
         GameObject borderObj = new GameObject("BorderFrame", typeof(Image));
         borderObj.transform.SetParent(lockBlockObj.transform, false);
         Image borderImg = borderObj.GetComponent<Image>();
-        borderImg.color = new Color(0.85f, 0.83f, 0.75f, 0.8f);
+        borderImg.color = new Color(0.48f, 0.52f, 0.58f, 0.95f);
         RectTransform borderRect = borderObj.GetComponent<RectTransform>();
         borderRect.anchorMin = Vector2.zero;
         borderRect.anchorMax = Vector2.one;
         borderRect.sizeDelta = new Vector2(6, 6);
         borderObj.transform.SetAsFirstSibling();
 
-        // Header Title ("LOCKPICKING")
+        // Header Title ("LOCK TUMBLER MECHANISM")
         GameObject headerObj = new GameObject("HeaderText", typeof(Text));
         headerObj.transform.SetParent(lockBlockObj.transform, false);
         headerText = headerObj.GetComponent<Text>();
         headerText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        headerText.fontSize = 24;
+        headerText.fontSize = 22;
         headerText.fontStyle = FontStyle.Bold;
-        headerText.text = "LOCKPICKING";
-        headerText.color = new Color(0.95f, 0.93f, 0.85f, 1f);
+        headerText.text = "TUMBLER LOCK";
+        headerText.color = new Color(0.92f, 0.88f, 0.78f, 1f);
         headerText.alignment = TextAnchor.MiddleLeft;
         RectTransform headerRect = headerObj.GetComponent<RectTransform>();
         headerRect.anchoredPosition = new Vector2(-180, 130);
@@ -523,20 +525,29 @@ public class LockpickingMinigame : MonoBehaviour
         timerText.fontSize = 24;
         timerText.fontStyle = FontStyle.Bold;
         timerText.text = "60s";
-        timerText.color = new Color(0.95f, 0.93f, 0.85f, 1f);
+        timerText.color = new Color(0.95f, 0.88f, 0.65f, 1f);
         timerText.alignment = TextAnchor.MiddleRight;
         RectTransform timerRect = timerObj.GetComponent<RectTransform>();
         timerRect.anchoredPosition = new Vector2(180, 130);
         timerRect.sizeDelta = new Vector2(100, 40);
 
-        // Cylinder Cutout Cavity
+        // Machined Cylinder Core Cavity (Dark brass-tinted cylinder plug)
         GameObject cylHole = new GameObject("CylinderHole", typeof(Image));
         cylHole.transform.SetParent(lockBlockObj.transform, false);
         Image holeImg = cylHole.GetComponent<Image>();
-        holeImg.color = new Color(0.10f, 0.15f, 0.10f, 1f);
+        holeImg.color = new Color(0.12f, 0.13f, 0.16f, 1f);
         RectTransform holeRect = cylHole.GetComponent<RectTransform>();
         holeRect.anchoredPosition = new Vector2(0, -60);
         holeRect.sizeDelta = new Vector2(390, 150);
+
+        // Horizontal Shear Line Guide across plug
+        GameObject shearLineObj = new GameObject("ShearLineGuide", typeof(Image));
+        shearLineObj.transform.SetParent(lockBlockObj.transform, false);
+        Image shearLineImg = shearLineObj.GetComponent<Image>();
+        shearLineImg.color = new Color(0.92f, 0.78f, 0.35f, 0.75f);
+        RectTransform shearLineRect = shearLineObj.GetComponent<RectTransform>();
+        shearLineRect.anchoredPosition = new Vector2(0, 35);
+        shearLineRect.sizeDelta = new Vector2(370, 2);
 
         // 5 Vertical Pin Channels
         pins.Clear();
@@ -549,59 +560,59 @@ public class LockpickingMinigame : MonoBehaviour
 
             GameObject channelObj = new GameObject($"PinChannel_{i}", typeof(RectTransform));
             channelObj.transform.SetParent(lockBlockObj.transform, false);
-            channelObj.AddComponent<RectMask2D>(); // Clip pin segments cleanly inside channel
+            channelObj.AddComponent<RectMask2D>();
             RectTransform chanRect = channelObj.GetComponent<RectTransform>();
             chanRect.anchoredPosition = new Vector2(startX + (i * channelSpacing), 35);
             chanRect.sizeDelta = new Vector2(34, 160);
 
-            // Channel Dark Background Cutout
+            // Channel Bore (Dark gunmetal chamber)
             GameObject chanBg = new GameObject("ChannelBg", typeof(Image));
             chanBg.transform.SetParent(channelObj.transform, false);
             Image chanBgImg = chanBg.GetComponent<Image>();
-            chanBgImg.color = new Color(0.05f, 0.08f, 0.05f, 1f);
+            chanBgImg.color = new Color(0.08f, 0.08f, 0.10f, 1f);
             RectTransform chanBgRect = chanBg.GetComponent<RectTransform>();
             chanBgRect.anchorMin = Vector2.zero;
             chanBgRect.anchorMax = Vector2.one;
             chanBgRect.sizeDelta = Vector2.zero;
 
-            // Red Bottom Segment
+            // Lower Key Pin (Machined brass)
             GameObject redBot = new GameObject("RedBottom", typeof(Image));
             redBot.transform.SetParent(channelObj.transform, false);
             Image rbImg = redBot.GetComponent<Image>();
-            rbImg.color = new Color(0.85f, 0.22f, 0.2f, 1f);
+            rbImg.color = new Color(0.78f, 0.58f, 0.22f, 1f);
             pin.redBottomSegmentImage = rbImg;
             RectTransform rbRect = redBot.GetComponent<RectTransform>();
             rbRect.anchorMin = new Vector2(0.5f, 0f);
             rbRect.anchorMax = new Vector2(0.5f, 0f);
             rbRect.pivot = new Vector2(0.5f, 0f);
 
-            // Green Middle Target Segment
+            // Shear Line Target Zone (Luminous amber-brass alignment slot)
             GameObject greenMid = new GameObject("GreenMiddle", typeof(Image));
             greenMid.transform.SetParent(channelObj.transform, false);
             Image gImg = greenMid.GetComponent<Image>();
-            gImg.color = new Color(0.2f, 0.88f, 0.3f, 1f);
+            gImg.color = new Color(0.24f, 0.82f, 0.44f, 0.90f);
             pin.greenSegmentImage = gImg;
             RectTransform gRect = greenMid.GetComponent<RectTransform>();
             gRect.anchorMin = new Vector2(0.5f, 0f);
             gRect.anchorMax = new Vector2(0.5f, 0f);
             gRect.pivot = new Vector2(0.5f, 0f);
 
-            // Red Top Segment
+            // Upper Driver Pin (Hardened stainless steel)
             GameObject redTop = new GameObject("RedTop", typeof(Image));
             redTop.transform.SetParent(channelObj.transform, false);
             Image rtImg = redTop.GetComponent<Image>();
-            rtImg.color = new Color(0.85f, 0.22f, 0.2f, 1f);
+            rtImg.color = new Color(0.72f, 0.75f, 0.80f, 1f);
             pin.redTopSegmentImage = rtImg;
             RectTransform rtRect = redTop.GetComponent<RectTransform>();
             rtRect.anchorMin = new Vector2(0.5f, 0f);
             rtRect.anchorMax = new Vector2(0.5f, 0f);
             rtRect.pivot = new Vector2(0.5f, 0f);
 
-            // Pin Cap (Brass bottom cylinder cap)
+            // Pin Cap (Polished brass cylinder tumbler bottom)
             GameObject pinCap = new GameObject("PinCap", typeof(Image));
             pinCap.transform.SetParent(channelObj.transform, false);
             Image capImg = pinCap.GetComponent<Image>();
-            capImg.color = new Color(0.78f, 0.62f, 0.18f, 1f);
+            capImg.color = new Color(0.88f, 0.68f, 0.25f, 1f);
             pin.pinCapImage = capImg;
             RectTransform capRect = pinCap.GetComponent<RectTransform>();
             capRect.anchorMin = new Vector2(0.5f, 0f);
@@ -613,57 +624,57 @@ public class LockpickingMinigame : MonoBehaviour
             pins.Add(pin);
         }
 
-        // Modeled Lockpick (Handle + Shaft + Angled Hook Tip)
+        // Modeled Spring Steel Lockpick (Textured Grip + Polished Blade + Hook)
         GameObject pickRoot = new GameObject("LockpickVisual", typeof(RectTransform));
         pickRoot.transform.SetParent(lockBlockObj.transform, false);
         pickVisualTransform = pickRoot.GetComponent<RectTransform>();
         pickVisualTransform.anchoredPosition = new Vector2(-130f, -58f);
         pickVisualTransform.sizeDelta = new Vector2(300, 40);
 
-        // Pick Shaft (Thin silver metal rod extending to the left from x=0)
+        // Pick Blade (High carbon spring steel)
         GameObject shaftObj = new GameObject("Shaft", typeof(Image));
         shaftObj.transform.SetParent(pickRoot.transform, false);
         Image shaftImg = shaftObj.GetComponent<Image>();
-        shaftImg.color = new Color(0.88f, 0.88f, 0.86f, 1f);
+        shaftImg.color = new Color(0.82f, 0.84f, 0.88f, 1f);
         RectTransform shaftRect = shaftObj.GetComponent<RectTransform>();
         shaftRect.anchoredPosition = new Vector2(-95, 0);
         shaftRect.sizeDelta = new Vector2(190, 8);
 
-        // Pick Handle (Dark grip on far left)
+        // Pick Handle (Ergonomic textured black handle)
         GameObject handleObj = new GameObject("Handle", typeof(Image));
         handleObj.transform.SetParent(pickRoot.transform, false);
         Image handleImg = handleObj.GetComponent<Image>();
-        handleImg.color = new Color(0.15f, 0.15f, 0.18f, 1f);
+        handleImg.color = new Color(0.12f, 0.12f, 0.14f, 1f);
         RectTransform handleRect = handleObj.GetComponent<RectTransform>();
         handleRect.anchoredPosition = new Vector2(-270, 0);
         handleRect.sizeDelta = new Vector2(160, 32);
 
-        // Pick Hook Tip (Angled hook tip aligned at x=0 under active pin)
+        // Pick Hook Tip (Angled surgical pick tip)
         GameObject hookObj = new GameObject("HookTip", typeof(Image));
         hookObj.transform.SetParent(pickRoot.transform, false);
         Image hookImg = hookObj.GetComponent<Image>();
-        hookImg.color = new Color(0.88f, 0.88f, 0.86f, 1f);
+        hookImg.color = new Color(0.82f, 0.84f, 0.88f, 1f);
         RectTransform hookRect = hookObj.GetComponent<RectTransform>();
         hookRect.anchoredPosition = new Vector2(0, 10);
         hookRect.sizeDelta = new Vector2(12, 20);
         hookRect.localRotation = Quaternion.Euler(0, 0, -25f);
 
-        // Sleek Single-Line Control Hint Bar at Bottom Center
+        // Sleek Metallic Control Hint Bar
         GameObject hintBarObj = new GameObject("ControlHintBar", typeof(Image));
         hintBarObj.transform.SetParent(minigameUIRoot.transform, false);
         Image hintBg = hintBarObj.GetComponent<Image>();
-        hintBg.color = new Color(0.10f, 0.15f, 0.10f, 0.95f);
+        hintBg.color = new Color(0.12f, 0.13f, 0.16f, 0.95f);
         RectTransform hintBarRect = hintBarObj.GetComponent<RectTransform>();
         hintBarRect.anchoredPosition = new Vector2(0, -185);
-        hintBarRect.sizeDelta = new Vector2(620, 38);
+        hintBarRect.sizeDelta = new Vector2(640, 38);
 
         GameObject hintTextObj = new GameObject("HintText", typeof(Text));
         hintTextObj.transform.SetParent(hintBarObj.transform, false);
         Text hintText = hintTextObj.GetComponent<Text>();
         hintText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         hintText.fontSize = 15;
-        hintText.text = "[A / D] Move Pick   •   [W / RClick] Push Pin   •   [S / LClick] Lock Pin   •   [ESC] Exit";
-        hintText.color = new Color(0.95f, 0.93f, 0.85f, 1f);
+        hintText.text = "[A / D] Move Pick   •   [W / Space] Push Pin   •   [S / Enter] Lock Pin   •   [E / Q] Exit";
+        hintText.color = new Color(0.92f, 0.90f, 0.84f, 1f);
         hintText.alignment = TextAnchor.MiddleCenter;
         RectTransform hintTextRect = hintTextObj.GetComponent<RectTransform>();
         hintTextRect.anchorMin = Vector2.zero;

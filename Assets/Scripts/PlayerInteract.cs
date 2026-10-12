@@ -5,10 +5,10 @@ public class PlayerInteract : MonoBehaviour
 {
     [Header("Interaction Settings")]
     [Tooltip("Maximum distance at which the player can interact with an object.")]
-    public float interactRange = 4.0f;
+    public float interactRange = 1.9f;
 
     [Tooltip("Radius of the interaction ray to make pointing at items more forgiving.")]
-    public float interactRadius = 0.5f;
+    public float interactRadius = 0.08f;
 
     [Tooltip("The layers that can be interacted with.")]
     public LayerMask interactableLayer;
@@ -24,6 +24,10 @@ public class PlayerInteract : MonoBehaviour
 
     private void Start()
     {
+        // Enforce tight natural reach bounds
+        if (interactRange > 2.0f) interactRange = 1.9f;
+        if (interactRadius > 0.12f) interactRadius = 0.08f;
+
         // Find the camera attached to the player or one of its children.
         playerCamera = GetComponentInChildren<Camera>();
 
@@ -35,10 +39,38 @@ public class PlayerInteract : MonoBehaviour
             );
         }
 
-        // Hide the interaction prompt when the game starts.
+        // Hide the interaction prompt when the game starts and style with retro font
         if (promptText != null)
         {
             promptText.gameObject.SetActive(false);
+
+            Font typewriter = Resources.Load<Font>("Fonts/Typewriter_Bold") ?? Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold");
+#if UNITY_EDITOR
+            if (typewriter == null)
+                typewriter = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Typewriter_Bold.ttf");
+#endif
+            if (typewriter != null) promptText.font = typewriter;
+
+            promptText.fontSize = 22;
+            promptText.fontStyle = FontStyle.Bold;
+            promptText.alignment = TextAnchor.MiddleCenter;
+            promptText.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            var rt = promptText.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                // Anchor to bottom of screen (just above stamina gauge at Y=145), well clear of center reticle
+                rt.anchorMin = new Vector2(0.5f, 0.0f);
+                rt.anchorMax = new Vector2(0.5f, 0.0f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(900f, 60f);
+                rt.anchoredPosition = new Vector2(0f, 195f);
+            }
+
+            var outline = promptText.GetComponent<Outline>();
+            if (outline == null) outline = promptText.gameObject.AddComponent<Outline>();
+            outline.effectColor = Color.black;
+            outline.effectDistance = new Vector2(2f, -2f);
         }
         else
         {
@@ -55,6 +87,8 @@ public class PlayerInteract : MonoBehaviour
             (GuidanceWordPuzzle.Instance != null && GuidanceWordPuzzle.Instance.IsOpen) ||
             (CashierBalancePuzzle.Instance != null && CashierBalancePuzzle.Instance.IsOpen) ||
             (RegistrarDocumentSortPuzzle.Instance != null && RegistrarDocumentSortPuzzle.Instance.IsOpen) ||
+            (HamAndCheeseVendorUI.Instance != null && HamAndCheeseVendorUI.Instance.IsOpen) ||
+            (LockpickingMinigame.Instance != null && LockpickingMinigame.Instance.IsActive) ||
             ItemInspectionModal.IsOpen ||
             LockerHideManager.IsPlayerHidden)
         {
@@ -92,6 +126,22 @@ public class PlayerInteract : MonoBehaviour
 
                 if (interactable != null)
                 {
+                    // Line of sight check: do not allow interacting through solid obstacles
+                    Vector3 targetPos = h.collider.bounds.center;
+                    Vector3 rayDir = targetPos - ray.origin;
+                    float rayDist = rayDir.magnitude;
+                    if (rayDist > 0.05f && Physics.Raycast(ray.origin, rayDir.normalized, out RaycastHit losHit, rayDist - 0.05f, ~0, QueryTriggerInteraction.Ignore))
+                    {
+                        if (losHit.collider != null && 
+                            losHit.collider != h.collider && 
+                            !losHit.collider.transform.IsChildOf(h.collider.transform) && 
+                            !h.collider.transform.IsChildOf(losHit.collider.transform))
+                        {
+                            // Obstructed by intermediate solid geometry
+                            continue;
+                        }
+                    }
+
                     closestDistance = h.distance;
                     closestInteractable = interactable;
                     closestPickup = interactable as PickupItem;

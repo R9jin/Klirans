@@ -128,6 +128,7 @@ public class DoorInteract : MonoBehaviour, IInteractable
 
     private void HandleBlackoutStart()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         LockForBlackout();
     }
 
@@ -142,6 +143,7 @@ public class DoorInteract : MonoBehaviour, IInteractable
     /// </summary>
     public void LockForBlackout()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         if (isBlackoutLocked) return;
 
         _wasLockedBeforeBlackout = isLocked;

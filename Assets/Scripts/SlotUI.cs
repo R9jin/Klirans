@@ -92,8 +92,16 @@ public class SlotUI : MonoBehaviour,
             return;
         }
 
-        iconImage.enabled = true;
-        iconImage.sprite  = boundSlot.item.icon;
+        if (boundSlot.item != null && boundSlot.item.icon != null)
+        {
+            iconImage.enabled = true;
+            iconImage.sprite  = boundSlot.item.icon;
+        }
+        else
+        {
+            iconImage.enabled = false;
+            iconImage.sprite  = null;
+        }
 
         if (quantityText != null)
             quantityText.text = (boundSlot.item.isStackable && boundSlot.quantity > 1)

@@ -310,31 +310,38 @@ and is hereby recommended for Library Clearance Signing.
         GameObject container = GameObject.Find("QuestPickupsContainer");
         if (container == null) container = new GameObject("QuestPickupsContainer");
 
-        // 1. ComLab Form Pickup on Floor 1 ComLab Teacher Desk (-91.54, 3.05, 41.50)
+        // 1. ComLab Form Pickup on Floor 1 ComLab 1 Teacher Desk (-76.40, 3.052, 29.02)
         Transform existingComlab = container.transform.Find("Pickup_ComLabClearanceForm");
-        if (existingComlab == null)
+        GameObject comlabGO = existingComlab != null ? existingComlab.gameObject : null;
+        if (comlabGO == null)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = "Pickup_ComLabClearanceForm";
-            go.transform.SetParent(container.transform, false);
-            go.transform.position = new Vector3(-91.54f, 3.05f, 41.50f);
-            go.transform.rotation = Quaternion.Euler(0f, 25f, 0f);
-            go.transform.localScale = new Vector3(0.24f, 0.03f, 0.32f);
-
-            var bc = go.GetComponent<BoxCollider>();
-            if (bc != null) bc.isTrigger = false;
-
-            var pickup = go.AddComponent<PickupItem>();
-            pickup.itemData = comlabItem;
-            pickup.amount = 1;
-
-            var highlight = go.AddComponent<ItemVisualHighlight>();
-            highlight.category = ItemVisualHighlight.ItemCategory.DocumentOrPaper;
-            highlight.glowColor = new Color(0.85f, 0.94f, 1.0f, 1f);
-
-            EditorUtility.SetDirty(go);
-            Debug.Log("[DeployUniversityQuestsAndItems] Spawned Pickup_ComLabClearanceForm in Floor 1 ComLab!");
+            comlabGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            comlabGO.name = "Pickup_ComLabClearanceForm";
+            comlabGO.transform.SetParent(container.transform, false);
         }
+
+        comlabGO.transform.position = new Vector3(-76.40f, 3.052f, 29.02f);
+        comlabGO.transform.rotation = Quaternion.Euler(0f, 15f, 0f);
+        comlabGO.transform.localScale = new Vector3(0.24f, 0.004f, 0.32f);
+
+        var paperMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/WorldPaperNote_Mat.mat");
+        if (paperMat != null) comlabGO.GetComponent<MeshRenderer>().sharedMaterial = paperMat;
+
+        var bc = comlabGO.GetComponent<BoxCollider>();
+        if (bc != null) bc.isTrigger = false;
+
+        var pickup = comlabGO.GetComponent<PickupItem>();
+        if (pickup == null) pickup = comlabGO.AddComponent<PickupItem>();
+        pickup.itemData = comlabItem;
+        pickup.amount = 1;
+
+        var highlight = comlabGO.GetComponent<ItemVisualHighlight>();
+        if (highlight == null) highlight = comlabGO.AddComponent<ItemVisualHighlight>();
+        highlight.category = ItemVisualHighlight.ItemCategory.DocumentOrPaper;
+        highlight.glowColor = new Color(0.85f, 0.94f, 1.0f, 1f);
+
+        EditorUtility.SetDirty(comlabGO);
+        Debug.Log("[DeployUniversityQuestsAndItems] Placed Pickup_ComLabClearanceForm flat on Floor 1 ComLab 1 Teacher Desk!");
 
         // 2. Executive Seal Stamp Pickup at Floor 2 Faculty Records Locker (-76.00, 9.25, -12.00)
         Transform existingSeal = container.transform.Find("Pickup_ExecutiveSealStamp");
@@ -350,13 +357,13 @@ and is hereby recommended for Library Clearance Signing.
             var col = go.GetComponent<Collider>();
             if (col != null) col.isTrigger = false;
 
-            var pickup = go.AddComponent<PickupItem>();
-            pickup.itemData = sealItem;
-            pickup.amount = 1;
+            var sealPickup = go.AddComponent<PickupItem>();
+            sealPickup.itemData = sealItem;
+            sealPickup.amount = 1;
 
-            var highlight = go.AddComponent<ItemVisualHighlight>();
-            highlight.category = ItemVisualHighlight.ItemCategory.Key;
-            highlight.glowColor = new Color(1.0f, 0.84f, 0.32f, 1f);
+            var sealHighlight = go.AddComponent<ItemVisualHighlight>();
+            sealHighlight.category = ItemVisualHighlight.ItemCategory.Key;
+            sealHighlight.glowColor = new Color(1.0f, 0.84f, 0.32f, 1f);
 
             EditorUtility.SetDirty(go);
             Debug.Log("[DeployUniversityQuestsAndItems] Spawned Pickup_ExecutiveSealStamp at 2F Faculty Records Locker!");

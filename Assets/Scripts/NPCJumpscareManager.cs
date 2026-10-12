@@ -345,6 +345,8 @@ public class NPCJumpscareManager : MonoBehaviour
 
     private void Update()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
+
         // Debug trigger for testing: press F8 to test jumpscare immediately
         if (Input.GetKeyDown(KeyCode.F8))
         {
@@ -557,6 +559,7 @@ public class NPCJumpscareManager : MonoBehaviour
     /// </summary>
     public bool CanTriggerScare()
     {
+        if (GameModeManager.IsFreeRoamMode) return false;
         if (PauseMenu.GameIsPaused) return false;
         if (LockerHideManager.IsPlayerHidden) return false;
         if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return false;

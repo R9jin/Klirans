@@ -46,13 +46,13 @@ public class ItemVisualHighlight : MonoBehaviour
 
     [Header("Atmospheric Halo Light")]
     [Tooltip("Range of the soft localized point light.")]
-    public float lightRange = 1.15f;
+    public float lightRange = 0.42f;
 
     [Tooltip("Base intensity of the soft ambient light.")]
-    public float lightBaseIntensity = 0.65f;
+    public float lightBaseIntensity = 0.18f;
 
     [Tooltip("Peak extra light intensity added during the glint flash.")]
-    public float lightGlintFlashBoost = 0.85f;
+    public float lightGlintFlashBoost = 0.20f;
 
     [Header("Optimization")]
     [Tooltip("Distance from player camera beyond which the light and sparkle are culled.")]
@@ -102,60 +102,80 @@ public class ItemVisualHighlight : MonoBehaviour
 
     private void AutoConfigureCategory()
     {
-        if (category != ItemCategory.AutoDetect) return;
+        if (category == ItemCategory.AutoDetect)
+        {
+            string objName = gameObject.name.ToLower();
 
-        string objName = gameObject.name.ToLower();
+            if (GetComponent<CoinPickup>() != null || GetComponentInParent<CoinPickup>() != null || objName.Contains("coin"))
+            {
+                category = ItemCategory.Coin;
+            }
+            else if (objName.Contains("key"))
+            {
+                category = ItemCategory.Key;
+            }
+            else if (GetComponent<FragmentPickup>() != null || GetComponent<PaperReamPickup>() != null ||
+                     objName.Contains("paper") || objName.Contains("fragment") || objName.Contains("voucher") || objName.Contains("slip") || objName.Contains("note"))
+            {
+                category = ItemCategory.DocumentOrPaper;
+            }
+            else if (objName.Contains("flashlight") || objName.Contains("lockpin") || objName.Contains("tool") || objName.Contains("seal") || objName.Contains("stamp"))
+            {
+                category = ItemCategory.ToolOrEquipment;
+            }
+            else
+            {
+                category = ItemCategory.Consumable;
+            }
+        }
 
-        if (GetComponent<CoinPickup>() != null || GetComponentInParent<CoinPickup>() != null || objName.Contains("coin"))
+        switch (category)
         {
-            category = ItemCategory.Coin;
-            glowColor = new Color(1.0f, 0.86f, 0.42f, 1.0f);
-            lightRange = 0.95f;
-            lightBaseIntensity = 0.55f;
-            sparkleScale = 0.17f;
-            sparkleHeightOffset = 0.035f;
-            glintInterval = 2.6f;
-        }
-        else if (objName.Contains("key"))
-        {
-            category = ItemCategory.Key;
-            glowColor = new Color(1.0f, 0.84f, 0.32f, 1.0f); // Warm brass gold
-            lightRange = 1.25f;
-            lightBaseIntensity = 0.70f;
-            sparkleScale = 0.24f;
-            sparkleHeightOffset = 0.05f;
-            glintInterval = 2.1f;
-        }
-        else if (GetComponent<FragmentPickup>() != null || GetComponent<PaperReamPickup>() != null ||
-                 objName.Contains("paper") || objName.Contains("fragment") || objName.Contains("voucher") || objName.Contains("slip"))
-        {
-            category = ItemCategory.DocumentOrPaper;
-            glowColor = new Color(0.85f, 0.94f, 1.0f, 1.0f); // Clean luminous paper white/cyan
-            lightRange = 1.45f;
-            lightBaseIntensity = 0.80f;
-            sparkleScale = 0.28f;
-            sparkleHeightOffset = 0.06f;
-            glintInterval = 2.0f;
-        }
-        else if (objName.Contains("flashlight") || objName.Contains("lockpin") || objName.Contains("tool"))
-        {
-            category = ItemCategory.ToolOrEquipment;
-            glowColor = new Color(0.92f, 0.96f, 1.0f, 1.0f);
-            lightRange = 1.25f;
-            lightBaseIntensity = 0.70f;
-            sparkleScale = 0.23f;
-            sparkleHeightOffset = 0.05f;
-            glintInterval = 2.2f;
-        }
-        else
-        {
-            category = ItemCategory.Consumable;
-            glowColor = new Color(1.0f, 0.88f, 0.65f, 1.0f);
-            lightRange = 1.15f;
-            lightBaseIntensity = 0.65f;
-            sparkleScale = 0.22f;
-            sparkleHeightOffset = 0.05f;
-            glintInterval = 2.3f;
+            case ItemCategory.Coin:
+                glowColor = new Color(1.0f, 0.84f, 0.40f, 1.0f);
+                lightRange = 0.38f;
+                lightBaseIntensity = 0.15f;
+                lightGlintFlashBoost = 0.16f;
+                sparkleScale = 0.055f;
+                sparkleHeightOffset = 0.022f;
+                glintInterval = 2.6f;
+                break;
+            case ItemCategory.Key:
+                glowColor = new Color(1.0f, 0.84f, 0.32f, 1.0f); // Warm brass gold
+                lightRange = 0.45f;
+                lightBaseIntensity = 0.20f;
+                lightGlintFlashBoost = 0.20f;
+                sparkleScale = 0.075f;
+                sparkleHeightOffset = 0.035f;
+                glintInterval = 2.1f;
+                break;
+            case ItemCategory.DocumentOrPaper:
+                glowColor = new Color(0.85f, 0.94f, 1.0f, 1.0f); // Clean luminous paper white/cyan
+                lightRange = 0.48f;
+                lightBaseIntensity = 0.22f;
+                lightGlintFlashBoost = 0.22f;
+                sparkleScale = 0.08f;
+                sparkleHeightOffset = 0.04f;
+                glintInterval = 2.0f;
+                break;
+            case ItemCategory.ToolOrEquipment:
+                glowColor = new Color(0.92f, 0.96f, 1.0f, 1.0f);
+                lightRange = 0.45f;
+                lightBaseIntensity = 0.20f;
+                lightGlintFlashBoost = 0.20f;
+                sparkleScale = 0.075f;
+                sparkleHeightOffset = 0.035f;
+                glintInterval = 2.2f;
+                break;
+            default:
+                glowColor = new Color(1.0f, 0.88f, 0.65f, 1.0f);
+                lightRange = 0.40f;
+                lightBaseIntensity = 0.18f;
+                lightGlintFlashBoost = 0.18f;
+                sparkleScale = 0.065f;
+                sparkleHeightOffset = 0.03f;
+                glintInterval = 2.3f;
+                break;
         }
     }
 
@@ -183,7 +203,8 @@ public class ItemVisualHighlight : MonoBehaviour
             _light.color = glowColor;
             _light.intensity = lightBaseIntensity;
             _light.shadows = LightShadows.None; // Zero shadow computation overhead
-            _light.renderMode = LightRenderMode.ForcePixel; // Clean consistent illumination in URP
+            _light.renderMode = LightRenderMode.Auto; // Subtle ambient blend, eliminates harsh pixel-lit beam cones
+            _light.bounceIntensity = 0f;
         }
     }
 
@@ -277,15 +298,17 @@ public class ItemVisualHighlight : MonoBehaviour
     private void LateUpdate()
     {
         // 1. If parent CoinPickup is currently collected & waiting to respawn, keep hidden
+        if (_coinPickup == null)
+        {
+            _coinPickup = GetComponent<CoinPickup>() ?? GetComponentInParent<CoinPickup>();
+        }
+
         if (_coinPickup != null)
         {
             if (_coinPickup.IsCollected)
             {
-                if (!_wasCoinCollected)
-                {
-                    SetHighlightVisible(false);
-                    _wasCoinCollected = true;
-                }
+                SetHighlightVisible(false);
+                _wasCoinCollected = true;
                 return;
             }
             else if (_wasCoinCollected)
@@ -371,6 +394,22 @@ public class ItemVisualHighlight : MonoBehaviour
         if (_light != null) _light.enabled = visible;
         if (_sparkleRenderer != null) _sparkleRenderer.enabled = visible;
         if (!visible && _sparkleTransform != null) _sparkleTransform.localScale = Vector3.zero;
+    }
+
+    /// <summary>
+    /// Explicitly called upon item collection to ensure lights and sparkles vanish immediately and stay off.
+    /// </summary>
+    public void OnPickedUp()
+    {
+        SetHighlightVisible(false);
+        if (_light != null) _light.enabled = false;
+        if (_sparkleRenderer != null) _sparkleRenderer.enabled = false;
+        enabled = false;
+
+        // Clean up child highlight objects immediately
+        if (_sparkleGO != null) Destroy(_sparkleGO);
+        Transform glintLightT = transform.Find("ItemGlintLight");
+        if (glintLightT != null) Destroy(glintLightT.gameObject);
     }
 
     private void OnDisable()

@@ -63,6 +63,12 @@ public class TheProctorManager : MonoBehaviour
 
     private void Start()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            CleanupProctor();
+            return;
+        }
+
         // Hook into BlackoutManager events
         if (BlackoutManager.Instance != null)
         {
@@ -95,6 +101,8 @@ public class TheProctorManager : MonoBehaviour
 
     private void HandleBlackoutStart()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
+
         // Prevent duplicate encounters if one is already running
         if (isEncounterActive || _isBlackoutEnding) return;
 

@@ -78,6 +78,19 @@ public class AnxietyUI : MonoBehaviour
 
     public void UpdateDisplay(float current, float max, bool instant)
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            _targetFill = 0f;
+            if (barFill != null)
+            {
+                barFill.fillAmount = 0f;
+                barFill.color = new Color(0.25f, 0.65f, 0.35f, 0.6f);
+            }
+            if (labelText != null) labelText.text = "FREE ROAM";
+            if (valueText != null) valueText.text = "CALM";
+            return;
+        }
+
         _targetFill = Mathf.Clamp01(current / Mathf.Max(1f, max));
         if (instant && barFill != null)
         {

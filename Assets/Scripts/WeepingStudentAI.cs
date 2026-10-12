@@ -113,11 +113,21 @@ public class WeepingStudentAI : MonoBehaviour
     private float _footstepTimer = 0f;
     private bool _hasCaughtPlayer = false;
 
+    private Vector3 _lastSeenPlayerPos = Vector3.zero;
+    private float _lostPlayerPatrolTimer = 0f;
+    private Vector3 _lostPlayerWanderTarget;
+
     private int _speedHash;
     private List<Bounds> _cachedRoomBounds = new List<Bounds>();
 
     private void Awake()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         if (ActiveWeepingStudent != null && ActiveWeepingStudent != this)
         {
             Destroy(gameObject);
@@ -328,6 +338,13 @@ public class WeepingStudentAI : MonoBehaviour
     /// </summary>
     public bool CheckIfPlayerIsLooking()
     {
+        if (LockerHideManager.IsPlayerHidden)
+        {
+            // Player is safely hidden inside the locker peering through vent louvers.
+            // Entity does not freeze from peep slit, allowing it to pace and wander past.
+            return false;
+        }
+
         if (_playerCam == null || _playerTransform == null) return false;
 
         Vector3 eyePos = _playerCam.transform.position;
@@ -422,6 +439,11 @@ public class WeepingStudentAI : MonoBehaviour
         bool playerHidden = (LockerHideManager.IsPlayerHidden);
         bool playerInRoom = IsPositionInsideAnyRoom(_playerTransform.position);
 
+        if (!playerHidden)
+        {
+            _lastSeenPlayerPos = _playerTransform.position;
+        }
+
         // Catch check: Weeping Angel ONLY catches the player when NOT observed!
         // When observed, it is a frozen stone statue and cannot attack!
         if (!_isObserved && !playerHidden && !playerInRoom && distToPlayer <= catchDistance && dy < 1.9f)
@@ -453,24 +475,62 @@ public class WeepingStudentAI : MonoBehaviour
         }
         else
         {
-            // ── CHARGING (Weeping Angel Movement Mode) ───────────────────────
-            // Player is not looking! Aggressively surge toward player!
-            if (_agent != null && _agent.isOnNavMesh)
+            if (playerHidden)
             {
-                _agent.isStopped = false;
-                _agent.speed = chaseSpeed;
+                // ── SEARCHING LOST STUDENT (Locker Hiding Mode) ───────────────
+                // Player ducked into a locker! Entity searches the corridor near where the student was last seen.
+                if (_agent != null && _agent.isOnNavMesh)
+                {
+                    _agent.isStopped = false;
+                    _agent.speed = 2.4f; // Slower eerie pacing search speed
 
-                Vector3 targetPos = GetHallwayTarget(_playerTransform.position);
-                _agent.SetDestination(targetPos);
+                    _lostPlayerPatrolTimer -= Time.deltaTime;
+                    if (_lostPlayerPatrolTimer <= 0f || _agent.remainingDistance < 0.6f)
+                    {
+                        _lostPlayerPatrolTimer = UnityEngine.Random.Range(2.5f, 5.0f);
+                        float centerZ = (_lastSeenPlayerPos != Vector3.zero) ? _lastSeenPlayerPos.z : transform.position.z;
+                        float offsetZ = UnityEngine.Random.Range(-4.5f, 4.5f);
+                        float targetZ = Mathf.Clamp(centerZ + offsetZ, hallwayMinZ + 2f, hallwayMaxZ - 2f);
+                        float targetX = hallwayCenterX + UnityEngine.Random.Range(-hallwayHalfWidth * 0.35f, hallwayHalfWidth * 0.35f);
+                        Vector3 rawTarget = new Vector3(targetX, transform.position.y, targetZ);
+                        NavMeshHit hit;
+                        if (NavMesh.SamplePosition(rawTarget, out hit, 3.0f, NavMesh.AllAreas))
+                        {
+                            _lostPlayerWanderTarget = hit.position;
+                            _agent.SetDestination(_lostPlayerWanderTarget);
+                        }
+                    }
+                }
+
+                if (_animator != null)
+                {
+                    _animator.speed = 1.0f;
+                    _animator.SetFloat(_speedHash, 1.0f); // Walking pace while searching
+                }
+
+                UpdateFootstepAudio();
             }
-
-            if (_animator != null)
+            else
             {
-                _animator.speed = 1.35f; // Rapid terrifying pursuit motion
-                _animator.SetFloat(_speedHash, 2.0f); // Full running motion
-            }
+                // ── CHARGING (Weeping Angel Movement Mode) ───────────────────────
+                // Player is not looking! Aggressively surge toward player!
+                if (_agent != null && _agent.isOnNavMesh)
+                {
+                    _agent.isStopped = false;
+                    _agent.speed = chaseSpeed;
 
-            UpdateFootstepAudio();
+                    Vector3 targetPos = GetHallwayTarget(_playerTransform.position);
+                    _agent.SetDestination(targetPos);
+                }
+
+                if (_animator != null)
+                {
+                    _animator.speed = 1.35f; // Rapid terrifying pursuit motion
+                    _animator.SetFloat(_speedHash, 2.0f); // Full running motion
+                }
+
+                UpdateFootstepAudio();
+            }
         }
 
         // Dynamically ensure 3D weeping audio is active and modulate volume/pitch

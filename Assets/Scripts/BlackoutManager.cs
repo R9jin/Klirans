@@ -186,12 +186,14 @@ public class BlackoutManager : MonoBehaviour
         CacheWanderingNPCs();
 
         // Kick off the random blackout schedule
-        if (!disableBlackouts)
+        if (!disableBlackouts && !GameModeManager.IsFreeRoamMode)
             _scheduleCoroutine = StartCoroutine(BlackoutSchedule());
     }
 
     private void Update()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
+
         // Debug: instant blackout trigger
         if (Input.GetKeyDown(debugTriggerKey) && !IsBlackoutActive)
         {
@@ -208,6 +210,7 @@ public class BlackoutManager : MonoBehaviour
     /// </summary>
     public void TriggerBlackout()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         if (IsBlackoutActive) return;
         if (_blackoutCoroutine != null) StopCoroutine(_blackoutCoroutine);
         float duration = UnityEngine.Random.Range(blackoutDurationMin, blackoutDurationMax);

@@ -69,8 +69,8 @@ public class ItemInspectionModal : MonoBehaviour
         // Ignore close keys on the same frame the modal was opened to prevent instant close
         if (Time.frameCount == _openedFrame) return;
 
-        // Close on ESC, E, or Tab
-        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Tab))
+        // Close on E, Space, Return, Tab, or Escape
+        if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.Escape))
         {
             Close();
         }
@@ -162,13 +162,23 @@ public class ItemInspectionModal : MonoBehaviour
         var hud = GameObject.Find("HudCanvas");
         if (hud == null) return;
 
-        Font horrorFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        // Load authentic typewriter font and horror heading font
+        Font typewriterFont = Resources.Load<Font>("Fonts/Typewriter_Bold");
+        if (typewriterFont == null) typewriterFont = Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold");
 #if UNITY_EDITOR
-        var typewriter = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Typewriter_Bold.ttf");
-        if (typewriter != null) horrorFont = typewriter;
+        if (typewriterFont == null)
+            typewriterFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Typewriter_Bold.ttf");
 #endif
+        if (typewriterFont == null) typewriterFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-        _overlayRoot = new GameObject("ItemInspectionOverlay", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
+        Font horrorHeadingFont = Resources.Load<Font>("Fonts/watch people die");
+#if UNITY_EDITOR
+        if (horrorHeadingFont == null)
+            horrorHeadingFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Main Menu/watch people die.ttf");
+#endif
+        if (horrorHeadingFont == null) horrorHeadingFont = typewriterFont;
+
+        _overlayRoot = new GameObject("ItemInspectionOverlay", typeof(RectTransform), typeof(CanvasGroup), typeof(Image), typeof(Button));
         _overlayRoot.transform.SetParent(hud.transform, false);
 
         var rootRT = _overlayRoot.GetComponent<RectTransform>();
@@ -178,7 +188,12 @@ public class ItemInspectionModal : MonoBehaviour
         rootRT.offsetMax = Vector2.zero;
 
         var bgImg = _overlayRoot.GetComponent<Image>();
-        bgImg.color = new Color(0.02f, 0.02f, 0.03f, 0.82f); // Deep dark atmosphere backdrop
+        bgImg.color = new Color(0.02f, 0.02f, 0.03f, 0.85f); // Deep dark atmosphere backdrop
+
+        // Click outside the paper to close
+        var backdropBtn = _overlayRoot.GetComponent<Button>();
+        backdropBtn.transition = Selectable.Transition.None;
+        backdropBtn.onClick.AddListener(Close);
 
         _canvasGroup = _overlayRoot.GetComponent<CanvasGroup>();
 
@@ -190,7 +205,7 @@ public class ItemInspectionModal : MonoBehaviour
         paperRT.anchorMin = new Vector2(0.5f, 0.5f);
         paperRT.anchorMax = new Vector2(0.5f, 0.5f);
         paperRT.pivot = new Vector2(0.5f, 0.5f);
-        paperRT.sizeDelta = new Vector2(700f, 540f);
+        paperRT.sizeDelta = new Vector2(740f, 560f);
 
         var paperImg = paperGO.GetComponent<Image>();
         paperImg.color = new Color(0.96f, 0.93f, 0.86f, 0.98f); // Aged cream student paper
@@ -242,7 +257,7 @@ public class ItemInspectionModal : MonoBehaviour
         titleRT.offsetMax = Vector2.zero;
 
         _titleText = titleGO.GetComponent<Text>();
-        _titleText.font = horrorFont;
+        _titleText.font = typewriterFont;
         _titleText.fontSize = 20;
         _titleText.fontStyle = FontStyle.Bold;
         _titleText.color = new Color(0.12f, 0.08f, 0.06f, 1f);
@@ -258,23 +273,20 @@ public class ItemInspectionModal : MonoBehaviour
         sepRT.sizeDelta = new Vector2(-70f, 2f);
         sepGO.GetComponent<Image>().color = new Color(0.35f, 0.30f, 0.25f, 0.5f);
 
-        // ── Scrollable Body Text ──────────────────────────────────────────────
-        var scrollGO = new GameObject("TextScrollRect", typeof(RectTransform), typeof(ScrollRect), typeof(Image), typeof(Mask));
+        // ── Scrollable Body Text (Uses RectMask2D — guarantees text is never clipped by failed stencil buffer!) ──
+        var scrollGO = new GameObject("TextScrollRect", typeof(RectTransform), typeof(ScrollRect), typeof(RectMask2D));
         scrollGO.transform.SetParent(paperGO.transform, false);
         var scrollRT = scrollGO.GetComponent<RectTransform>();
         scrollRT.anchorMin = new Vector2(0f, 0f);
         scrollRT.anchorMax = new Vector2(1f, 1f);
-        scrollRT.offsetMin = new Vector2(50f, 65f);
-        scrollRT.offsetMax = new Vector2(-35f, -100f);
-
-        scrollGO.GetComponent<Image>().color = Color.clear;
-        scrollGO.GetComponent<Mask>().showMaskGraphic = false;
+        scrollRT.offsetMin = new Vector2(52f, 68f);
+        scrollRT.offsetMax = new Vector2(-36f, -100f);
 
         _scrollRect = scrollGO.GetComponent<ScrollRect>();
         _scrollRect.horizontal = false;
         _scrollRect.vertical = true;
         _scrollRect.movementType = ScrollRect.MovementType.Clamped;
-        _scrollRect.scrollSensitivity = 28f;
+        _scrollRect.scrollSensitivity = 32f;
 
         // Content
         var contentGO = new GameObject("ScrollContent", typeof(RectTransform), typeof(ContentSizeFitter), typeof(VerticalLayoutGroup));
@@ -282,7 +294,8 @@ public class ItemInspectionModal : MonoBehaviour
         var contentRT = contentGO.GetComponent<RectTransform>();
         contentRT.anchorMin = new Vector2(0f, 1f);
         contentRT.anchorMax = new Vector2(1f, 1f);
-        contentRT.pivot = new Vector2(0.5f, 1f);
+        contentRT.pivot = new Vector2(0f, 1f);
+        contentRT.anchoredPosition = Vector2.zero;
         contentRT.sizeDelta = new Vector2(0f, 400f);
 
         var csf = contentGO.GetComponent<ContentSizeFitter>();
@@ -293,6 +306,7 @@ public class ItemInspectionModal : MonoBehaviour
         vlg.childForceExpandWidth = true;
         vlg.childControlHeight = true;
         vlg.childControlWidth = true;
+        vlg.padding = new RectOffset(0, 16, 4, 12);
 
         _scrollRect.content = contentRT;
 
@@ -301,13 +315,14 @@ public class ItemInspectionModal : MonoBehaviour
         bodyGO.transform.SetParent(contentGO.transform, false);
 
         _bodyText = bodyGO.GetComponent<Text>();
-        _bodyText.font = horrorFont;
-        _bodyText.fontSize = 16;
-        _bodyText.lineSpacing = 1.25f;
+        _bodyText.font = typewriterFont;
+        _bodyText.fontSize = 17;
+        _bodyText.lineSpacing = 1.30f;
         _bodyText.color = new Color(0.12f, 0.10f, 0.08f, 0.95f);
         _bodyText.alignment = TextAnchor.UpperLeft;
         _bodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
         _bodyText.verticalOverflow = VerticalWrapMode.Overflow;
+        _bodyText.supportRichText = true;
 
         // ── Footer Close Button ───────────────────────────────────────────────
         var btnGO = new GameObject("CloseButton", typeof(RectTransform), typeof(Image), typeof(Button), typeof(Outline));
@@ -317,7 +332,7 @@ public class ItemInspectionModal : MonoBehaviour
         btnRT.anchorMax = new Vector2(0.5f, 0f);
         btnRT.pivot = new Vector2(0.5f, 0f);
         btnRT.anchoredPosition = new Vector2(0f, 16f);
-        btnRT.sizeDelta = new Vector2(220f, 38f);
+        btnRT.sizeDelta = new Vector2(240f, 38f);
 
         var btnImg = btnGO.GetComponent<Image>();
         btnImg.color = new Color(0.18f, 0.14f, 0.10f, 0.95f);
@@ -335,12 +350,12 @@ public class ItemInspectionModal : MonoBehaviour
         btnTextRT.anchorMax = Vector2.one;
 
         var btnText = btnTextGO.GetComponent<Text>();
-        btnText.font = horrorFont;
+        btnText.font = typewriterFont;
         btnText.fontSize = 15;
         btnText.fontStyle = FontStyle.Bold;
         btnText.color = new Color(0.96f, 0.93f, 0.86f, 1f);
         btnText.alignment = TextAnchor.MiddleCenter;
-        btnText.text = "[ESC] Close Note";
+        btnText.text = "[E] Close Note";
     }
 
     private static AudioClip _cachedRustleClip;
