@@ -18,12 +18,12 @@ MonoBehaviour:
     ang anxiety (-30).
   icon: {fileID: 21300000, guid: f810e4372222cdb4f99b58c634217890, type: 3}
   itemType: 2
-  itemPrefab: {fileID: 6619778334764896571, guid: 827b36610db901c4cb618d7c580fb66d, type: 3}
+  itemPrefab: {fileID: 8985199677496652807, guid: 7b56074568081684f83efff0b27fb801, type: 3}
   isStackable: 1
   maxStack: 5
   anxietyChange: -30
   staminaChange: 25
   canBeDropped: 1
-  isInspectable: 0
+  isInspectable: 1
   inspectionTitle: 
   inspectionText: 

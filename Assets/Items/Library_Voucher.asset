@@ -17,7 +17,7 @@ MonoBehaviour:
     and overdue records have been settled.
   icon: {fileID: 21300000, guid: 07db1bd79e9fc8b478fb5d97af0cd82f, type: 3}
   itemType: 0
-  itemPrefab: {fileID: 0}
+  itemPrefab: {fileID: 4802599227008564, guid: 24b4a51ba68f9e448bc8df44d1523c0d, type: 3}
   isStackable: 0
   maxStack: 1
   anxietyChange: 0

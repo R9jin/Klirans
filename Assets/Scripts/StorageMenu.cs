@@ -283,6 +283,15 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
         return txt;
     }
 
+    private void Update()
+    {
+        // Hotkey [V] to inspect currently selected item in bag
+        if (Input.GetKeyDown(KeyCode.V) && _selectedItem != null && !ItemInspectionViewer3D.IsOpen)
+        {
+            InspectSelectedItem();
+        }
+    }
+
     // ─── Button Actions ──────────────────────────────────────────────
 
     private void InspectSelectedItem()

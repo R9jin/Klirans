@@ -28,7 +28,7 @@ public class ItemInspectionModal : MonoBehaviour
         }
     }
 
-    public static bool IsOpen => _instance != null && _instance._isOpen;
+    public static bool IsOpen => (_instance != null && _instance._isOpen) || ItemInspectionViewer3D.IsOpen;
 
     // ── UI References ─────────────────────────────────────────────────────────
     private GameObject _overlayRoot;
@@ -79,16 +79,12 @@ public class ItemInspectionModal : MonoBehaviour
     // ── Public API ───────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Opens the inspection modal for a specific InventoryItem.
+    /// Opens the 3D Resident Evil inspection viewer for a specific InventoryItem.
     /// </summary>
     public static void Inspect(InventoryItem item)
     {
         if (item == null) return;
-
-        string title = !string.IsNullOrEmpty(item.inspectionTitle) ? item.inspectionTitle : item.itemName;
-        string content = !string.IsNullOrEmpty(item.inspectionText) ? item.inspectionText : item.description;
-
-        Instance.OpenModal(title, content, item.icon);
+        ItemInspectionViewer3D.Inspect(item);
     }
 
     public void OpenModal(string title, string content, Sprite icon = null)

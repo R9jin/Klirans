@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7902f9d091be45d4fabc9d5e72f58aeb, type: 3}
+  m_Name: Guard_Logbook
+  m_EditorClassIdentifier: Assembly-CSharp::InventoryItem
+  itemName: Security Guard Incident Logbook
+  description: Opisyal na logbook ni Guard Dela Cruz. Naglalaman ng mga ulat ukol
+    sa 10:00 PM building lockdown, nawawalang master key, at babala ukol sa rebulto
+    sa Diliman wing.
+  icon: {fileID: 0}
+  itemType: 0
+  itemPrefab: {fileID: 7584265353315207194, guid: 189f291bbf3cdd34894cde9cd4dfde95, type: 3}
+  isStackable: 0
+  maxStack: 1
+  anxietyChange: 0
+  staminaChange: 0
+  canBeDropped: 0
+  isInspectable: 1
+  inspectionTitle: Security Guard Incident Logbook
+  inspectionText: Opisyal na logbook ni Guard Dela Cruz. Naglalaman ng mga ulat ukol
+    sa 10:00 PM building lockdown, nawawalang master key, at babala ukol sa rebulto
+    sa Diliman wing.

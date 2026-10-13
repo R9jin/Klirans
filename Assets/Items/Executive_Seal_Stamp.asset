@@ -17,7 +17,7 @@ MonoBehaviour:
     Vice President to officially seal the final clearance slip.
   icon: {fileID: 21300000, guid: 818d80495d9696d4a845b9ef593a414d, type: 3}
   itemType: 1
-  itemPrefab: {fileID: 0}
+  itemPrefab: {fileID: 3139312021421090084, guid: 00b33975bbc7bfb4185eba6d7ec7f73f, type: 3}
   isStackable: 0
   maxStack: 1
   anxietyChange: 0

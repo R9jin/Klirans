@@ -18,13 +18,13 @@ public class SecurityGuardInteract : MonoBehaviour, IInteractable
 
     [Header("Dialogue Content")]
     [TextArea(2, 4)]
-    public string lockdownDialogue = "HALT! The entire campus is under strict lockdown by executive order. The front gates are secured with high-grade magnetic seals. You cannot leave without an officially approved and stamped clearance slip signed by all six department heads. Do not attempt to force the doors.";
+    public string lockdownDialogue = "Huy, teka lang! Bawal lumabas, naka-lockdown ang buong building by executive order! Naka-lock ang main gate ng magnetic seal, hindi bubukas 'yan hangga't walang kompletong pirma 'yang clearance mo sa anim na department heads. 'Wag mo nang piliting buksan 'yung pinto, baka mapahamak ka lang diyan.";
 
     [TextArea(2, 4)]
-    public string fullyClearDialogue = "Hold on... All six department signatures are stamped on your slip, but the University Registrar in Room 104 must officially log and submit your clearance record before the gate lockdown override can be authorized.";
+    public string fullyClearDialogue = "Teka... kompleto na nga ang anim na pirma sa slip mo ah! Pero kailangan mo munang ipasa 'yan kay Registrar doon sa Room 104. Sila lang ang may authority mag-log niyan sa system bago ko ma-override 'tong gate para mabuksan.";
 
     [TextArea(2, 4)]
-    public string escapedPermittedDialogue = "Official clearance verified and recorded on the terminal. The main campus gate is unlocked. Move quickly and stay safe out there.";
+    public string escapedPermittedDialogue = "Ayan, na-verify at na-record na sa terminal 'yung clearance mo. Bukas na 'yung main campus gate sa lobby. Bilisan mo nang lumabas at mag-ingat ka diyan!";
 
     [Header("Audio")]
     public AudioClip guardVoiceClip;
@@ -90,7 +90,7 @@ public class SecurityGuardInteract : MonoBehaviour, IInteractable
             if (dist > interactionRange) return string.Empty;
         }
 
-        return $"Press E to talk to {guardName}";
+        return $"Pindutin ang E para kausapin si {guardName}";
     }
 
     public void Interact()

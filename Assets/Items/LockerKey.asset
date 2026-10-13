@@ -17,12 +17,12 @@ MonoBehaviour:
     to hide inside during blackouts.
   icon: {fileID: 21300000, guid: 6c19078ae5f500443b338540de03c6e4, type: 3}
   itemType: 1
-  itemPrefab: {fileID: 4285328731248766293, guid: bfb0e13e3a3915a49b82230dffb9aca2, type: 3}
+  itemPrefab: {fileID: 6774371240763317226, guid: f65c3b856243fe74395900e9f71db64a, type: 3}
   isStackable: 1
   maxStack: 6
   anxietyChange: 0
   staminaChange: 0
   canBeDropped: 0
-  isInspectable: 0
+  isInspectable: 1
   inspectionTitle: 
   inspectionText: 

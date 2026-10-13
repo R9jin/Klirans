@@ -41,11 +41,11 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
 
     [Header("Dialogue")]
     [TextArea(2, 3)]
-    public string unsignedDialogue      = "I'll sign your clearance slip.";
+    public string unsignedDialogue      = "Akin na 'yang clearance slip mo, pipirmahan ko na.";
     [TextArea(2, 3)]
-    public string alreadySignedDialogue = "I already signed your clearance slip.";
+    public string alreadySignedDialogue = "Napirmahan ko na 'yang clearance mo kanina. Dumiretso ka na sa susunod na opisina.";
     [TextArea(2, 3)]
-    public string notYourTurnDialogue   = "Someone else needs to sign before me.";
+    public string notYourTurnDialogue   = "Teka lang, hindi pa puwede sa akin 'yan. Kailangan mo munang papirmahan sa naunang department bago kita asikasuhin.";
 
     [Header("Voice & Audio")]
     [Tooltip("Crazy mumbles audio clip played when talking to this clearance NPC.")]
@@ -130,15 +130,15 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             if (signatureIndex == 3 && ClearanceManager.Instance.IsFullyClear())
             {
                 if (!ClearanceManager.Instance.IsSlipSubmitted)
-                    return $"[{npcName}] Submit Completed Clearance Slip (Press E)";
+                    return $"[{npcName}] Ipasa ang Kompletong Clearance Slip (Pindutin ang E)";
                 else
-                    return $"[{npcName}] Clearance Slip Submitted (Press E to talk)";
+                    return $"[{npcName}] Naipasa na ang Clearance Slip (Pindutin ang E para kausapin)";
             }
 
-            return $"[{npcName}] Already signed (Press E to talk)";
+            return $"[{npcName}] Pumirma na kanina (Pindutin ang E para kausapin)";
         }
 
-        return $"Press E to talk to {npcName}";
+        return $"Pindutin ang E para kausapin si {npcName}";
     }
 
     public void Interact()
@@ -162,7 +162,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             if (!ClearanceManager.Instance.IsSlipSubmitted)
             {
                 ClearanceManager.Instance.SubmitSlipToRegistrar();
-                ShowDialogue("Let me verify your clearance slip... Library, Guidance & SAS, College of Computing Studies, Registrar, Cashier, and the Executive Vice President. All signatures confirmed and officially recorded! Your clearance is complete. The campus main gate at the lobby entrance is now unlocked for you. Have a safe journey!");
+                ShowDialogue("Tingnan ko nga 'yang clearance slip mo... Library, Guidance & SAS, College of Computing Studies, Registrar, Cashier, at Executive Vice President. Ayos, kompleto at na-record na lahat ng anim na pirma sa system! Clearance complete ka na. Na-unlock na 'yung main gate ng campus doon sa lobby entrance. Mag-ingat ka sa paglabas!");
                 if (ObjectiveHUD.Instance != null)
                 {
                     ObjectiveHUD.Instance.SetObjective("Escape The Campus", "The campus main gate at the lobby entrance is now unlocked. Escape the building!");
@@ -171,7 +171,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             }
             else
             {
-                ShowDialogue("Your clearance has already been submitted and officially recorded. Proceed to the campus main gate at the lobby entrance to exit.");
+                ShowDialogue("Naipasa at opisyal nang na-record 'yang clearance mo kanina. Dumiretso ka na agad sa main gate doon sa lobby entrance para makalabas.");
                 return;
             }
         }
@@ -194,11 +194,11 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             Debug.Log($"[{npcName}] No clearance slip in inventory — player must piece together fragments first.");
             if (signatureIndex == 0)
             {
-                ShowDialogue("Keep your voice down, this is the university library. Where is your clearance form? You need to find all 4 torn fragments of your clearance slip scattered around the building before I can sign anything for you.");
+                ShowDialogue("Psst! Hinaan mo 'yang boses mo, nasa university library ka! Nasaan ang clearance form mo? Hanapin mo muna 'yung apat na punit na piraso ng clearance slip mo na nagkalat sa building bago ako pumirma rito.");
             }
             else
             {
-                ShowDialogue("You cannot be cleared without an official clearance slip. Search the corridors for the 4 torn fragments first.");
+                ShowDialogue("Hindi kita maki-clear nang walang official clearance slip. Hanapin mo muna sa mga hallway 'yung apat na punit na piraso at buuin mo bago ka pumila rito.");
             }
             return;
         }
@@ -221,7 +221,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
                 {
                     LibraryPrinterInteract.Instance.UnlockPrinterQuest();
                 }
-                ShowDialogue("Keep your voice down, this is the university library. You want your clearance signed? The database flags your student number with an UNRESOLVED OVERDUE BORROWING VIOLATION from 1994. You must print your official Library Clearance Voucher at the workstation printer across the room. Bring me the printed voucher, or your clearance ends here.");
+                ShowDialogue("Hinaan mo ang boses mo, library 'to! Magpapacheck ka ng clearance? May flag 'yang student number mo sa database—may UNRESOLVED OVERDUE BORROWING VIOLATION ka pa noong 1994! Kailangan mong i-print ang official Library Clearance Voucher mo doon sa printer station sa kabila. Dalhin mo rito sa akin 'yung voucher, kundi hindi kita pipirmahan.");
                 if (ObjectiveHUD.Instance != null)
                 {
                     ObjectiveHUD.Instance.SetObjective("Clear Library Overdue Record", "Print your Library Clearance Voucher from the printer station in Room 308.");
@@ -242,7 +242,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             var puzzle = GuidanceWordPuzzle.Instance ?? FindAnyObjectByType<GuidanceWordPuzzle>(FindObjectsInactive.Include);
             if (puzzle != null && !puzzle.IsSolved)
             {
-                ShowDialogue("Welcome to Guidance and Counseling. To clear your moral conduct standing, you must demonstrate alignment with our sacred institutional pillars. Unscramble the core value letters on this evaluation sheet... or your journey ends here.");
+                ShowDialogue("Tuloy ka sa Guidance and Counseling. Bago ko ma-clear ang moral conduct standing mo, kailangan mong patunayan na aligned ka sa core values ng ating institusyon. Ayusin mo 'yung nagkandalitong mga letra dito sa evaluation sheet... kung gusto mong makapasa.");
                 if (ObjectiveHUD.Instance != null)
                 {
                     ObjectiveHUD.Instance.SetObjective("Guidance Core Values Puzzle", "Unscramble the PnC Core Value letters on the guidance assessment sheet in Room 207.");
@@ -263,7 +263,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             bool hasComLabForm = (comlabFormItem != null && PlayerHasItem(comlabFormItem)) || PlayerHasItemNamed("ComLab Accountability Form");
             if (!hasComLabForm)
             {
-                ShowDialogue("College of Computing Studies. Before I can sign your Department Clearance, the database flags your terminal account with an UNRESOLVED COMPUTER LAB TERMINAL HOLD. The ComLab custodian left your official ComLab Accountability Form in the 1st Floor Computer Laboratory (Room 105). Retrieve your ComLab Accountability Form from the ComLab desk and bring it to my desk!");
+                ShowDialogue("College of Computing Studies. Bago ko mapirmahan 'yang Department Clearance mo, may flag pa ang terminal account mo sa database—may UNRESOLVED COMPUTER LAB TERMINAL HOLD ka! Iniwan ng ComLab custodian 'yung official ComLab Accountability Form mo sa 1st Floor Computer Lab (Room 105). Kunin mo muna doon sa desk at dalhin mo rito sa akin!");
                 if (ObjectiveHUD.Instance != null)
                 {
                     ObjectiveHUD.Instance.SetObjective("ComLab Terminal Hold", "Retrieve your ComLab Accountability Form from the 1st Floor Computer Lab in Room 105.");
@@ -284,7 +284,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             var sortPuzzle = RegistrarDocumentSortPuzzle.Instance ?? FindAnyObjectByType<RegistrarDocumentSortPuzzle>(FindObjectsInactive.Include);
             if (sortPuzzle != null && !sortPuzzle.IsSolved)
             {
-                ShowDialogue("Window 2, University Registrar. Before I can evaluate and stamp your clearance slip, our archival desk is backed up with disorganized student grade sheets. Sort this stack of official documents into their correct archival trays so our records remain in order.");
+                ShowDialogue("Window 2, University Registrar. Bago ko masuri at matatakan 'yang clearance mo, tambak pa ang kalat na student grade sheets dito sa archival desk. Ayusin at i-sort mo muna 'tong stack ng mga dokumento sa tamang archival trays para maging maayos ang records natin.");
                 if (ObjectiveHUD.Instance != null)
                 {
                     ObjectiveHUD.Instance.SetObjective("Registrar Document Sorting", "Sort the stack of student grade records into the correct trays at Window 2 of the University Registrar in Room 104.");
@@ -305,7 +305,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             var cashierPuzzle = CashierBalancePuzzle.Instance ?? FindAnyObjectByType<CashierBalancePuzzle>(FindObjectsInactive.Include);
             if (cashierPuzzle != null && !cashierPuzzle.IsSolved)
             {
-                ShowDialogue("Window 2, Cashier Department. Before I can clear and stamp your clearance slip, our records show pending unsettled fees. I have slid your assessment balance sheet through the window slot. Calculate the exact total due and submit it to clear your payment status.");
+                ShowDialogue("Window 2, Cashier Department. Bago ko matatakan 'yang clearance slip mo, may pending unsettled fees ka pa sa records. Inusad ko 'yung assessment balance sheet mo rito sa window slot. Kuwentahin mo ang eksaktong total na dapat bayaran at i-submit mo para ma-clear ang payment status mo.");
                 if (ObjectiveHUD.Instance != null)
                 {
                     ObjectiveHUD.Instance.SetObjective("Cashier Balance Sheet", "Calculate and submit the unsettled balance total at Window 2 of the University Cashier in Room 102.");
@@ -326,7 +326,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             bool hasSeal = (executiveSealItem != null && PlayerHasItem(executiveSealItem)) || PlayerHasItemNamed("Official University Seal Stamp");
             if (!hasSeal)
             {
-                ShowDialogue("Office of the Executive Vice President. All department approvals are in order, but protocol dictates that the Official University Embossing Seal must be affixed before final executive endorsement. Retrieve the University Seal Stamp from the Department Records Locker in the 2nd Floor Faculty Cubicle Office!");
+                ShowDialogue("Office of the Executive Vice President. Maayos naman ang approvals ng bawat departamento, pero ayon sa protocol, kailangan munang maitatak ang Official University Seal bago ang final executive endorsement. Kunin mo muna ang University Seal Stamp sa Department Records Locker sa 2nd Floor Faculty Office!");
                 if (ObjectiveHUD.Instance != null)
                 {
                     ObjectiveHUD.Instance.SetObjective("Executive Endorsement Seal", "Retrieve the Official University Seal Stamp from the Department Records Locker in the 2nd Floor Faculty Office.");
@@ -373,7 +373,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         if (isNew)
         {
             Debug.Log($"[ClearanceNPC] Guidance Counselor signed. ({ClearanceManager.Instance.SignatureCount}/6)");
-            ShowDialogue("Remarkable... Your commitment to our institutional pillars has been verified. Your guidance clearance is granted.");
+            ShowDialogue("Napakahusay... Na-verify na ang commitment mo sa mga core values ng paaralan. Cleared ka na rito sa Guidance. Dumiretso ka na sa COLLEGE OF COMPUTING STUDIES sa Room 202 sa 2nd floor.");
 
             if (ObjectiveHUD.Instance != null)
             {
@@ -393,7 +393,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         if (isNew)
         {
             Debug.Log($"[ClearanceNPC] Registrar signed. ({ClearanceManager.Instance.SignatureCount}/6)");
-            ShowDialogue("All grade sheets properly filed and archived. Your registrar clearance is officially approved. Proceed to the UNIVERSITY CASHIER in Room 102 on the ground floor to settle any outstanding balances.");
+            ShowDialogue("Nai-file at na-archive na nang maayos ang mga grade sheets. Approved na ang registrar clearance mo. Dumiretso ka na agad sa UNIVERSITY CASHIER sa Room 102 sa ground floor para ma-settle ang balance mo.");
 
             if (ObjectiveHUD.Instance != null)
             {
@@ -413,7 +413,7 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         if (isNew)
         {
             Debug.Log($"[ClearanceNPC] Cashier signed. ({ClearanceManager.Instance.SignatureCount}/6)");
-            ShowDialogue("Payment cleared in full! Your official assessment is marked zero balance. Proceed to the OFFICE OF THE EXECUTIVE VICE PRESIDENT in Room 103 for your final clearance signature.");
+            ShowDialogue("Bayad na nang buo! Zero balance na ang official assessment mo. Pumunta ka na sa OFFICE OF THE EXECUTIVE VICE PRESIDENT sa Room 103 para sa huling clearance signature mo.");
 
             if (ObjectiveHUD.Instance != null)
             {

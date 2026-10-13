@@ -164,6 +164,13 @@ public class InventoryEquipController : MonoBehaviour
         InventorySlot slot = inventory.Slots[activeSlotIndex];
         if (slot == null || slot.IsEmpty || slot.item == null) return;
 
+        // Press [V] to inspect currently equipped hotbar item in 3D
+        if (Input.GetKeyDown(KeyCode.V) && !ItemInspectionViewer3D.IsOpen)
+        {
+            ItemInspectionViewer3D.Inspect(slot.item);
+            return;
+        }
+
         // Check if held item is Ham & Cheese Sandwich
         string nameLower = slot.item.itemName.ToLower();
         if (nameLower.Contains("ham") && nameLower.Contains("cheese"))
