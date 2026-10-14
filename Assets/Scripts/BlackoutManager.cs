@@ -77,15 +77,15 @@ public class BlackoutManager : MonoBehaviour
     // ── Flashlight Tuning ─────────────────────────────────────────────────────
     [Header("Flashlight Tuning for Blackout Atmosphere")]
     [Tooltip("Intensity of the flashlight light during and outside of blackouts.")]
-    public float flashlightIntensity = 2.0f;
+    public float flashlightIntensity = 4.8f;
     [Tooltip("Range of the flashlight beam.")]
-    public float flashlightRange = 25f;
+    public float flashlightRange = 38f;
     [Tooltip("Outer spot angle of the flashlight.")]
-    public float flashlightSpotAngle = 56f;
+    public float flashlightSpotAngle = 68f;
     [Tooltip("Inner spot angle (crisp core beam).")]
-    public float flashlightInnerAngle = 26f;
-    [Tooltip("Flashlight color — warm halogen tint to contrast the cold building darkness.")]
-    public Color flashlightColor = new Color(1.0f, 0.97f, 0.92f, 1.0f);
+    public float flashlightInnerAngle = 30f;
+    [Tooltip("Flashlight color — cool white for modern tactical flashlight feel.")]
+    public Color flashlightColor = new Color(0.96f, 0.98f, 1.0f, 1.0f);
 
     // ── Debug ─────────────────────────────────────────────────────────────────
     [Header("Debug")]
@@ -121,6 +121,7 @@ public class BlackoutManager : MonoBehaviour
     private static readonly HashSet<string> _protectedLightNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "FlashlightLight",
+        "FlashlightSpillLight",
         "StatusLED",
         "ExitSign_RedLight",
         "PaperGlintLight",
@@ -457,7 +458,9 @@ public class BlackoutManager : MonoBehaviour
         _flashlightLight.spotAngle    = flashlightSpotAngle;
         _flashlightLight.innerSpotAngle = flashlightInnerAngle;
         _flashlightLight.color        = flashlightColor;
-        _flashlightLight.shadows      = LightShadows.None;
+        // Preserve soft shadows set by FlashlightController — only disable during actual blackout events
+        if (FlashlightController.Instance != null && FlashlightController.Instance.enableSoftShadows)
+            _flashlightLight.shadows = LightShadows.Soft;
 
         Debug.Log($"[BlackoutManager] Flashlight tuned — intensity: {flashlightIntensity}, range: {flashlightRange}, spot: {flashlightSpotAngle}°");
     }

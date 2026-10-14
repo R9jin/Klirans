@@ -401,7 +401,7 @@ public class WeepingStudentAI : MonoBehaviour
             if (isFlashlightOn)
             {
                 float angleToEnemy = Vector3.Angle(_playerCam.transform.forward, toHead);
-                float spotAngle = 56.0f; // matches FlashlightController
+                float spotAngle = FlashlightController.Instance != null ? FlashlightController.Instance.outerSpotAngle : 68.0f; // synced to FlashlightController.outerSpotAngle
                 if (angleToEnemy <= (spotAngle * 0.5f + 14.0f) && distToHead <= 28.0f)
                 {
                     return true; // Caught in the flashlight beam!
