@@ -189,6 +189,26 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
                 _dropButton.onClick.AddListener(DropSelectedItem);
             }
         }
+
+        if (_useButton == null)
+        {
+            Transform existing = descPanel.Find("UseItemButton");
+            if (existing != null)
+            {
+                _useButton = existing.GetComponent<Button>();
+                _useButtonText = existing.GetComponentInChildren<Text>();
+            }
+            else
+            {
+                _useButton = CreateButton(descPanel, "UseItemButton", "Eat Sandwich",
+                    anchorMin: new Vector2(0.04f, 0.02f), anchorMax: new Vector2(0.48f, 0.16f),
+                    bgColor: new Color(0.26f, 0.18f, 0.06f, 0.95f),
+                    textColor: new Color(1.0f, 0.92f, 0.65f, 1f),
+                    outlineColor: new Color(0.95f, 0.75f, 0.20f, 0.85f));
+                _useButtonText = _useButton.GetComponentInChildren<Text>();
+                _useButton.onClick.AddListener(UseSelectedItem);
+            }
+        }
     }
 
     private Button CreateButton(Transform parent, string goName, string text,
@@ -263,6 +283,15 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
         return txt;
     }
 
+    private void Update()
+    {
+        // Hotkey [V] to inspect currently selected item in bag
+        if (Input.GetKeyDown(KeyCode.V) && _selectedItem != null && !ItemInspectionViewer3D.IsOpen)
+        {
+            InspectSelectedItem();
+        }
+    }
+
     // ─── Button Actions ──────────────────────────────────────────────
 
     private void InspectSelectedItem()
@@ -294,6 +323,36 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
         {
             InventoryEquipController.Instance.SpawnDroppedItemInWorld(itemToDrop, 1);
         }
+
+        if (_selectedSlot.IsEmpty)
+        {
+            HidePreview();
+        }
+        else
+        {
+            ShowPreview(_selectedSlot.item, _selectedSlot, _selectedContainer);
+        }
+    }
+
+    private void UseSelectedItem()
+    {
+        if (_selectedSlot == null || _selectedSlot.IsEmpty || _selectedSlot.item == null) return;
+
+        InventoryItem item = _selectedSlot.item;
+        float stam = item.staminaChange > 0f ? item.staminaChange : 25f;
+        float anx = item.anxietyChange != 0f ? Mathf.Abs(item.anxietyChange) : 30f;
+
+        HamAndCheeseItem.Consume(anx, stam);
+
+        _selectedSlot.quantity -= 1;
+        if (_selectedSlot.quantity <= 0)
+        {
+            _selectedSlot.Clear();
+        }
+
+        _selectedContainer?.NotifyChanged();
+
+        if (SlotMenu.Instance != null) SlotMenu.Instance.PingVisibility();
 
         if (_selectedSlot.IsEmpty)
         {
@@ -355,6 +414,8 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
     private Button _inspectButton;
     private Button _dropButton;
     private Text _dropButtonText;
+    private Button _useButton;
+    private Text _useButtonText;
     private InventoryItem _selectedItem;
     private InventorySlot _selectedSlot;
     private SlotContainer _selectedContainer;
@@ -400,10 +461,23 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
         }
 
         // Action Buttons
+        bool isConsumable = (item.itemType == InventoryItem.ItemType.Consumable) || 
+                            item.itemName.ToLower().Contains("sandwich") || 
+                            item.itemName.ToLower().Contains("ham");
+        bool canInspect = item.isInspectable || !string.IsNullOrEmpty(item.inspectionText);
+
+        if (Instance._useButton != null)
+        {
+            Instance._useButton.gameObject.SetActive(isConsumable && slot != null);
+            if (Instance._useButtonText != null)
+            {
+                Instance._useButtonText.text = item.itemName.ToLower().Contains("sandwich") ? "Eat Sandwich" : "Consume";
+            }
+        }
+
         if (Instance._inspectButton != null)
         {
-            bool canInspect = item.isInspectable || !string.IsNullOrEmpty(item.inspectionText);
-            Instance._inspectButton.gameObject.SetActive(canInspect);
+            Instance._inspectButton.gameObject.SetActive(canInspect && !isConsumable);
         }
 
         if (Instance._dropButton != null)

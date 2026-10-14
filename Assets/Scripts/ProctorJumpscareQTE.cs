@@ -349,6 +349,12 @@ public class ProctorJumpscareQTE : MonoBehaviour
         Vector3 camBaseLocalPos,
         Action<bool> onComplete)
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            onComplete?.Invoke(true);
+            yield break;
+        }
+
         EnsureUIConstructed();
 
         _isQTEActive = true;

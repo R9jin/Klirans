@@ -15,9 +15,9 @@ MonoBehaviour:
   itemName: Student Handbook & Notes
   description: Official university student handbook. Contains senior student survival
     notes, clearance instructions, and curfew warnings.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: eaa69f70c42471a47bfd39c2157719dc, type: 3}
   itemType: 0
-  itemPrefab: {fileID: 0}
+  itemPrefab: {fileID: 5286950445200204033, guid: cca242bc83451fe4aaa83c371bcdab55, type: 3}
   isStackable: 0
   maxStack: 1
   anxietyChange: 0

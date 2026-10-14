@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7902f9d091be45d4fabc9d5e72f58aeb, type: 3}
   m_Name: Blank_Paper
   m_EditorClassIdentifier: Assembly-CSharp::InventoryItem
-  itemName: Blank Paper
+  itemName: University Clearance Slip
   description: A completed clearance slip assembled from the 4 fragments.
-  icon: {fileID: 21300000, guid: f52a7ff770354ba499d67da18bc26168, type: 3}
+  icon: {fileID: 21300000, guid: 7c92aefcaea911944a574726a30698d9, type: 3}
   itemType: 0
-  itemPrefab: {fileID: 0}
+  itemPrefab: {fileID: 5084006359717043871, guid: ac26a450ebde0b84684a49178da995d2, type: 3}
   isStackable: 0
   maxStack: 1
   anxietyChange: 0

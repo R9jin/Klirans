@@ -40,13 +40,12 @@ public class LockerHideManager : MonoBehaviour
 
     // ── Inspector ────────────────────────────────────────────────────────────
     [Header("Peek Gap Settings")]
-    [Tooltip("Fraction of screen height occupied by each black panel (top + bottom). " +
-             "0.45 = 45% top + 45% bottom → 10% slit in the middle.")]
-    [Range(0.30f, 0.49f)]
-    public float blackPanelFraction = 0.43f;
+    [Tooltip("Fraction of screen height occupied by top and bottom dark metal frames.")]
+    [Range(0.10f, 0.40f)]
+    public float blackPanelFraction = 0.18f;
 
     [Tooltip("FOV of the camera while peeking through the locker gap (narrow slit).")]
-    public float peekFOV = 28f;
+    public float peekFOV = 55f;
 
     [Tooltip("How fast the camera lerps to the peek anchor position.")]
     public float cameraTransitionSpeed = 8f;
@@ -63,7 +62,7 @@ public class LockerHideManager : MonoBehaviour
     public AudioClip heartbeatAudio;
 
     [Range(0f, 1f)]
-    public float heartbeatVolume = 0.85f;
+    public float heartbeatVolume = 0.55f;
 
     // ── Private runtime ──────────────────────────────────────────────────────
     private Camera          _playerCam;
@@ -74,12 +73,11 @@ public class LockerHideManager : MonoBehaviour
     private Vector3    _savedCamLocalPos;
     private Quaternion _savedCamLocalRot;
     private float      _savedFOV;
+    private float      _savedNearClip = 0.3f;
     private Transform  _savedCamParent;
 
     // Peek anchor (the LockerHide sets this)
     private Transform _peekAnchor;
-    private float _peekYaw = 0f;
-    private float _peekPitch = 0f;
 
     // Audio
     private AudioSource _heartbeatSource;
@@ -103,6 +101,10 @@ public class LockerHideManager : MonoBehaviour
             return;
         }
         Instance = this;
+
+        // Ensure generous, crystal-clear hallway view (not narrow 14% slits or 28 FOV)
+        if (blackPanelFraction > 0.15f) blackPanelFraction = 0.12f;
+        if (peekFOV < 50f) peekFOV = 65f;
     }
 
     private void Start()
@@ -135,16 +137,9 @@ public class LockerHideManager : MonoBehaviour
     {
         if (!IsPlayerHidden) return;
 
-        // Smooth camera drift toward peek anchor and allow mouse peering through locker louvers
+        // Smooth camera drift toward peek anchor — locked horizontally and vertically looking forward into the corridor
         if (_peekAnchor != null && _playerCam != null && !_isTransitioning)
         {
-            float mx = Input.GetAxis("Mouse X");
-            float my = Input.GetAxis("Mouse Y");
-            _peekYaw = Mathf.Clamp(_peekYaw + mx * 1.8f, -28f, 28f);
-            _peekPitch = Mathf.Clamp(_peekPitch - my * 1.8f, -10f, 10f);
-
-            Quaternion targetRot = _peekAnchor.rotation * Quaternion.Euler(_peekPitch, _peekYaw, 0f);
-
             _playerCam.transform.position = Vector3.Lerp(
                 _playerCam.transform.position,
                 _peekAnchor.position,
@@ -152,12 +147,12 @@ public class LockerHideManager : MonoBehaviour
             );
             _playerCam.transform.rotation = Quaternion.Slerp(
                 _playerCam.transform.rotation,
-                targetRot,
+                _peekAnchor.rotation,
                 cameraTransitionSpeed * Time.deltaTime
             );
         }
 
-        // Dynamic terror heartbeat: accelerates when enemy AI is outside the locker
+        // Dynamic terror heartbeat: subtle at first, increases with anxiety, surges when enemy stalks close
         if (_heartbeatSource != null && _heartbeatSource.isPlaying)
         {
             float nearestEnemyDist = float.MaxValue;
@@ -171,18 +166,28 @@ public class LockerHideManager : MonoBehaviour
                 float d = Vector3.Distance(_playerCam.transform.position, WeepingStudentAI.ActiveWeepingStudent.transform.position);
                 if (d < nearestEnemyDist) nearestEnemyDist = d;
             }
+            if (SecurityGuardStalkerAI.ActiveStalker != null)
+            {
+                float d = Vector3.Distance(_playerCam.transform.position, SecurityGuardStalkerAI.ActiveStalker.transform.position);
+                if (d < nearestEnemyDist) nearestEnemyDist = d;
+            }
 
-            if (nearestEnemyDist < 12.0f)
-            {
-                float terror = Mathf.Clamp01(1.0f - (nearestEnemyDist / 12.0f));
-                _heartbeatSource.pitch = Mathf.Lerp(1.0f, 1.40f, terror);
-                _heartbeatSource.volume = Mathf.Lerp(heartbeatVolume, 1.0f, terror);
-            }
-            else
-            {
-                _heartbeatSource.pitch = Mathf.MoveTowards(_heartbeatSource.pitch, 1.0f, Time.deltaTime * 0.5f);
-                _heartbeatSource.volume = Mathf.MoveTowards(_heartbeatSource.volume, heartbeatVolume, Time.deltaTime * 0.5f);
-            }
+            float anxietyNorm = (AnxietyManager.Instance != null && AnxietyManager.Instance.maxAnxiety > 0f)
+                ? Mathf.Clamp01(AnxietyManager.Instance.CurrentAnxiety / AnxietyManager.Instance.maxAnxiety)
+                : 0f;
+
+            // Base subtle volume (0.16f) scaling up to 0.55f with player anxiety
+            float baseVol = Mathf.Lerp(0.16f, 0.55f, anxietyNorm);
+            float basePitch = Mathf.Lerp(0.95f, 1.15f, anxietyNorm);
+
+            // Stalking enemy proximity surge (within 16 meters)
+            float enemyProximity = (nearestEnemyDist < 16.0f) ? Mathf.Clamp01(1.0f - (nearestEnemyDist / 16.0f)) : 0f;
+
+            float targetVol = Mathf.Clamp01(baseVol + enemyProximity * 0.55f);
+            float targetPitch = Mathf.Clamp(basePitch + enemyProximity * 0.35f, 0.95f, 1.48f);
+
+            _heartbeatSource.pitch = Mathf.MoveTowards(_heartbeatSource.pitch, targetPitch, Time.deltaTime * 0.8f);
+            _heartbeatSource.volume = Mathf.MoveTowards(_heartbeatSource.volume, targetVol, Time.deltaTime * 0.8f);
         }
 
         // Prevent exit on the same frame player entered (avoids consuming same 'E' key press)
@@ -214,10 +219,24 @@ public class LockerHideManager : MonoBehaviour
             _savedCamLocalPos = _playerCam.transform.localPosition;
             _savedCamLocalRot = _playerCam.transform.localRotation;
             _savedFOV         = _playerCam.fieldOfView;
+            _savedNearClip    = _playerCam.nearClipPlane;
             _savedCamParent   = _playerCam.transform.parent;
+
+            // Tighten near clip plane so camera never clips through locker louvers / door panels
+            _playerCam.nearClipPlane = 0.05f;
 
             // Un-parent camera so we can world-space position it at the peek anchor
             _playerCam.transform.SetParent(null, worldPositionStays: true);
+        }
+
+        // Hide locker mesh renderers so solid locker geometry never blocks the camera from inside
+        if (_currentLocker != null)
+        {
+            var rends = _currentLocker.GetComponentsInChildren<Renderer>();
+            foreach (var r in rends)
+            {
+                if (r != null) r.enabled = false;
+            }
         }
 
         // Freeze player movement and disable character controller so player body does not block NPCs in hallway
@@ -227,9 +246,6 @@ public class LockerHideManager : MonoBehaviour
             var cc = _playerMovement.GetComponent<CharacterController>();
             if (cc != null) cc.enabled = false;
         }
-
-        // Lock cursor remains locked — player can still look left/right a tiny bit
-        // (movement is frozen but mouse is not freed so it feels like peering)
 
         IsPlayerHidden = true;
 
@@ -251,8 +267,6 @@ public class LockerHideManager : MonoBehaviour
     private IEnumerator TransitionIn()
     {
         _isTransitioning = true;
-        _peekYaw = 0f;
-        _peekPitch = 0f;
 
         // Start looping heartbeat sound
         if (_heartbeatSource != null && heartbeatAudio != null)
@@ -261,6 +275,11 @@ public class LockerHideManager : MonoBehaviour
             _heartbeatSource.volume = 0f;
             _heartbeatSource.Play();
         }
+
+        float anxietyNorm = (AnxietyManager.Instance != null && AnxietyManager.Instance.maxAnxiety > 0f)
+            ? Mathf.Clamp01(AnxietyManager.Instance.CurrentAnxiety / AnxietyManager.Instance.maxAnxiety)
+            : 0f;
+        float targetEnterVol = Mathf.Lerp(0.16f, 0.55f, anxietyNorm);
 
         // Fade overlay in and ramp heartbeat volume
         float t = 0f;
@@ -271,7 +290,7 @@ public class LockerHideManager : MonoBehaviour
                 _overlayGroup.alpha = Mathf.Clamp01(t);
 
             if (_heartbeatSource != null)
-                _heartbeatSource.volume = Mathf.Lerp(0f, heartbeatVolume, t);
+                _heartbeatSource.volume = Mathf.Lerp(0f, targetEnterVol, t);
 
             // Move camera toward peek anchor
             if (_playerCam != null && _peekAnchor != null)
@@ -301,7 +320,7 @@ public class LockerHideManager : MonoBehaviour
         }
 
         if (_heartbeatSource != null)
-            _heartbeatSource.volume = heartbeatVolume;
+            _heartbeatSource.volume = targetEnterVol;
 
         SetOverlayVisible(true, instant: true);
         _isTransitioning = false;
@@ -359,6 +378,7 @@ public class LockerHideManager : MonoBehaviour
             _playerCam.transform.localPosition = _savedCamLocalPos;
             _playerCam.transform.localRotation = _savedCamLocalRot;
             _playerCam.fieldOfView             = _savedFOV;
+            _playerCam.nearClipPlane           = _savedNearClip;
         }
 
         // Re-enable movement and character controller
@@ -375,6 +395,16 @@ public class LockerHideManager : MonoBehaviour
             float pitch = _playerCam.transform.localRotation.eulerAngles.x;
             if (pitch > 180f) pitch -= 360f;
             _playerMovement.SyncPitch(pitch);
+        }
+
+        // Restore locker mesh renderers
+        if (_currentLocker != null)
+        {
+            var rends = _currentLocker.GetComponentsInChildren<Renderer>();
+            foreach (var r in rends)
+            {
+                if (r != null) r.enabled = true;
+            }
         }
 
         SetOverlayVisible(false, instant: true);
@@ -414,15 +444,11 @@ public class LockerHideManager : MonoBehaviour
         _overlayGroup.blocksRaycasts = false;
         _overlayGroup.interactable   = false;
 
-        // Interior darkness tint (full screen)
-        _interiorTintImage = CreatePanel(overlayRoot.transform, "LockerTint",
-            new Vector2(0f, 0f), new Vector2(1f, 1f), lockerInteriorTint);
-
-        // Heavy dark metal locker frame:
-        float slitLeft = 0.16f;
-        float slitRight = 0.84f;
-        float slitBottom = blackPanelFraction;
-        float slitTop = 1f - blackPanelFraction;
+        // Wide, clear view of the hallway: 84% width and 64% height
+        float slitLeft = 0.08f;
+        float slitRight = 0.92f;
+        float slitBottom = blackPanelFraction; // 0.18f
+        float slitTop = 1f - blackPanelFraction; // 0.82f
 
         // 1. Left locker door panel
         CreatePanel(overlayRoot.transform, "PeekDoorLeft",
@@ -446,24 +472,21 @@ public class LockerHideManager : MonoBehaviour
             new Color(0.03f, 0.03f, 0.04f, 0.98f));
         _bottomPanel = botImg.GetComponent<RectTransform>();
 
-        // 5. Locker Ventilation Louver Slats (horizontal dark shadows across the vent slit)
-        float midY1 = Mathf.Lerp(slitBottom, slitTop, 0.35f);
-        float midY2 = Mathf.Lerp(slitBottom, slitTop, 0.68f);
+        // Subtle top and bottom louver shadow trim (at outer edges of the slit frame only, never blocking corridor view)
+        CreatePanel(overlayRoot.transform, "LockerSlat_TopTrim",
+            new Vector2(slitLeft, slitTop - 0.012f), new Vector2(slitRight, slitTop),
+            new Color(0.08f, 0.08f, 0.10f, 0.95f));
 
-        CreatePanel(overlayRoot.transform, "LockerSlat_1",
-            new Vector2(slitLeft, midY1 - 0.008f), new Vector2(slitRight, midY1 + 0.008f),
-            new Color(0.08f, 0.08f, 0.10f, 0.92f));
-
-        CreatePanel(overlayRoot.transform, "LockerSlat_2",
-            new Vector2(slitLeft, midY2 - 0.008f), new Vector2(slitRight, midY2 + 0.008f),
-            new Color(0.08f, 0.08f, 0.10f, 0.92f));
+        CreatePanel(overlayRoot.transform, "LockerSlat_BotTrim",
+            new Vector2(slitLeft, slitBottom), new Vector2(slitRight, slitBottom + 0.012f),
+            new Color(0.08f, 0.08f, 0.10f, 0.95f));
 
         // 6. Exit Prompt Badge at bottom of screen
         var promptGO = new GameObject("ExitHintBadge", typeof(RectTransform), typeof(Image), typeof(Outline));
         promptGO.transform.SetParent(overlayRoot.transform, false);
         var promptRT = promptGO.GetComponent<RectTransform>();
-        promptRT.anchorMin = new Vector2(0.5f, 0.08f);
-        promptRT.anchorMax = new Vector2(0.5f, 0.08f);
+        promptRT.anchorMin = new Vector2(0.5f, 0.04f);
+        promptRT.anchorMax = new Vector2(0.5f, 0.04f);
         promptRT.pivot = new Vector2(0.5f, 0.5f);
         promptRT.sizeDelta = new Vector2(240f, 32f);
 
@@ -484,8 +507,9 @@ public class LockerHideManager : MonoBehaviour
 
         var promptText = textGO.GetComponent<Text>();
         promptText.text = "[E] or [F] to Exit Locker";
-        promptText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        promptText.fontSize = 13;
+        var customFont = Resources.Load<Font>("Fonts/Typewriter_Bold");
+        promptText.font = customFont != null ? customFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        promptText.fontSize = 14;
         promptText.alignment = TextAnchor.MiddleCenter;
         promptText.color = new Color(0.95f, 0.92f, 0.88f, 0.95f);
     }

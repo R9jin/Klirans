@@ -25,6 +25,7 @@ public class HamAndCheeseVendorUI : MonoBehaviour
 
     private HamAndCheeseVendor _activeVendor;
     private bool _isOpen = false;
+    private int _openFrame = -1;
 
     public bool IsOpen => _isOpen;
 
@@ -46,6 +47,7 @@ public class HamAndCheeseVendorUI : MonoBehaviour
     private void Update()
     {
         if (!_isOpen) return;
+        if (Time.frameCount == _openFrame) return;
 
         // Keyboard hotkeys: 1 = Buy & Eat, 2 = Buy & Store, Esc or E = Leave
         if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
@@ -67,6 +69,7 @@ public class HamAndCheeseVendorUI : MonoBehaviour
         EnsureUIConstructed();
         _activeVendor = vendor;
         _isOpen = true;
+        _openFrame = Time.frameCount;
 
         if (_panelRoot != null) _panelRoot.SetActive(true);
 

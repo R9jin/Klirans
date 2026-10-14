@@ -17,9 +17,12 @@ MonoBehaviour:
     the library printer tray.
   icon: {fileID: 21300000, guid: 67f3788643e353946ae253eb64f5f1a1, type: 3}
   itemType: 1
-  itemPrefab: {fileID: 0}
+  itemPrefab: {fileID: 1176732649393700814, guid: 4c768fca2f0c82749892cfaa71daefec, type: 3}
   isStackable: 0
   maxStack: 1
   anxietyChange: 0
   staminaChange: 0
   canBeDropped: 0
+  isInspectable: 1
+  inspectionTitle: 
+  inspectionText: 

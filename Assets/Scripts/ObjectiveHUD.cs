@@ -223,13 +223,19 @@ public class ObjectiveHUD : MonoBehaviour
         // Unified large text formatting
         if (titleText != null)
         {
+            string displayTitle = title;
+            if (GameModeManager.IsFreeRoamMode && !displayTitle.StartsWith("[FREE ROAM]"))
+            {
+                displayTitle = $"<color=#1b5e20>[FREE ROAM]</color> {displayTitle}";
+            }
+
             if (string.IsNullOrEmpty(detail))
             {
-                titleText.text = title.ToUpper();
+                titleText.text = displayTitle.ToUpper();
             }
             else
             {
-                titleText.text = $"{title.ToUpper()}\n<size=15><color=#551111>• {detail}</color></size>";
+                titleText.text = $"{displayTitle.ToUpper()}\n<size=15><color=#551111>• {detail}</color></size>";
             }
             titleText.color = new Color(0.06f, 0.04f, 0.04f, 1f);
         }

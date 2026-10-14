@@ -27,7 +27,17 @@ using UnityEngine.UI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class WeepingStudentAI : MonoBehaviour
 {
-    public static WeepingStudentAI ActiveWeepingStudent { get; private set; }
+    private static WeepingStudentAI _activeWeepingStudent;
+    public static WeepingStudentAI ActiveWeepingStudent
+    {
+        get
+        {
+            if (_activeWeepingStudent == null)
+                _activeWeepingStudent = FindAnyObjectByType<WeepingStudentAI>();
+            return _activeWeepingStudent;
+        }
+        private set => _activeWeepingStudent = value;
+    }
 
     public enum WeepingState
     {
@@ -39,33 +49,36 @@ public class WeepingStudentAI : MonoBehaviour
     }
 
     [Header("Current State")]
-    public WeepingState currentState = WeepingState.Inactive;
+    public WeepingState currentState = WeepingState.Stalking;
 
     [Header("Movement & Agility")]
-    [Tooltip("Terrifying pursuit speed when the player is NOT looking.")]
-    public float chaseSpeed = 7.2f;
+    [Tooltip("Terrifying pursuit speed when the player is NOT looking (blistering rush).")]
+    public float chaseSpeed = 8.8f;
 
     [Tooltip("NavMesh agent acceleration (instant surge).")]
-    public float acceleration = 28.0f;
+    public float acceleration = 36.0f;
 
     [Tooltip("Angular turning speed.")]
-    public float angularSpeed = 480.0f;
+    public float angularSpeed = 540.0f;
 
     [Tooltip("Distance at which the Weeping Student catches the player and jumpscares.")]
-    public float catchDistance = 1.35f;
+    public float catchDistance = 1.40f;
 
     [Tooltip("NavMesh stopping distance.")]
     public float stoppingDistance = 0.5f;
 
     [Header("Observation / Weeping Angel Rules")]
-    [Tooltip("If true, requires flashlight illumination in pitch black to freeze, or within close silhouette radius.")]
-    public bool requireFlashlightToFreeze = true;
+    [Tooltip("If true, requires flashlight illumination during blackouts to freeze beyond silhouette radius. If false, freezes unconditionally whenever observed in camera view.")]
+    public bool requireFlashlightToFreeze = false;
 
     [Tooltip("Close range (meters) where the dark silhouette is clearly visible even without flashlight, freezing the enemy.")]
-    public float silhouetteRadius = 2.8f;
+    public float silhouetteRadius = 3.8f;
 
     [Tooltip("How frequently line of sight and camera visibility are tested (seconds).")]
-    public float visionCheckInterval = 0.04f;
+    public float visionCheckInterval = 0.035f;
+
+    [Tooltip("If true, automatically despawns when campus power is restored.")]
+    public bool despawnOnBlackoutEnd = false;
 
     [Header("Assigned Hallway & Floor Limits")]
     public string assignedHallway = "Hallway_1F";
@@ -113,15 +126,27 @@ public class WeepingStudentAI : MonoBehaviour
     private float _footstepTimer = 0f;
     private bool _hasCaughtPlayer = false;
 
+    private Vector3 _lastSeenPlayerPos = Vector3.zero;
+    private float _lostPlayerPatrolTimer = 0f;
+    private Vector3 _lostPlayerWanderTarget;
+
     private int _speedHash;
     private List<Bounds> _cachedRoomBounds = new List<Bounds>();
 
     private void Awake()
     {
-        if (ActiveWeepingStudent != null && ActiveWeepingStudent != this)
+        if (GameModeManager.IsFreeRoamMode)
         {
             Destroy(gameObject);
             return;
+        }
+
+        if (ActiveWeepingStudent != null && ActiveWeepingStudent != this)
+        {
+            if (ActiveWeepingStudent.gameObject != null)
+            {
+                Destroy(ActiveWeepingStudent.gameObject);
+            }
         }
         ActiveWeepingStudent = this;
 
@@ -135,13 +160,27 @@ public class WeepingStudentAI : MonoBehaviour
         FindPlayerReferences();
         FindBones();
         CacheRoomBounds();
+        currentState = WeepingState.Stalking;
     }
 
     private void Start()
     {
-        currentState = WeepingState.Spawning;
-        StartCoroutine(SpawnSequence());
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.enabled = true;
+            _agent.isStopped = false;
+        }
+
+        currentState = WeepingState.Stalking;
+        Debug.Log($"[WeepingStudentAI] Spawned and stalking in {assignedHallway} at {transform.position}");
+
         StartWeepingAudio();
+
+        // Play sudden ominous alert sting
+        if (_audioSource != null && alertStingClip != null)
+        {
+            _audioSource.PlayOneShot(alertStingClip, 0.85f);
+        }
     }
 
     private void StartWeepingAudio()
@@ -161,8 +200,8 @@ public class WeepingStudentAI : MonoBehaviour
         if (currentState == WeepingState.Inactive || currentState == WeepingState.Despawning) return;
         if (currentState == WeepingState.Jumpscare) return;
 
-        // Failsafe: if power is restored by external means, despawn immediately
-        if (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive)
+        // Failsafe: if power is restored by external means, despawn if configured
+        if (despawnOnBlackoutEnd && BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive)
         {
             Despawn();
             return;
@@ -283,27 +322,6 @@ public class WeepingStudentAI : MonoBehaviour
         }
     }
 
-    private IEnumerator SpawnSequence()
-    {
-        yield return null;
-
-        if (_agent != null && _agent.isOnNavMesh)
-        {
-            _agent.enabled = true;
-            _agent.isStopped = false;
-        }
-
-        currentState = WeepingState.Stalking;
-        Debug.Log($"[WeepingStudentAI] Spawned and stalking in {assignedHallway} at {transform.position}");
-
-        StartWeepingAudio();
-
-        // Play sudden ominous alert sting
-        if (_audioSource != null && alertStingClip != null)
-        {
-            _audioSource.PlayOneShot(alertStingClip, 0.85f);
-        }
-    }
 
     // ── Vision / Observation Detection (Weeping Angel Rules) ─────────────────
 
@@ -328,6 +346,13 @@ public class WeepingStudentAI : MonoBehaviour
     /// </summary>
     public bool CheckIfPlayerIsLooking()
     {
+        if (LockerHideManager.IsPlayerHidden)
+        {
+            // Player is safely hidden inside the locker peering through vent louvers.
+            // Entity does not freeze from peep slit, allowing it to pace and wander past.
+            return false;
+        }
+
         if (_playerCam == null || _playerTransform == null) return false;
 
         Vector3 eyePos = _playerCam.transform.position;
@@ -352,41 +377,43 @@ public class WeepingStudentAI : MonoBehaviour
         if (!headVisible && !chestVisible) return false;
 
         // 3. Darkness / Flashlight Visibility Rule:
-        // In pitch black blackout:
-        // A) If within close silhouette radius (<= 2.8m), always visible!
-        if (distToHead <= silhouetteRadius)
+        bool isBlackout = (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive);
+        if (requireFlashlightToFreeze && isBlackout)
         {
-            return true;
-        }
-
-        // B) If Flashlight is ON, check if within illumination cone
-        bool isFlashlightOn = (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn);
-        if (!isFlashlightOn)
-        {
-            var fl = GameObject.Find("FlashlightLight");
-            if (fl != null)
+            // Close silhouette is visible in the dark (within silhouetteRadius)
+            if (distToHead <= silhouetteRadius)
             {
-                var l = fl.GetComponent<Light>();
-                if (l != null && l.enabled && l.intensity > 0.05f) isFlashlightOn = true;
+                return true;
             }
-        }
 
-        if (isFlashlightOn)
-        {
-            float angleToEnemy = Vector3.Angle(_playerCam.transform.forward, toHead);
-            float spotAngle = 56.0f; // matches FlashlightController
-            if (angleToEnemy <= (spotAngle * 0.5f + 12.0f) && distToHead <= 25.0f)
+            // In pitch darkness, requires flashlight beam illumination
+            bool isFlashlightOn = (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn);
+            if (!isFlashlightOn)
             {
-                return true; // Caught in the flashlight beam!
+                var fl = GameObject.Find("FlashlightLight");
+                if (fl != null)
+                {
+                    var l = fl.GetComponent<Light>();
+                    if (l != null && l.enabled && l.intensity > 0.05f) isFlashlightOn = true;
+                }
             }
-        }
 
-        // C) In pitch darkness without flashlight and beyond close silhouette: cannot see
-        if (requireFlashlightToFreeze)
-        {
+            if (isFlashlightOn)
+            {
+                float angleToEnemy = Vector3.Angle(_playerCam.transform.forward, toHead);
+                float spotAngle = FlashlightController.Instance != null ? FlashlightController.Instance.outerSpotAngle : 68.0f; // synced to FlashlightController.outerSpotAngle
+                if (angleToEnemy <= (spotAngle * 0.5f + 14.0f) && distToHead <= 28.0f)
+                {
+                    return true; // Caught in the flashlight beam!
+                }
+            }
+
             return false;
         }
 
+        // Pure Weeping Angel / SCP-173 rule:
+        // When in camera viewport and not blocked by walls or closed doors:
+        // Clear eye contact freezes the Weeping Student instantly!
         return true;
     }
 
@@ -422,6 +449,11 @@ public class WeepingStudentAI : MonoBehaviour
         bool playerHidden = (LockerHideManager.IsPlayerHidden);
         bool playerInRoom = IsPositionInsideAnyRoom(_playerTransform.position);
 
+        if (!playerHidden)
+        {
+            _lastSeenPlayerPos = _playerTransform.position;
+        }
+
         // Catch check: Weeping Angel ONLY catches the player when NOT observed!
         // When observed, it is a frozen stone statue and cannot attack!
         if (!_isObserved && !playerHidden && !playerInRoom && distToPlayer <= catchDistance && dy < 1.9f)
@@ -453,24 +485,62 @@ public class WeepingStudentAI : MonoBehaviour
         }
         else
         {
-            // ── CHARGING (Weeping Angel Movement Mode) ───────────────────────
-            // Player is not looking! Aggressively surge toward player!
-            if (_agent != null && _agent.isOnNavMesh)
+            if (playerHidden)
             {
-                _agent.isStopped = false;
-                _agent.speed = chaseSpeed;
+                // ── SEARCHING LOST STUDENT (Locker Hiding Mode) ───────────────
+                // Player ducked into a locker! Entity searches the corridor near where the student was last seen.
+                if (_agent != null && _agent.isOnNavMesh)
+                {
+                    _agent.isStopped = false;
+                    _agent.speed = 2.4f; // Slower eerie pacing search speed
 
-                Vector3 targetPos = GetHallwayTarget(_playerTransform.position);
-                _agent.SetDestination(targetPos);
+                    _lostPlayerPatrolTimer -= Time.deltaTime;
+                    if (_lostPlayerPatrolTimer <= 0f || _agent.remainingDistance < 0.6f)
+                    {
+                        _lostPlayerPatrolTimer = UnityEngine.Random.Range(2.5f, 5.0f);
+                        float centerZ = (_lastSeenPlayerPos != Vector3.zero) ? _lastSeenPlayerPos.z : transform.position.z;
+                        float offsetZ = UnityEngine.Random.Range(-4.5f, 4.5f);
+                        float targetZ = Mathf.Clamp(centerZ + offsetZ, hallwayMinZ + 2f, hallwayMaxZ - 2f);
+                        float targetX = hallwayCenterX + UnityEngine.Random.Range(-hallwayHalfWidth * 0.35f, hallwayHalfWidth * 0.35f);
+                        Vector3 rawTarget = new Vector3(targetX, transform.position.y, targetZ);
+                        NavMeshHit hit;
+                        if (NavMesh.SamplePosition(rawTarget, out hit, 3.0f, NavMesh.AllAreas))
+                        {
+                            _lostPlayerWanderTarget = hit.position;
+                            _agent.SetDestination(_lostPlayerWanderTarget);
+                        }
+                    }
+                }
+
+                if (_animator != null)
+                {
+                    _animator.speed = 1.0f;
+                    _animator.SetFloat(_speedHash, 1.0f); // Walking pace while searching
+                }
+
+                UpdateFootstepAudio();
             }
-
-            if (_animator != null)
+            else
             {
-                _animator.speed = 1.35f; // Rapid terrifying pursuit motion
-                _animator.SetFloat(_speedHash, 2.0f); // Full running motion
-            }
+                // ── CHARGING (Weeping Angel Movement Mode) ───────────────────────
+                // Player is not looking! Aggressively surge toward player!
+                if (_agent != null && _agent.isOnNavMesh)
+                {
+                    _agent.isStopped = false;
+                    _agent.speed = chaseSpeed;
 
-            UpdateFootstepAudio();
+                    Vector3 targetPos = GetHallwayTarget(_playerTransform.position);
+                    _agent.SetDestination(targetPos);
+                }
+
+                if (_animator != null)
+                {
+                    _animator.speed = 1.35f; // Rapid terrifying pursuit motion
+                    _animator.SetFloat(_speedHash, 2.0f); // Full running motion
+                }
+
+                UpdateFootstepAudio();
+            }
         }
 
         // Dynamically ensure 3D weeping audio is active and modulate volume/pitch

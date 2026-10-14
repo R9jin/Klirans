@@ -61,6 +61,15 @@ public class PaperReamPickup : MonoBehaviour, IInteractable
 
         if (added)
         {
+            var highlight = GetComponent<ItemVisualHighlight>() ?? GetComponentInChildren<ItemVisualHighlight>();
+            if (highlight != null) highlight.OnPickedUp();
+
+            var lights = GetComponentsInChildren<Light>(true);
+            foreach (var l in lights) l.enabled = false;
+
+            var renderers = GetComponentsInChildren<Renderer>(true);
+            foreach (var r in renderers) r.enabled = false;
+
             if (pickupSound != null)
             {
                 AudioSource.PlayClipAtPoint(pickupSound, transform.position, 1.0f);

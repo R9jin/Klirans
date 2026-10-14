@@ -35,13 +35,13 @@ public class InventoryEquipController : MonoBehaviour
     public KeyCode dropKey = KeyCode.G;
 
     [Tooltip("How far in front of the player the dropped item spawns (metres).")]
-    public float dropForwardOffset = 0.8f;
+    public float dropForwardOffset = 0.40f;
 
     [Tooltip("Upward force applied to dropped items so they arc slightly before landing.")]
-    public float dropUpwardForce = 1.5f;
+    public float dropUpwardForce = 0.20f;
 
     [Tooltip("Forward force applied to dropped items.")]
-    public float dropForwardForce = 2.0f;
+    public float dropForwardForce = 0.45f;
 
     // Currently active hotkey slot index (-1 if none equipped)
     private int activeSlotIndex = -1;
@@ -98,6 +98,7 @@ public class InventoryEquipController : MonoBehaviour
     {
         ValidateActiveEquippedSlot();
         HandleHotkeyInput();
+        HandleItemUseInput();
         HandleDropInput();
         UpdateViewmodelPosition();
     }
@@ -145,6 +146,43 @@ public class InventoryEquipController : MonoBehaviour
             int current = (activeSlotIndex >= 0) ? activeSlotIndex : 0;
             int next = (scroll < 0f) ? (current + 1) % 6 : (current - 1 + 6) % 6;
             SelectSlot(next);
+        }
+    }
+
+    /// <summary>
+    /// Handles using or consuming the currently equipped item (e.g. eating Ham & Cheese Sandwich on Left Click or [F]).
+    /// </summary>
+    private void HandleItemUseInput()
+    {
+        if (activeSlotIndex < 0) return;
+        if (PauseMenu.GameIsPaused || ItemInspectionModal.IsOpen || LockerHideManager.IsPlayerHidden) return;
+        if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return;
+
+        InventoryManager inventory = InventoryManager.Instance;
+        if (inventory == null || activeSlotIndex >= inventory.Slots.Count) return;
+
+        InventorySlot slot = inventory.Slots[activeSlotIndex];
+        if (slot == null || slot.IsEmpty || slot.item == null) return;
+
+        // Press [V] to inspect currently equipped hotbar item in 3D
+        if (Input.GetKeyDown(KeyCode.V) && !ItemInspectionViewer3D.IsOpen)
+        {
+            ItemInspectionViewer3D.Inspect(slot.item);
+            return;
+        }
+
+        // Check if held item is Ham & Cheese Sandwich
+        string nameLower = slot.item.itemName.ToLower();
+        if (nameLower.Contains("ham") && nameLower.Contains("cheese"))
+        {
+            if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.F))
+            {
+                Debug.Log("[InventoryEquipController] Player consumed held Ham & Cheese Sandwich!");
+                HamAndCheeseItem.Consume(30f, 25f);
+                inventory.RemoveItem(slot.item, 1);
+                SlotMenu.Instance?.PingVisibility();
+                if (slot.IsEmpty) UnequipCurrentItem();
+            }
         }
     }
 
@@ -239,6 +277,21 @@ public class InventoryEquipController : MonoBehaviour
             foreach (var col in colliders)
             {
                 if (col != null) Destroy(col);
+            }
+
+            // Strip ItemVisualHighlight components and glint lights from held viewmodel
+            ItemVisualHighlight[] highlights = currentEquippedInstance.GetComponentsInChildren<ItemVisualHighlight>(true);
+            foreach (var h in highlights)
+            {
+                if (h != null) Destroy(h);
+            }
+
+            foreach (Transform child in currentEquippedInstance.GetComponentsInChildren<Transform>(true))
+            {
+                if (child.name.Contains("ItemGlint") || child.name.Contains("Glint"))
+                {
+                    Destroy(child.gameObject);
+                }
             }
 
             Rigidbody rb = currentEquippedInstance.GetComponent<Rigidbody>();
@@ -431,25 +484,27 @@ public class InventoryEquipController : MonoBehaviour
                 }
             }
 
-            // Ensure a solid primitive collider on root
+            // Ensure a solid box collider on root (avoids rolling like a ball)
             var rootCol = dropped.GetComponent<Collider>();
             if (rootCol == null)
             {
-                var sphere = dropped.AddComponent<SphereCollider>();
-                sphere.radius = 0.16f;
+                var box = dropped.AddComponent<BoxCollider>();
+                box.size = new Vector3(0.24f, 0.12f, 0.28f);
             }
 
-            // Rigidbody with continuous collision detection
+            // Rigidbody with continuous collision detection and strong motion damping
             Rigidbody rb = dropped.GetComponent<Rigidbody>();
             if (rb == null) rb = dropped.AddComponent<Rigidbody>();
             rb.isKinematic = false;
-            rb.mass = 0.5f;
+            rb.mass = 0.8f;
+            rb.linearDamping = 3.0f;
+            rb.angularDamping = 6.0f;
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-            // Apply a gentle arc throw
+            // Gentle drop onto the floor in front of player
             rb.linearVelocity = forward * dropForwardForce + Vector3.up * dropUpwardForce;
-            rb.angularVelocity = Random.insideUnitSphere * 3f;
+            rb.angularVelocity = Vector3.zero;
 
             // Attach DroppedItemFailsafe to guarantee it never drops through the map
             var failsafe = dropped.GetComponent<DroppedItemFailsafe>();

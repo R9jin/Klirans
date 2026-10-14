@@ -11,6 +11,7 @@ public class MainMenuController : MonoBehaviour
     public GameObject mainButtonsPanel;
     public GameObject settingsPanel;
     public GameObject creditsPanel;
+    public Button freeRoamButton;
 
     [Header("Headphone Notice")]
     public GameObject headphoneNoticePanel;
@@ -144,6 +145,18 @@ public class MainMenuController : MonoBehaviour
         // Initial panel state
         if (settingsPanel != null) settingsPanel.SetActive(false);
         if (creditsPanel != null) creditsPanel.SetActive(false);
+
+        // Hook up Free Roam button if present
+        if (freeRoamButton == null && mainButtonsPanel != null)
+        {
+            var btnTrans = mainButtonsPanel.transform.Find("Btn_FreeRoam");
+            if (btnTrans != null) freeRoamButton = btnTrans.GetComponent<Button>();
+        }
+        if (freeRoamButton != null)
+        {
+            freeRoamButton.onClick.RemoveListener(PlayFreeRoam);
+            freeRoamButton.onClick.AddListener(PlayFreeRoam);
+        }
 
         // Locate CanvasGroup on MainMenu_UI
         var canvas = GameObject.Find("Canvas");
@@ -322,7 +335,16 @@ public class MainMenuController : MonoBehaviour
     public void PlayGame()
     {
         PlayClickSFX();
-        Debug.Log("[MainMenuController] Starting game -> SampleScene (via LoadingScreen)");
+        GameModeManager.SetFreeRoamMode(false);
+        Debug.Log("[MainMenuController] Starting game -> Standard Survival Horror Mode (SampleScene)");
+        LoadingScreen.LoadScene("SampleScene");
+    }
+
+    public void PlayFreeRoam()
+    {
+        PlayClickSFX();
+        GameModeManager.SetFreeRoamMode(true);
+        Debug.Log("[MainMenuController] Starting game -> Free Roam Peaceful Exploration Mode (SampleScene)");
         LoadingScreen.LoadScene("SampleScene");
     }
 

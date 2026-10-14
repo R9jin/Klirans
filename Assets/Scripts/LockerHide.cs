@@ -42,6 +42,11 @@ public class LockerHide : MonoBehaviour, IInteractable
     [Tooltip("Sound played when trying to open a locked locker without a key.")]
     public AudioClip lockedRattleAudio;
 
+    [Header("Locker Rewards / Quest Items")]
+    [Tooltip("Optional quest item stored inside this locker (e.g. Executive Seal Stamp in 2F Faculty Locker).")]
+    public InventoryItem storedRewardItem;
+
+    private bool _hasRewardBeenClaimed = false;
     private AudioSource _audioSource;
 
     private void Awake()
@@ -61,6 +66,10 @@ public class LockerHide : MonoBehaviour, IInteractable
             unlockAudio = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/yodguard-door-opening-slowly-1-535465.mp3");
         if (lockedRattleAudio == null)
             lockedRattleAudio = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/door_closing.mp3");
+        if (storedRewardItem == null && lockerLabel != null && (lockerLabel.Contains("2F") || lockerLabel.IndexOf("CAB-04", System.StringComparison.OrdinalIgnoreCase) >= 0))
+        {
+            storedRewardItem = UnityEditor.AssetDatabase.LoadAssetAtPath<InventoryItem>("Assets/Items/Executive_Seal_Stamp.asset");
+        }
 #endif
     }
 
@@ -140,10 +149,16 @@ public class LockerHide : MonoBehaviour, IInteractable
         if (isLocked)
         {
             bool hasKey = HasRequiredKey();
-            return hasKey ? $"[E] Unlock {lockerLabel} with Key" : $"[Locked {lockerLabel}] (Requires Locker Key)";
+            bool knowsCode = ItemInspectionViewer3D.DiscoveredClueIDs.Contains("LockerKeyCode");
+
+            if (hasKey)
+            {
+                return knowsCode ? $"[E] Buksan ang {lockerLabel} (Code 7-3-2)" : $"[E] Buksan ang {lockerLabel} gamit ang Susi";
+            }
+            return knowsCode ? $"[{lockerLabel}] (Naka-lock - Kailangan ang Susi na may Code 7-3-2)" : $"[{lockerLabel}] (Naka-lock - Kailangan ng Locker Key)";
         }
 
-        return $"[E] Hide in {lockerLabel}";
+        return $"[E] Magtago sa {lockerLabel}";
     }
 
     public void Interact()
@@ -170,6 +185,27 @@ public class LockerHide : MonoBehaviour, IInteractable
                 }
 
                 Debug.Log($"[LockerHide] Unlocked {lockerLabel} with Locker Key!");
+
+                // Check for stored quest item reward (e.g. Executive Seal Stamp in 2F Faculty Locker)
+                if (storedRewardItem != null && !_hasRewardBeenClaimed)
+                {
+                    _hasRewardBeenClaimed = true;
+                    bool added = false;
+                    if (InventoryManager.Instance != null) added = InventoryManager.Instance.AddItem(storedRewardItem, 1);
+                    if (!added && StorageManager.Instance != null) added = StorageManager.Instance.AddItem(storedRewardItem, 1);
+
+                    // Open 3D inspection viewer for the newly discovered item!
+                    ItemInspectionViewer3D.Inspect(storedRewardItem);
+
+                    if (ObjectiveHUD.Instance != null)
+                    {
+                        ObjectiveHUD.Instance.SetObjective(
+                            "Nakuha ang Executive Seal Stamp!",
+                            "Suriin ang ilalim ng stamp gamit ang 3D inspection para makita ang opisyal na EVP seal code."
+                        );
+                    }
+                    return; // Don't hide inside locker on the frame of inspecting the reward
+                }
                 // Continue execution below to immediately enter the unlocked locker
             }
             else

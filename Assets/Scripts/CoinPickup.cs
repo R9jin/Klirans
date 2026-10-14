@@ -187,7 +187,13 @@ public class CoinPickup : MonoBehaviour, IInteractable
             r.enabled = active;
         }
 
-        var highlight = GetComponent<ItemVisualHighlight>();
+        var lights = GetComponentsInChildren<Light>(true);
+        foreach (var l in lights)
+        {
+            l.enabled = active;
+        }
+
+        var highlight = GetComponent<ItemVisualHighlight>() ?? GetComponentInChildren<ItemVisualHighlight>();
         if (highlight != null) highlight.SetHighlightVisible(active);
     }
 

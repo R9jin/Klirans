@@ -527,7 +527,7 @@ public class NPCDialogueSystem : MonoBehaviour
         promptRt.offsetMax = Vector2.zero;
 
         _promptIndicator = promptGO.GetComponent<Text>() ?? promptGO.AddComponent<Text>();
-        _promptIndicator.text = "▼ [E / Space: Continue]";
+        _promptIndicator.text = "▼ [E / Space: Ituloy]";
         _promptIndicator.font = typewriterFont;
         _promptIndicator.fontSize = 15;
         _promptIndicator.fontStyle = FontStyle.Bold;

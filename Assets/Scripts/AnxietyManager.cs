@@ -55,6 +55,7 @@ public class AnxietyManager : MonoBehaviour
     /// </summary>
     public void AddAnxiety(float amount)
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         if (IsGameOver) return;
         if (amount <= 0f) return;
 
@@ -66,6 +67,7 @@ public class AnxietyManager : MonoBehaviour
     /// </summary>
     public void ChangeAnxiety(float delta)
     {
+        if (GameModeManager.IsFreeRoamMode && delta > 0f) return;
         if (IsGameOver) return;
         SetAnxiety(currentAnxiety + delta);
     }
@@ -76,6 +78,13 @@ public class AnxietyManager : MonoBehaviour
     /// </summary>
     public void SetAnxiety(float newValue)
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            currentAnxiety = 0f;
+            NotifyAnxietyChanged();
+            return;
+        }
+
         if (IsGameOver) return;
 
         float clamped = Mathf.Clamp(newValue, 0f, maxAnxiety);

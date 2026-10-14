@@ -43,7 +43,10 @@ namespace Klirans.Environment
                 TriggerDiscoveredLockdownObjective();
             }
 
-            if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)
+            bool canEscape = (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)
+                || (SecurityGuardEndgameManager.Instance != null && SecurityGuardEndgameManager.Instance.isEndgameActive);
+
+            if (canEscape)
             {
                 return "Press E to Exit Campus (Clearance Validated)";
             }
@@ -61,8 +64,16 @@ namespace Klirans.Environment
         {
             if (_isEscaping) return;
 
+            bool canEscape = (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)
+                || (SecurityGuardEndgameManager.Instance != null && SecurityGuardEndgameManager.Instance.isEndgameActive);
+
+            if (canEscape)
+            {
+                StartCoroutine(EscapeRoutine());
+                return;
+            }
+
             bool isFullyClear = ClearanceManager.Instance != null && ClearanceManager.Instance.IsFullyClear();
-            bool isSubmitted = ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted;
 
             if (!isFullyClear)
             {
@@ -76,24 +87,19 @@ namespace Klirans.Environment
                 return;
             }
 
-            if (!isSubmitted)
+            // Fully clear but not submitted yet
+            if (exitLockedSound != null && _audioSource != null)
             {
-                if (exitLockedSound != null && _audioSource != null)
-                {
-                    _audioSource.PlayOneShot(exitLockedSound);
-                }
-
-                if (ObjectiveHUD.Instance != null)
-                {
-                    ObjectiveHUD.Instance.SetObjective(
-                        "Submit Clearance Slip (6/6)",
-                        "All 6 department signatures gathered. Return to the University Registrar in Room 104 on the ground floor to authorize gate release."
-                    );
-                }
-                return;
+                _audioSource.PlayOneShot(exitLockedSound);
             }
 
-            StartCoroutine(EscapeRoutine());
+            if (ObjectiveHUD.Instance != null)
+            {
+                ObjectiveHUD.Instance.SetObjective(
+                    "Submit Clearance Slip (6/6)",
+                    "All 6 department signatures gathered. Return to the University Registrar in Room 104 on the ground floor to authorize gate release."
+                );
+            }
         }
 
         private void OnTriggerEnter(Collider other)
@@ -102,7 +108,10 @@ namespace Klirans.Environment
 
             if (other.CompareTag("Player") || other.GetComponent<CharacterController>() != null)
             {
-                if (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)
+                bool canEscape = (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)
+                    || (SecurityGuardEndgameManager.Instance != null && SecurityGuardEndgameManager.Instance.isEndgameActive);
+
+                if (canEscape)
                 {
                     StartCoroutine(EscapeRoutine());
                 }

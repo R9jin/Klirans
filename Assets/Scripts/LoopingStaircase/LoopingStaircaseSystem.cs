@@ -45,23 +45,31 @@ public class LoopingStaircaseSystem : MonoBehaviour
 
         // 1F → 2F (going up)
         new StaircaseConnection {
-            stairwellID = "MainStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "MainStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 0.75f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 1, weight = 0.25f }
+            }
         },
         // 2F → 3F (going up)
         new StaircaseConnection {
-            stairwellID = "MainStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "MainStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 0.70f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 1, weight = 0.30f }
+            }
         },
         // 3F → 2F (going down)
         new StaircaseConnection {
-            stairwellID = "MainStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "MainStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 0.70f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 3, weight = 0.30f }
+            }
         },
         // 2F → 1F (going down)
         new StaircaseConnection {
-            stairwellID = "MainStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "MainStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 0.75f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 3, weight = 0.25f }
+            }
         },
 
         // ─────────────────────────────────────────────────────────────────
@@ -69,20 +77,28 @@ public class LoopingStaircaseSystem : MonoBehaviour
         // ─────────────────────────────────────────────────────────────────
 
         new StaircaseConnection {
-            stairwellID = "RightStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "RightStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 0.75f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 1, weight = 0.25f }
+            }
         },
         new StaircaseConnection {
-            stairwellID = "RightStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "RightStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 0.70f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 1, weight = 0.30f }
+            }
         },
         new StaircaseConnection {
-            stairwellID = "RightStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "RightStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 0.70f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 3, weight = 0.30f }
+            }
         },
         new StaircaseConnection {
-            stairwellID = "RightStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "RightStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 0.75f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 3, weight = 0.25f }
+            }
         },
 
         // ─────────────────────────────────────────────────────────────────
@@ -90,20 +106,28 @@ public class LoopingStaircaseSystem : MonoBehaviour
         // ─────────────────────────────────────────────────────────────────
 
         new StaircaseConnection {
-            stairwellID = "LeftStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "LeftStairs", fromFloor = 1, goingUp = true, normalDestination = 2, normalProbability = 0.75f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 1, weight = 0.25f }
+            }
         },
         new StaircaseConnection {
-            stairwellID = "LeftStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "LeftStairs", fromFloor = 2, goingUp = true, normalDestination = 3, normalProbability = 0.70f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 1, weight = 0.30f }
+            }
         },
         new StaircaseConnection {
-            stairwellID = "LeftStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "LeftStairs", fromFloor = 3, goingUp = false, normalDestination = 2, normalProbability = 0.70f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 3, weight = 0.30f }
+            }
         },
         new StaircaseConnection {
-            stairwellID = "LeftStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0]
+            stairwellID = "LeftStairs", fromFloor = 2, goingUp = false, normalDestination = 1, normalProbability = 0.75f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 3, weight = 0.25f }
+            }
         },
         
         // ─────────────────────────────────────────────────────────────────
@@ -129,7 +153,7 @@ public class LoopingStaircaseSystem : MonoBehaviour
     [Tooltip("Minimum seconds between looping transitions. Prevents the player from " +
              "getting trapped in rapid-fire loops.")]
     [Range(2f, 30f)]
-    public float transitionCooldown = 8f;
+    public float transitionCooldown = 10f;
 
     [Tooltip("If true, the very first stair traversal after scene load is always the " +
              "normal destination, giving the player time to learn the layout.")]
@@ -216,6 +240,19 @@ public class LoopingStaircaseSystem : MonoBehaviour
         }
     }
 
+    private Vector3 lastPlayerPos;
+    private float verticalDeltaSmoothed = 0f;
+
+    private void Update()
+    {
+        if (playerObject != null)
+        {
+            float dy = playerObject.transform.position.y - lastPlayerPos.y;
+            verticalDeltaSmoothed = Mathf.Lerp(verticalDeltaSmoothed, dy, Time.deltaTime * 12f);
+            lastPlayerPos = playerObject.transform.position;
+        }
+    }
+
     /// <summary>
     /// Programmatically creates a fullscreen black Canvas + Image that sits
     /// in front of the camera, used as the blink overlay.
@@ -259,6 +296,8 @@ public class LoopingStaircaseSystem : MonoBehaviour
     public void TriggerForcedLoop(string stairwellID, int fromFloor, int destinationFloor)
     {
         if (transitionInProgress) return;
+        if (spawnMap == null) BuildLookupTables();
+        if (playerObject == null) AutoFindReferences();
 
         // Prefer the ArrivingUp spawn (player was going up when caught by boundary)
         FloorSpawnPoint spawn = null;
@@ -273,7 +312,18 @@ public class LoopingStaircaseSystem : MonoBehaviour
         }
 
         Debug.Log($"[LoopingStaircase] 🚨 BOUNDARY FORCED LOOP: {stairwellID} F{fromFloor}→F{destinationFloor}");
-        StartCoroutine(ExecuteSeamlessTransition(spawn, stairwellID, fromFloor, destinationFloor));
+        if (Application.isPlaying)
+        {
+            StartCoroutine(ExecuteSeamlessTransition(spawn, stairwellID, fromFloor, destinationFloor));
+        }
+        else
+        {
+            // Direct editor execution for testing
+            CharacterController cc = playerObject != null ? playerObject.GetComponent<CharacterController>() : null;
+            float yaw = playerObject != null ? playerObject.transform.eulerAngles.y : 0f;
+            float pitch = playerCamera != null ? playerCamera.transform.localEulerAngles.x : 0f;
+            PerformTeleport(cc, yaw, pitch, stairwellID, fromFloor, destinationFloor, spawn);
+        }
     }
 
     /// <summary>
@@ -283,18 +333,24 @@ public class LoopingStaircaseSystem : MonoBehaviour
     public void OnPlayerEnteredStairTrigger(string stairwellID, int fromFloor, GameObject player)
     {
         if (transitionInProgress) return;
+        if (connectionMap == null || spawnMap == null) BuildLookupTables();
+        if (playerObject == null) AutoFindReferences();
 
-        // ── Detect travel direction via vertical velocity ─────────────────
+        // ── Detect travel direction via smoothed vertical displacement & CC velocity ──
         CharacterController cc = player.GetComponent<CharacterController>();
         bool goingUp = true; // default assumption
 
-        if (cc != null)
+        if (Mathf.Abs(verticalDeltaSmoothed) > 0.005f)
         {
-            float vertVel = cc.velocity.y;
-            if (Mathf.Abs(vertVel) > 0.2f)
-                goingUp = vertVel > 0f;
-            else
-                goingUp = (fromFloor == 1 || fromFloor == 2);
+            goingUp = verticalDeltaSmoothed > 0f;
+        }
+        else if (cc != null && Mathf.Abs(cc.velocity.y) > 0.2f)
+        {
+            goingUp = cc.velocity.y > 0f;
+        }
+        else
+        {
+            goingUp = (fromFloor == 1 || fromFloor == 2);
         }
 
         // Look up the connection rule (direction-aware)
@@ -434,17 +490,12 @@ public class LoopingStaircaseSystem : MonoBehaviour
         if (Mathf.Abs(yDelta) > 0.1f)
         {
             Vector3 testPos = playerObject.transform.position + new Vector3(0f, yDelta, 0f);
-            Vector3 p1 = testPos + Vector3.up * 0.20f;
-            Vector3 p2 = testPos + Vector3.up * 1.70f;
-            if (Physics.OverlapCapsule(p1, p2, 0.19f, ~0, QueryTriggerInteraction.Ignore).Length == 0)
-            {
-                playerObject.transform.position = testPos;
-                playerObject.transform.rotation = Quaternion.Euler(0f, savedPlayerYaw, 0f);
-                usedRelative = true;
-            }
+            playerObject.transform.position = testPos;
+            playerObject.transform.rotation = Quaternion.Euler(0f, savedPlayerYaw, 0f);
+            usedRelative = true;
         }
 
-        // Safe Fallback: Move to verified open hallway landing spawn point
+        // Safe Fallback: Move to verified open hallway landing spawn point if relative shift not possible
         if (!usedRelative && fallbackSpawn != null)
         {
             playerObject.transform.position = fallbackSpawn.transform.position;
@@ -460,6 +511,12 @@ public class LoopingStaircaseSystem : MonoBehaviour
         }
 
         if (cc != null) cc.enabled = true;
+
+        // Instantly synchronize dummy replicator on active floor transition
+        if (StaircaseDummyReplicator.Instance != null)
+        {
+            StaircaseDummyReplicator.Instance.NotifyTeleport(fromFloor, toFloor);
+        }
     }
 
     private float GetVerticalFloorOffset(string stairwellID, int fromFloor, int toFloor)

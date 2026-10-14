@@ -264,31 +264,64 @@ public static class DeployLockersAndKeysSystem
             f1LockersGO = f1LockersT.gameObject;
         }
 
-        if (f1LockersGO.transform.childCount > 0)
+        // Clean out any old/illogical lockers on 1F
+        while (f1LockersGO.transform.childCount > 0)
         {
-            Debug.Log("[DeployLockersAndKeysSystem] 1stFloor Lockers already exist (" + f1LockersGO.transform.childCount + " children).");
+            Object.DestroyImmediate(f1LockersGO.transform.GetChild(0).gameObject);
+        }
+
+        GameObject f2Template = GameObject.Find("2ndFloor/Lockers/Locker_West_34.2") 
+            ?? GameObject.Find("2ndFloor/Lockers")?.transform.GetChild(0).gameObject;
+        if (f2Template == null)
+        {
+            Debug.LogError("[DeployLockersAndKeysSystem] 2ndFloor locker template not found!");
             return;
         }
 
-        GameObject f2LockersGO = GameObject.Find("2ndFloor/Lockers");
-        if (f2LockersGO == null)
+        // Logical solid-wall placements on 1stFloor (never blocking windows, counters, or doors):
+        var layout1F = new (string name, Vector3 pos, Quaternion rot)[]
         {
-            Debug.LogError("[DeployLockersAndKeysSystem] 2ndFloor/Lockers not found to copy from!");
-            return;
+            // Bank 1: South West solid wall between Room 101 and Room 103 (Z = -4.5 to -1.5)
+            ("Locker_West_-3.5", new Vector3(-85.77f, 3.10f, -3.50f), Quaternion.Euler(0f, 180f, 0f)),
+            ("Locker_West_-2.7", new Vector3(-85.77f, 3.10f, -2.68f), Quaternion.Euler(0f, 180f, 0f)),
+            ("Locker_West_-1.9", new Vector3(-85.77f, 3.10f, -1.86f), Quaternion.Euler(0f, 180f, 0f)),
+
+            // Bank 2: Mid West solid partition between Room 105 and ComLab 2 (Z = 33.5 to 36.8)
+            ("Locker_West_34.2", new Vector3(-85.77f, 3.10f, 34.29f), Quaternion.Euler(0f, 180f, 0f)),
+            ("Locker_West_35.1", new Vector3(-85.77f, 3.10f, 35.11f), Quaternion.Euler(0f, 180f, 0f)),
+            ("Locker_West_35.9", new Vector3(-85.77f, 3.10f, 35.93f), Quaternion.Euler(0f, 180f, 0f)),
+
+            // Bank 3: Mid East solid partition between ComLab 1 and Room 108 (Z = 33.5 to 36.8)
+            ("Locker_East_34.2", new Vector3(-83.19f, 3.10f, 34.29f), Quaternion.identity),
+            ("Locker_East_35.1", new Vector3(-83.19f, 3.10f, 35.11f), Quaternion.identity),
+            ("Locker_East_35.9", new Vector3(-83.19f, 3.10f, 35.93f), Quaternion.identity),
+
+            // Bank 4: North West solid wall before Men's CR (Z = 45.5 to 48.5)
+            ("Locker_West_46.5", new Vector3(-85.77f, 3.10f, 46.50f), Quaternion.Euler(0f, 180f, 0f)),
+            ("Locker_West_47.3", new Vector3(-85.77f, 3.10f, 47.32f), Quaternion.Euler(0f, 180f, 0f)),
+
+            // Bank 5: North East solid wall before Men's CR (Z = 45.5 to 48.5)
+            ("Locker_East_46.5", new Vector3(-83.19f, 3.10f, 46.50f), Quaternion.identity),
+            ("Locker_East_47.3", new Vector3(-83.19f, 3.10f, 47.32f), Quaternion.identity)
+        };
+
+        foreach (var def in layout1F)
+        {
+            GameObject newLocker = Object.Instantiate(f2Template, f1LockersGO.transform);
+            newLocker.name = def.name;
+            newLocker.transform.position = def.pos;
+            newLocker.transform.rotation = def.rot;
+            newLocker.transform.localScale = f2Template.transform.localScale;
+
+            // Strip any inherited LockerHide to ensure clean state
+            var oldHide = newLocker.GetComponent<LockerHide>();
+            if (oldHide != null) Object.DestroyImmediate(oldHide);
+
+            var oldAnchor = newLocker.transform.Find("PeekAnchor");
+            if (oldAnchor != null) Object.DestroyImmediate(oldAnchor.gameObject);
         }
 
-        Debug.Log("[DeployLockersAndKeysSystem] Cloning " + f2LockersGO.transform.childCount + " lockers from 2ndFloor to 1stFloor...");
-        for (int i = 0; i < f2LockersGO.transform.childCount; i++)
-        {
-            Transform f2Locker = f2LockersGO.transform.GetChild(i);
-            GameObject newLocker = Object.Instantiate(f2Locker.gameObject, f1LockersGO.transform);
-            newLocker.name = f2Locker.name;
-            // Floor 1 locker Y is 3.10 (Floor 2 is 9.10, exactly 6.0m lower)
-            newLocker.transform.position = new Vector3(f2Locker.position.x, 3.10f, f2Locker.position.z);
-            newLocker.transform.rotation = f2Locker.rotation;
-            newLocker.transform.localScale = f2Locker.localScale;
-        }
-        Debug.Log("[DeployLockersAndKeysSystem] Successfully deployed 24 lockers to 1stFloor!");
+        Debug.Log($"[DeployLockersAndKeysSystem] Successfully deployed {layout1F.Length} logical solid-wall lockers to 1stFloor!");
     }
 
     private static void ConfigureLockerHideOnFloors(InventoryItem lockerKey)
@@ -296,34 +329,34 @@ public static class DeployLockersAndKeysSystem
         AudioClip unlockClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/yodguard-door-opening-slowly-1-535465.mp3");
         AudioClip rattleClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/door_closing.mp3");
 
-        string[] floorLockerPaths = new string[]
+        // 1st Floor:
+        GameObject f1Lockers = GameObject.Find("1stFloor/Lockers");
+        if (f1Lockers != null)
         {
-            "1stFloor/Lockers",
-            "2ndFloor/Lockers",
-            "3rdFloor/Lockers"
-        };
+            SetupLocker(f1Lockers.transform.Find("Locker_West_34.2"), 1, isLocked: false, lockerKey, unlockClip, rattleClip);
+            SetupLocker(f1Lockers.transform.Find("Locker_East_46.5"), 1, isLocked: false, lockerKey, unlockClip, rattleClip);
+            SetupLocker(f1Lockers.transform.Find("Locker_East_34.2"), 1, isLocked: true,  lockerKey, unlockClip, rattleClip);
+            SetupLocker(f1Lockers.transform.Find("Locker_West_46.5"), 1, isLocked: true,  lockerKey, unlockClip, rattleClip);
+        }
 
-        for (int f = 0; f < floorLockerPaths.Length; f++)
+        // 2nd Floor:
+        GameObject f2Lockers = GameObject.Find("2ndFloor/Lockers");
+        if (f2Lockers != null)
         {
-            string path = floorLockerPaths[f];
-            GameObject parent = GameObject.Find(path);
-            if (parent == null)
-            {
-                Debug.LogWarning("[DeployLockersAndKeysSystem] Could not find " + path);
-                continue;
-            }
+            SetupLocker(f2Lockers.transform.Find("Locker_West_4.0"), 2, isLocked: false, lockerKey, unlockClip, rattleClip);
+            SetupLocker(f2Lockers.transform.Find("Locker_East_28.0"), 2, isLocked: false, lockerKey, unlockClip, rattleClip);
+            SetupLocker(f2Lockers.transform.Find("Locker_East_4.0"), 2, isLocked: true,  lockerKey, unlockClip, rattleClip);
+            SetupLocker(f2Lockers.transform.Find("Locker_West_34.2"), 2, isLocked: true,  lockerKey, unlockClip, rattleClip);
+        }
 
-            int floorNum = f + 1;
-            // Configure 2 unlocked and 2 locked lockers per floor:
-            // Unlocked 1: West 4.0 (central hallway)
-            // Unlocked 2: East 28.0 (north hallway)
-            // Locked 1: East 4.0 (central hallway) - requires Locker Key
-            // Locked 2: West 34.2 (north hallway) - requires Locker Key
-
-            SetupLocker(parent.transform.Find("Locker_West_4.0"), floorNum, isLocked: false, lockerKey, unlockClip, rattleClip);
-            SetupLocker(parent.transform.Find("Locker_East_28.0"), floorNum, isLocked: false, lockerKey, unlockClip, rattleClip);
-            SetupLocker(parent.transform.Find("Locker_East_4.0"), floorNum, isLocked: true, lockerKey, unlockClip, rattleClip);
-            SetupLocker(parent.transform.Find("Locker_West_34.2"), floorNum, isLocked: true, lockerKey, unlockClip, rattleClip);
+        // 3rd Floor:
+        GameObject f3Lockers = GameObject.Find("3rdFloor/Lockers");
+        if (f3Lockers != null)
+        {
+            SetupLocker(f3Lockers.transform.Find("Locker_West_4.0"), 3, isLocked: false, lockerKey, unlockClip, rattleClip);
+            SetupLocker(f3Lockers.transform.Find("Locker_East_28.0"), 3, isLocked: false, lockerKey, unlockClip, rattleClip);
+            SetupLocker(f3Lockers.transform.Find("Locker_East_4.0"), 3, isLocked: true,  lockerKey, unlockClip, rattleClip);
+            SetupLocker(f3Lockers.transform.Find("Locker_West_34.2"), 3, isLocked: true,  lockerKey, unlockClip, rattleClip);
         }
     }
 
@@ -351,11 +384,15 @@ public static class DeployLockersAndKeysSystem
             anchor = anchorGO.transform;
         }
 
-        anchor.localPosition = new Vector3(0f, 0.45f, 0f);
         // Face toward corridor center (X = -84.0f)
         Vector3 corridorPoint = new Vector3(-84.0f, lockerT.position.y, lockerT.position.z);
         Vector3 faceDir = (corridorPoint - lockerT.position).normalized;
+        faceDir.y = 0f;
         anchor.rotation = Quaternion.LookRotation(faceDir, Vector3.up);
+
+        // Position peek anchor just inside the locker door louvers at eye level
+        Vector3 forwardOffset = faceDir * 0.05f;
+        anchor.position = new Vector3(lockerT.position.x + forwardOffset.x, lockerT.position.y + 0.25f, lockerT.position.z);
 
         lh.peekAnchor = anchor;
         EditorUtility.SetDirty(lh);
@@ -380,11 +417,11 @@ public static class DeployLockersAndKeysSystem
         var spots = new (string name, Vector3 pos)[]
         {
             ("LockerKey_1F_LibraryDesk", new Vector3(-81.20f, 3.03f, 8.12f)),
-            ("LockerKey_1F_LobbyCounter", new Vector3(-82.52f, 3.06f, 4.90f)),
-            ("LockerKey_2F_Class201TeacherDesk", new Vector3(-89.51f, 9.09f, -5.07f)),
+            ("LockerKey_1F_LobbyCounter", new Vector3(-82.00f, 3.06f, 4.90f)),
+            ("LockerKey_2F_Class201TeacherDesk", new Vector3(-89.80f, 9.09f, -5.07f)),
             ("LockerKey_2F_Class203TeacherDesk", new Vector3(-79.49f, 9.12f, 31.96f)),
-            ("LockerKey_3F_Class301TeacherDesk", new Vector3(-89.51f, 15.11f, 6.96f)),
-            ("LockerKey_3F_LibrarianStudyDesk", new Vector3(-76.85f, 15.03f, 44.15f))
+            ("LockerKey_3F_Class301TeacherDesk", new Vector3(-89.80f, 15.11f, 6.96f)),
+            ("LockerKey_3F_LibrarianStudyDesk", new Vector3(-77.20f, 15.03f, 40.70f))
         };
 
         for (int i = 0; i < spots.Length; i++)

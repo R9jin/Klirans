@@ -93,10 +93,10 @@ PrefabInstance:
       addedObject: {fileID: -8127598859122870481}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 36d904e2f84cd6e41bb4fc66b26c21ef, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 4146551934743472366}
+      addedObject: {fileID: 7251516668170708059}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 36d904e2f84cd6e41bb4fc66b26c21ef, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 7251516668170708059}
+      addedObject: {fileID: 4558982522317723598}
   m_SourcePrefab: {fileID: 100100000, guid: 36d904e2f84cd6e41bb4fc66b26c21ef, type: 3}
 --- !u!1 &4016707115870403265 stripped
 GameObject:
@@ -119,8 +119,22 @@ MonoBehaviour:
   rotationAxis: {x: 0, y: 1, z: 0}
   floatAmplitude: 0.12
   floatFrequency: 2
---- !u!135 &4146551934743472366
-SphereCollider:
+--- !u!114 &7251516668170708059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4016707115870403265}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29ee60f42c66ed7448e361e680681196, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PickupItem
+  itemData: {fileID: 11400000, guid: a15ab82a507a41d4b829a1042c2ce5ee, type: 2}
+  amount: 1
+--- !u!65 &4558982522317723598
+BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -138,19 +152,5 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 0.16
+  m_Size: {x: 0.18, y: 0.16, z: 0.32}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &7251516668170708059
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4016707115870403265}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 29ee60f42c66ed7448e361e680681196, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PickupItem
-  itemData: {fileID: 11400000, guid: a15ab82a507a41d4b829a1042c2ce5ee, type: 2}
-  amount: 1

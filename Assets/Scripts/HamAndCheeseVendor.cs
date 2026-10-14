@@ -223,8 +223,11 @@ public class HamAndCheeseVendor : MonoBehaviour, IInteractable
     {
         if (vendorGreetingClip != null && _audioSource != null)
         {
-            _audioSource.pitch = UnityEngine.Random.Range(1.02f, 1.12f);
-            _audioSource.PlayOneShot(vendorGreetingClip, 0.75f);
+            if (!_audioSource.isPlaying)
+            {
+                _audioSource.pitch = UnityEngine.Random.Range(1.02f, 1.12f);
+                _audioSource.PlayOneShot(vendorGreetingClip, 0.75f);
+            }
         }
 
         if (HamAndCheeseVendorUI.Instance != null)

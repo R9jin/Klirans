@@ -225,15 +225,8 @@ public class PlayerMovement : MonoBehaviour
 
         if (characterController.isGrounded)
         {
-            if (Input.GetButton("Jump") && canMove)
-            {
-                verticalVelocity = jumpPower;
-            }
-            else
-            {
-                // Firm downward snap to eliminate slope and stair bouncing/jitter
-                verticalVelocity = -2.0f;
-            }
+            // Jumping disabled — player stays firmly grounded in survival horror
+            verticalVelocity = -2.0f;
         }
         else
         {
@@ -294,7 +287,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleCameraAndBreathing()
     {
-        if (playerCamera == null || PauseMenu.GameIsPaused || isJumpscareCameraOverride) return;
+        if (playerCamera == null || PauseMenu.GameIsPaused || isJumpscareCameraOverride || LockerHideManager.IsPlayerHidden || !canMove) return;
 
         Vector3 targetCameraPosition = isCrouching ? crouchingCameraPosition : standingCameraPosition;
         float targetFOV = normalFOV;

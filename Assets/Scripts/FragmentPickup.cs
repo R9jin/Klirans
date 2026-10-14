@@ -66,6 +66,15 @@ public class FragmentPickup : MonoBehaviour, IInteractable
     /// </summary>
     public void Collect()
     {
+        var highlight = GetComponent<ItemVisualHighlight>() ?? GetComponentInChildren<ItemVisualHighlight>();
+        if (highlight != null) highlight.OnPickedUp();
+
+        var lights = GetComponentsInChildren<Light>(true);
+        foreach (var l in lights) l.enabled = false;
+
+        var renderers = GetComponentsInChildren<Renderer>(true);
+        foreach (var r in renderers) r.enabled = false;
+
         // Play pickup sound at the fragment's position
         if (pickupSound != null)
         {

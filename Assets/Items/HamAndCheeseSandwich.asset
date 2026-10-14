@@ -16,11 +16,14 @@ MonoBehaviour:
   description: Mainit-init na toasted sandwich na may makapal na savory ham at melted
     cheese. Pampalubag-loob sa clearance! Kumain para gumaan ang pakiramdam at bumaba
     ang anxiety (-30).
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: f810e4372222cdb4f99b58c634217890, type: 3}
   itemType: 2
-  itemPrefab: {fileID: 0}
+  itemPrefab: {fileID: 8985199677496652807, guid: 7b56074568081684f83efff0b27fb801, type: 3}
   isStackable: 1
   maxStack: 5
   anxietyChange: -30
   staminaChange: 25
   canBeDropped: 1
+  isInspectable: 1
+  inspectionTitle: 
+  inspectionText: 

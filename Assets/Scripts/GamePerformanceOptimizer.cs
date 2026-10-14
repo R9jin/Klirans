@@ -128,13 +128,16 @@ public class GamePerformanceOptimizer : MonoBehaviour
             if (l == null) continue;
 
             // Punctual point/spot lights in the school do not need heavy geometric shadows (e.g. 6-pass cubemaps)
-            // which thrash the shadow atlas and cause buffer overflows
+            // which thrash the shadow atlas and cause buffer overflows.
+            // The main FlashlightLight has intentional soft shadows; SpillLight doesn't need them.
             if (l.type != LightType.Directional && l.gameObject.name != "FlashlightLight")
             {
                 l.shadows = LightShadows.None;
             }
 
-            if (l.gameObject.name != "FlashlightLight")
+            // Exclude player-attached lights from the distance culling system
+            bool isPlayerLight = l.gameObject.name == "FlashlightLight" || l.gameObject.name == "FlashlightSpillLight";
+            if (!isPlayerLight)
             {
                 list.Add(l);
             }
