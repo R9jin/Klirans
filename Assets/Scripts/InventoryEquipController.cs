@@ -132,6 +132,8 @@ public class InventoryEquipController : MonoBehaviour
     /// </summary>
     private void HandleHotkeyInput()
     {
+        if (PauseMenu.GameIsPaused || LockerHideManager.IsPlayerHidden || PauseMenu.IsAnyModalOrPuzzleOpen) return;
+
         if (Input.GetKeyDown(KeyCode.Alpha1)) SelectSlot(0);
         else if (Input.GetKeyDown(KeyCode.Alpha2)) SelectSlot(1);
         else if (Input.GetKeyDown(KeyCode.Alpha3)) SelectSlot(2);
@@ -155,8 +157,7 @@ public class InventoryEquipController : MonoBehaviour
     private void HandleItemUseInput()
     {
         if (activeSlotIndex < 0) return;
-        if (PauseMenu.GameIsPaused || ItemInspectionModal.IsOpen || LockerHideManager.IsPlayerHidden) return;
-        if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return;
+        if (PauseMenu.GameIsPaused || LockerHideManager.IsPlayerHidden || PauseMenu.IsAnyModalOrPuzzleOpen) return;
 
         InventoryManager inventory = InventoryManager.Instance;
         if (inventory == null || activeSlotIndex >= inventory.Slots.Count) return;
@@ -370,9 +371,7 @@ public class InventoryEquipController : MonoBehaviour
     private void HandleDropInput()
     {
         if (!Input.GetKeyDown(dropKey) && !Input.GetKeyDown(KeyCode.Q)) return;
-        if (PauseMenu.GameIsPaused) return;
-        if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return;
-        if (LockerHideManager.IsPlayerHidden) return;
+        if (PauseMenu.GameIsPaused || LockerHideManager.IsPlayerHidden || PauseMenu.IsAnyModalOrPuzzleOpen) return;
 
         // Need an actively selected slot
         if (activeSlotIndex < 0) return;

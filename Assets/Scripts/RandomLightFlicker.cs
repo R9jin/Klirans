@@ -42,28 +42,32 @@ public class RandomLightFlicker : MonoBehaviour
 
     [Header("Auto Pattern Weights (only used when pattern = Auto)")]
     [Range(0f, 1f)] [Tooltip("Chance of DyingBallast (erratic stutter).")]
-    public float weightDyingBallast = 0.42f;
+    public float weightDyingBallast = 0.15f;
     [Range(0f, 1f)] [Tooltip("Chance of PowerSurgeDrop (long blackout pause).")]
-    public float weightPowerSurgeDrop = 0.20f;
+    public float weightPowerSurgeDrop = 0.30f;
     [Range(0f, 1f)] [Tooltip("Chance of DeadZone (burned out, always off).")]
-    public float weightDeadZone = 0.13f;
+    public float weightDeadZone = 0.55f;
     [Range(0f, 1f)] [Tooltip("Chance of StableLow (dim but steady — no flicker).")]
-    public float weightStableLow = 0.25f;
+    public float weightStableLow = 0.00f;
 
     [Header("Base Light Intensity (when ON)")]
     [Tooltip("PointLight base intensity when fully lit. Set by batch calibration script; override here per-fixture.")]
-    public float basePointIntensity = 0.60f;
+    public float basePointIntensity = 0.20f;
     [Tooltip("UpSpotLight base intensity when fully lit.")]
-    public float baseSpotIntensity = 0.20f;
+    public float baseSpotIntensity = 0.06f;
 
     [Header("Stable Low Intensity Multiplier")]
     [Tooltip("StableLow pattern sets lights to this fraction of their base intensity.")]
     [Range(0.05f, 0.6f)]
-    public float stableLowMultiplier = 0.35f;
+    public float stableLowMultiplier = 0.25f;
 
     [Header("Emissive Material Sync")]
     [Tooltip("MeshRenderers whose _EmissionColor tracks the light state. Auto-filled from children.")]
     public MeshRenderer[] emissiveRenderers;
+
+    [Tooltip("Emission brightness multiplier for fluorescent tube mesh.")]
+    [Range(0.05f, 1.5f)]
+    public float emissionMultiplier = 0.40f;
 
     [Header("Debug")]
     public bool showDebugLog = false;
@@ -113,10 +117,10 @@ public class RandomLightFlicker : MonoBehaviour
             if (r.sharedMaterial.HasProperty(EmissionColorProp))
             {
                 _baseEmissionColor = r.sharedMaterial.GetColor(EmissionColorProp);
-                // If emission is black, synthesize a warm neon white from the light color
-                if (_baseEmissionColor == Color.black)
+                // If emission is black, synthesize a dim sickly fluorescent glow
+                if (_baseEmissionColor == Color.black || _baseEmissionColor.maxColorComponent < 0.05f)
                 {
-                    _baseEmissionColor = new Color(0.92f, 0.95f, 1.0f, 1.0f) * 2.5f; // HDR warm white
+                    _baseEmissionColor = new Color(0.85f, 0.90f, 0.82f, 1.0f) * 0.75f;
                 }
                 _hasEmission = true;
                 break;
@@ -193,34 +197,34 @@ public class RandomLightFlicker : MonoBehaviour
     private IEnumerator DyingBallastRoutine()
     {
         // Initial delay: stagger fixture start times across the level
-        yield return new WaitForSeconds(Random.Range(0f, 4f));
+        yield return new WaitForSeconds(Random.Range(0f, 3f));
 
         while (true)
         {
-            // Calm period between bursts
-            float calmDuration = Random.Range(2.5f, 9.0f);
+            // Calm period between bursts (short and nervous)
+            float calmDuration = Random.Range(0.6f, 2.2f);
             SetLightFraction(1.0f);
             yield return new WaitForSeconds(calmDuration);
 
             // Burst of micro-stutters
-            int stutters = Random.Range(3, 10);
+            int stutters = Random.Range(4, 12);
             for (int i = 0; i < stutters; i++)
             {
-                // Random dip depth — sometimes just a flicker, sometimes near-off
-                float dipFactor = Random.value < 0.3f ? Random.Range(0.0f, 0.08f) : Random.Range(0.05f, 0.45f);
+                // Random dip depth — deep drops into pitch darkness
+                float dipFactor = Random.value < 0.45f ? 0f : Random.Range(0.02f, 0.30f);
                 SetLightFraction(dipFactor);
-                yield return new WaitForSeconds(Random.Range(0.018f, 0.085f));
+                yield return new WaitForSeconds(Random.Range(0.02f, 0.08f));
 
-                // Snap back ON
-                SetLightFraction(1.0f);
-                yield return new WaitForSeconds(Random.Range(0.02f, 0.07f));
+                // Snap back ON briefly
+                SetLightFraction(Random.Range(0.5f, 1.0f));
+                yield return new WaitForSeconds(Random.Range(0.02f, 0.06f));
             }
 
             // Occasional deep recovery pause (light fully off momentarily)
-            if (Random.value < 0.35f)
+            if (Random.value < 0.50f)
             {
                 SetLightFraction(0f);
-                yield return new WaitForSeconds(Random.Range(0.08f, 0.40f));
+                yield return new WaitForSeconds(Random.Range(0.20f, 0.85f));
                 SetLightFraction(1.0f);
             }
         }
@@ -231,36 +235,44 @@ public class RandomLightFlicker : MonoBehaviour
 
     private IEnumerator PowerSurgeDropRoutine()
     {
-        yield return new WaitForSeconds(Random.Range(0f, 6f));
+        yield return new WaitForSeconds(Random.Range(0f, 4f));
 
         while (true)
         {
-            // Stable phase
+            // Stable phase (short so lights constantly drop out and blackout)
+            float stableMin = 1.6f;
+            float stableMax = 4.5f;
+            if (CampusThreatDirector.Instance != null)
+            {
+                float t = CampusThreatDirector.Instance.CurrentSignatures / 6f;
+                stableMin = Mathf.Lerp(1.6f, 0.7f, t);
+                stableMax = Mathf.Lerp(4.5f, 2.0f, t);
+            }
             SetLightFraction(1.0f);
-            yield return new WaitForSeconds(Random.Range(5f, 18f));
+            yield return new WaitForSeconds(Random.Range(stableMin, stableMax));
 
-            // Warning flicker (2–5 rapid blinks)
-            int warnings = Random.Range(2, 6);
+            // Warning flicker (rapid erratic stuttering)
+            int warnings = Random.Range(3, 7);
             for (int i = 0; i < warnings; i++)
             {
                 SetLightFraction(0f);
-                yield return new WaitForSeconds(Random.Range(0.04f, 0.12f));
-                SetLightFraction(1.0f);
                 yield return new WaitForSeconds(Random.Range(0.03f, 0.09f));
+                SetLightFraction(Random.Range(0.4f, 1.0f));
+                yield return new WaitForSeconds(Random.Range(0.02f, 0.07f));
             }
 
-            // BLACKOUT
+            // BLACKOUT: long dark pause where flashlight is vital
             SetLightFraction(0f);
-            yield return new WaitForSeconds(Random.Range(1.0f, 4.5f));
+            yield return new WaitForSeconds(Random.Range(1.8f, 5.0f));
 
             // Struggling restart flickers
-            int restarts = Random.Range(2, 5);
+            int restarts = Random.Range(3, 6);
             for (int i = 0; i < restarts; i++)
             {
-                SetLightFraction(Random.Range(0.15f, 0.55f));
-                yield return new WaitForSeconds(Random.Range(0.06f, 0.20f));
+                SetLightFraction(Random.Range(0.10f, 0.45f));
+                yield return new WaitForSeconds(Random.Range(0.05f, 0.16f));
                 SetLightFraction(0f);
-                yield return new WaitForSeconds(Random.Range(0.04f, 0.12f));
+                yield return new WaitForSeconds(Random.Range(0.04f, 0.10f));
             }
 
             // Finally stabilize
@@ -347,7 +359,7 @@ public class RandomLightFlicker : MonoBehaviour
     {
         if (!_hasEmission || _propBlock == null) return;
 
-        Color emission = _baseEmissionColor * fraction;
+        Color emission = _baseEmissionColor * (fraction * emissionMultiplier);
 
         foreach (var r in emissiveRenderers)
         {

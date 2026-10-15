@@ -37,6 +37,7 @@ public class LobbyKeypadInteract : MonoBehaviour, IInteractable
     private Text _displayCodeText;
     private AudioSource _audioSource;
     private bool _isUIOpen = false;
+    public bool IsOpen => _isUIOpen;
 
     private void Awake()
     {

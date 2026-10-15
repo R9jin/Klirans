@@ -84,14 +84,33 @@ public class PauseMenu : MonoBehaviour
         ApplyFOV(fov);
     }
 
+    /// <summary>
+    /// Returns true if any gameplay modal, interactive puzzle, inspection, or dialogue is currently active.
+    /// Used across subsystems to prevent input leakage, accidental pause overrides, or click bleed.
+    /// </summary>
+    public static bool IsAnyModalOrPuzzleOpen
+    {
+        get
+        {
+            if (OpeningCutsceneDirector.IsCutsceneActive) return true;
+            if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return true;
+            if (HamAndCheeseVendorUI.Instance != null && HamAndCheeseVendorUI.Instance.IsOpen) return true;
+            if (LockpickingMinigame.Instance != null && LockpickingMinigame.Instance.IsActive) return true;
+            if (ItemInspectionModal.IsOpen) return true;
+            if (CashierBalancePuzzle.Instance != null && CashierBalancePuzzle.Instance.IsOpen) return true;
+            if (GuidanceWordPuzzle.Instance != null && GuidanceWordPuzzle.Instance.IsOpen) return true;
+            if (RegistrarDocumentSortPuzzle.Instance != null && RegistrarDocumentSortPuzzle.Instance.IsOpen) return true;
+            if (GuidanceSafePuzzle.Instance != null && GuidanceSafePuzzle.Instance.IsOpen) return true;
+            if (LobbyKeypadInteract.Instance != null && LobbyKeypadInteract.Instance.IsOpen) return true;
+            if (InventoryScreen.Instance != null && InventoryScreen.Instance.IsOpen) return true;
+            return false;
+        }
+    }
+
     private void Update()
     {
-        // Don't allow pausing during dialogue, jumpscare, vendor, minigame, or while reading an inspected note/document
-        bool dialogueOpen = NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive;
-        bool vendorOpen = HamAndCheeseVendorUI.Instance != null && HamAndCheeseVendorUI.Instance.IsOpen;
-        bool lockpickingActive = LockpickingMinigame.Instance != null && LockpickingMinigame.Instance.IsActive;
-        bool inspectionOpen = ItemInspectionModal.IsOpen;
-        if (dialogueOpen || vendorOpen || lockpickingActive || inspectionOpen) return;
+        // Don't allow pausing during dialogue, jumpscare, vendor, minigame, puzzles, or while reading an inspected note/document
+        if (IsAnyModalOrPuzzleOpen) return;
 
         if (Input.GetKeyDown(KeyCode.Escape))
             TogglePause();

@@ -83,14 +83,7 @@ public class PlayerInteract : MonoBehaviour
 
     private void Update()
     {
-        if (playerCamera == null || PauseMenu.GameIsPaused || 
-            (GuidanceWordPuzzle.Instance != null && GuidanceWordPuzzle.Instance.IsOpen) ||
-            (CashierBalancePuzzle.Instance != null && CashierBalancePuzzle.Instance.IsOpen) ||
-            (RegistrarDocumentSortPuzzle.Instance != null && RegistrarDocumentSortPuzzle.Instance.IsOpen) ||
-            (HamAndCheeseVendorUI.Instance != null && HamAndCheeseVendorUI.Instance.IsOpen) ||
-            (LockpickingMinigame.Instance != null && LockpickingMinigame.Instance.IsActive) ||
-            ItemInspectionModal.IsOpen ||
-            LockerHideManager.IsPlayerHidden)
+        if (playerCamera == null || PauseMenu.GameIsPaused || LockerHideManager.IsPlayerHidden || PauseMenu.IsAnyModalOrPuzzleOpen)
         {
             if (promptText != null) promptText.gameObject.SetActive(false);
             return;
@@ -134,6 +127,7 @@ public class PlayerInteract : MonoBehaviour
                     {
                         if (losHit.collider != null && 
                             losHit.collider != h.collider && 
+                            losHit.collider.transform.root != transform.root &&
                             !losHit.collider.transform.IsChildOf(h.collider.transform) && 
                             !h.collider.transform.IsChildOf(losHit.collider.transform))
                         {

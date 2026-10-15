@@ -166,32 +166,38 @@ public class ItemInspectionViewer3D : MonoBehaviour
         };
         _studioCamera.targetTexture = _renderTexture;
 
-        // 2. Key Light (Soft Warm Directional from Top-Right Front)
+        // 2. Key Light (Soft Warm Point Light at studio)
         var keyGO = new GameObject("Studio_KeyLight");
         keyGO.transform.SetParent(_studioRoot.transform, false);
-        keyGO.transform.localRotation = Quaternion.Euler(32f, -38f, 0f);
+        keyGO.transform.localPosition = new Vector3(1.2f, 1.4f, -1.5f);
         _keyLight = keyGO.AddComponent<Light>();
-        _keyLight.type = LightType.Directional;
+        _keyLight.type = LightType.Point;
+        _keyLight.range = 8.0f;
         _keyLight.color = new Color(1.0f, 0.96f, 0.90f);
-        _keyLight.intensity = 1.35f;
+        _keyLight.intensity = 2.8f;
+        _keyLight.enabled = false;
 
-        // 3. Fill Light (Cool Directional from Bottom-Left Front)
+        // 3. Fill Light (Cool Point Light from left at studio)
         var fillGO = new GameObject("Studio_FillLight");
         fillGO.transform.SetParent(_studioRoot.transform, false);
-        fillGO.transform.localRotation = Quaternion.Euler(-20f, 42f, 0f);
+        fillGO.transform.localPosition = new Vector3(-1.4f, -0.4f, -1.2f);
         _fillLight = fillGO.AddComponent<Light>();
-        _fillLight.type = LightType.Directional;
+        _fillLight.type = LightType.Point;
+        _fillLight.range = 8.0f;
         _fillLight.color = new Color(0.62f, 0.72f, 0.88f);
-        _fillLight.intensity = 0.55f;
+        _fillLight.intensity = 1.4f;
+        _fillLight.enabled = false;
 
-        // 4. Rim Light (Crisp Cyan-White Directional from Behind)
+        // 4. Rim Light (Crisp Point Light behind object at studio)
         var rimGO = new GameObject("Studio_RimLight");
         rimGO.transform.SetParent(_studioRoot.transform, false);
-        rimGO.transform.localRotation = Quaternion.Euler(-145f, 25f, 0f);
+        rimGO.transform.localPosition = new Vector3(0.3f, 0.8f, 1.4f);
         _rimLight = rimGO.AddComponent<Light>();
-        _rimLight.type = LightType.Directional;
+        _rimLight.type = LightType.Point;
+        _rimLight.range = 8.0f;
         _rimLight.color = new Color(0.65f, 0.85f, 1.0f);
-        _rimLight.intensity = 1.15f;
+        _rimLight.intensity = 2.2f;
+        _rimLight.enabled = false;
 
         // 5. Model Pivot
         var pivotGO = new GameObject("ModelPivot");
@@ -482,6 +488,10 @@ public class ItemInspectionViewer3D : MonoBehaviour
             _studioCamera.enabled = true;
         }
 
+        if (_keyLight != null) _keyLight.enabled = true;
+        if (_fillLight != null) _fillLight.enabled = true;
+        if (_rimLight != null) _rimLight.enabled = true;
+
         PlayPaperSound();
         SetVisible(true);
         _isOpen = true;
@@ -499,6 +509,10 @@ public class ItemInspectionViewer3D : MonoBehaviour
 
         if (_studioCamera != null)
             _studioCamera.enabled = false;
+
+        if (_keyLight != null) _keyLight.enabled = false;
+        if (_fillLight != null) _fillLight.enabled = false;
+        if (_rimLight != null) _rimLight.enabled = false;
 
         // Clean up spawned inspected model
         if (_currentInspectedInstance != null)
@@ -600,24 +614,31 @@ public class ItemInspectionViewer3D : MonoBehaviour
         var renderers = root.GetComponentsInChildren<Renderer>();
         if (renderers.Length == 0) return;
 
-        Bounds bounds = renderers[0].bounds;
+        // 1. Initial bounds calculation to determine scale factor
+        Bounds initialBounds = renderers[0].bounds;
         for (int i = 1; i < renderers.Length; i++)
         {
-            bounds.Encapsulate(renderers[i].bounds);
+            initialBounds.Encapsulate(renderers[i].bounds);
         }
 
-        // Offset to center
-        Vector3 centerOffset = root.transform.position - bounds.center;
-        root.transform.position += centerOffset;
-
-        // Normalize scale to fit ~0.8 units
-        float maxDim = Mathf.Max(bounds.size.x, Mathf.Max(bounds.size.y, bounds.size.z));
+        // 2. Normalize scale to fit cleanly inside ~0.85 unit viewing frustum
+        float maxDim = Mathf.Max(initialBounds.size.x, Mathf.Max(initialBounds.size.y, initialBounds.size.z));
         if (maxDim > 0.001f)
         {
             float targetSize = 0.85f;
             float scaleFactor = targetSize / maxDim;
             root.transform.localScale = Vector3.one * scaleFactor;
         }
+
+        // 3. Recalculate scaled bounds and perfectly center visual mesh on _modelPivot
+        Bounds scaledBounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+        {
+            scaledBounds.Encapsulate(renderers[i].bounds);
+        }
+
+        Vector3 centerOffset = _modelPivot.position - scaledBounds.center;
+        root.transform.position += centerOffset;
     }
 
     // ── Input & Inspection Loop ──────────────────────────────────────────────

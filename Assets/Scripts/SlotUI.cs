@@ -52,6 +52,12 @@ public class SlotUI : MonoBehaviour,
         if (slotBackground == null)
             slotBackground = GetComponent<Image>();
 
+        if (iconImage == null)
+        {
+            var iconT = transform.Find("Icon") ?? transform.Find("ItemIcon");
+            if (iconT != null) iconImage = iconT.GetComponent<Image>();
+        }
+
         if (iconImage != null)
             iconImage.preserveAspect = true;
 
@@ -87,20 +93,26 @@ public class SlotUI : MonoBehaviour,
     {
         if (boundSlot == null || boundSlot.IsEmpty)
         {
-            iconImage.enabled = false;
+            if (iconImage != null) iconImage.enabled = false;
             if (quantityText != null) quantityText.text = "";
             return;
         }
 
         if (boundSlot.item != null && boundSlot.item.icon != null)
         {
-            iconImage.enabled = true;
-            iconImage.sprite  = boundSlot.item.icon;
+            if (iconImage != null)
+            {
+                iconImage.enabled = true;
+                iconImage.sprite  = boundSlot.item.icon;
+            }
         }
         else
         {
-            iconImage.enabled = false;
-            iconImage.sprite  = null;
+            if (iconImage != null)
+            {
+                iconImage.enabled = false;
+                iconImage.sprite  = null;
+            }
         }
 
         if (quantityText != null)

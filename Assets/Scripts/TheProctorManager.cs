@@ -190,7 +190,15 @@ public class TheProctorManager : MonoBehaviour
         // 1. Detect player's floor and hallway
         DetectPlayerHallway(playerPos);
 
-        // 2. Compute safe hallway spawn location 14-20m away from player
+        // Dynamic difficulty sync with CampusThreatDirector (FNAF-style Night scaling)
+        if (CampusThreatDirector.Instance != null)
+        {
+            var threat = CampusThreatDirector.Instance.CurrentProfile;
+            blackoutChaseDuration = UnityEngine.Random.Range(threat.blackoutDurationMin, threat.blackoutDurationMax);
+            spawnDistance = threat.weepingSpawnDistance;
+        }
+
+        // 2. Compute safe hallway spawn location away from player
         Vector3 spawnPos = CalculateHallwaySpawnPosition(playerPos);
 
         // 3. Spawn chosen blackout enemy (The Proctor or Weeping Student)
@@ -231,6 +239,11 @@ public class TheProctorManager : MonoBehaviour
                     weepingAI.assignedHallway = proctorAssignedHallway;
                     weepingAI.assignedFloor = proctorAssignedFloor;
                     ConfigureWeepingHallwayBoundaries(weepingAI, proctorAssignedFloor);
+
+                    if (CampusThreatDirector.Instance != null)
+                    {
+                        CampusThreatDirector.Instance.ApplyStatsToWeeping(weepingAI);
+                    }
                 }
             }
             Debug.Log($"[TheProctorManager] Spawned WEEPING STUDENT for blackout encounter on {proctorAssignedHallway} (Floor {proctorAssignedFloor})!");
@@ -256,6 +269,11 @@ public class TheProctorManager : MonoBehaviour
                     ai.assignedHallway = proctorAssignedHallway;
                     ai.assignedFloor = proctorAssignedFloor;
                     ConfigureHallwayBoundaries(ai, proctorAssignedFloor);
+
+                    if (CampusThreatDirector.Instance != null)
+                    {
+                        CampusThreatDirector.Instance.ApplyStatsToProctor(ai);
+                    }
                 }
             }
             Debug.Log($"[TheProctorManager] Spawned THE PROCTOR for blackout encounter on {proctorAssignedHallway} (Floor {proctorAssignedFloor})!");

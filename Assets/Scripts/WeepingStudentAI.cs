@@ -78,7 +78,7 @@ public class WeepingStudentAI : MonoBehaviour
     public float visionCheckInterval = 0.035f;
 
     [Tooltip("If true, automatically despawns when campus power is restored.")]
-    public bool despawnOnBlackoutEnd = false;
+    public bool despawnOnBlackoutEnd = true;
 
     [Header("Assigned Hallway & Floor Limits")]
     public string assignedHallway = "Hallway_1F";
@@ -89,6 +89,8 @@ public class WeepingStudentAI : MonoBehaviour
     public float hallwayHalfWidth = 2.4f;
 
     [Header("Audio Feedback")]
+    [Tooltip("Enable or disable footstep sounds for the student.")]
+    public bool enableFootsteps = false;
     public AudioClip footstepClip;
     public AudioClip alertStingClip;
     public AudioClip freezeStingClip;
@@ -135,7 +137,7 @@ public class WeepingStudentAI : MonoBehaviour
 
     private void Awake()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        if (GameModeManager.IsFreeRoamMode || (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive))
         {
             Destroy(gameObject);
             return;
@@ -153,6 +155,12 @@ public class WeepingStudentAI : MonoBehaviour
         _agent = GetComponent<NavMeshAgent>();
         _animator = GetComponentInChildren<Animator>();
         _speedHash = Animator.StringToHash("Speed");
+
+        // Dynamic threat scaling (FNAF-style progression based on clearance signatures)
+        if (CampusThreatDirector.Instance != null)
+        {
+            CampusThreatDirector.Instance.ApplyStatsToWeeping(this);
+        }
 
         SetupAudioSources();
         LoadDefaultAudio();
@@ -197,6 +205,7 @@ public class WeepingStudentAI : MonoBehaviour
 
     private void Update()
     {
+        if (OpeningCutsceneDirector.IsCutsceneActive) return;
         if (currentState == WeepingState.Inactive || currentState == WeepingState.Despawning) return;
         if (currentState == WeepingState.Jumpscare) return;
 
@@ -558,7 +567,7 @@ public class WeepingStudentAI : MonoBehaviour
 
     private void UpdateFootstepAudio()
     {
-        if (_footstepAudio == null || footstepClip == null) return;
+        if (!enableFootsteps || _footstepAudio == null || footstepClip == null) return;
 
         bool isMoving = (_agent != null && _agent.isOnNavMesh && !_agent.isStopped && _agent.velocity.magnitude > 0.2f);
         if (!isMoving) return;
@@ -659,6 +668,7 @@ public class WeepingStudentAI : MonoBehaviour
     [ContextMenu("Test Catch Jumpscare")]
     public void TriggerCatchJumpscare()
     {
+        if (OpeningCutsceneDirector.IsCutsceneActive) return;
         if (_hasCaughtPlayer) return;
         _hasCaughtPlayer = true;
         currentState = WeepingState.Jumpscare;
@@ -901,6 +911,22 @@ public class WeepingStudentAI : MonoBehaviour
     }
 
     // ── Despawn ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Updates pursuit agility and silhouette freeze radius based on current campus threat level.
+    /// </summary>
+    public void ApplyThreatStats(float newChaseSpeed, float newSilhouetteRadius)
+    {
+        chaseSpeed = newChaseSpeed;
+        silhouetteRadius = newSilhouetteRadius;
+
+        if (_agent != null && _agent.isOnNavMesh && !_isObserved)
+        {
+            _agent.speed = chaseSpeed;
+        }
+
+        Debug.Log($"[WeepingStudentAI] Threat stats updated: Chase={chaseSpeed:F1}m/s, SilhouetteRadius={silhouetteRadius:F1}m");
+    }
 
     public void Despawn()
     {

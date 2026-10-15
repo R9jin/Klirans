@@ -80,6 +80,9 @@ public class TheProctorAI : MonoBehaviour
     [Tooltip("Distance within which Proctor hears sprinting footsteps & heavy floor vibrations (28m).")]
     public float sprintHearingRange = 28.0f;
 
+    [Tooltip("How long The Proctor actively pursues the origin of a detected sound (seconds).")]
+    public float huntPersistenceDuration = 5.5f;
+
     [Header("Audio References")]
     public AudioClip footstepClip;
     public AudioClip alertStingClip;
@@ -134,7 +137,7 @@ public class TheProctorAI : MonoBehaviour
 
     private void Awake()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        if (GameModeManager.IsFreeRoamMode || (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive))
         {
             Destroy(gameObject);
             return;
@@ -147,9 +150,17 @@ public class TheProctorAI : MonoBehaviour
         }
         ActiveProctor = this;
 
-        // Enforce Slenderman height & fast pursuit speeds even if overridden by old prefab serialization
-        if (patrolSpeed < 3.0f) patrolSpeed = 3.2f;
-        if (chaseSpeed < 5.5f) chaseSpeed = 5.6f;
+        // Dynamic threat scaling (FNAF-style progression based on clearance signatures)
+        if (CampusThreatDirector.Instance != null)
+        {
+            CampusThreatDirector.Instance.ApplyStatsToProctor(this);
+        }
+        else
+        {
+            if (patrolSpeed < 2.2f) patrolSpeed = 2.4f;
+            if (chaseSpeed < 4.4f) chaseSpeed = 4.8f;
+        }
+
         if (targetHeightMeters < 2.50f) targetHeightMeters = 2.60f;
         if (catchDistance < 1.35f) catchDistance = 1.4f;
         if (acceleration < 11.0f) acceleration = 12.0f;
@@ -189,6 +200,7 @@ public class TheProctorAI : MonoBehaviour
 
     private void Update()
     {
+        if (OpeningCutsceneDirector.IsCutsceneActive) return;
         if (currentState == ProctorState.Inactive || currentState == ProctorState.Despawning) return;
         if (currentState == ProctorState.Jumpscare) return;
 
@@ -628,12 +640,12 @@ public class TheProctorAI : MonoBehaviour
 
         if (heardSoundNow)
         {
-            // Fresh sound heard! Alert and hunt toward sound source for 5.5 seconds (enough to route through stairs)
+            // Fresh sound heard! Alert and hunt toward sound source for huntPersistenceDuration seconds
             if (_alertHuntTimer <= 0f && alertStingClip != null && _audioSource != null)
             {
                 _audioSource.PlayOneShot(alertStingClip, 0.75f);
             }
-            _alertHuntTimer = 5.5f;
+            _alertHuntTimer = huntPersistenceDuration;
             _lastHeardSoundPosition = _playerTransform.position;
         }
 
@@ -916,6 +928,7 @@ public class TheProctorAI : MonoBehaviour
     [ContextMenu("Test Catch Jumpscare")]
     public void TriggerCatchJumpscare()
     {
+        if (OpeningCutsceneDirector.IsCutsceneActive) return;
         if (_hasCaughtPlayer) return;
         _hasCaughtPlayer = true;
         currentState = ProctorState.Jumpscare;
@@ -1133,6 +1146,25 @@ public class TheProctorAI : MonoBehaviour
             }
             _playerMovement.SetControlsEnabled(true);
         }
+    }
+
+    /// <summary>
+    /// Updates speed and hearing sensitivity based on current campus threat level (FNAF-style difficulty scaling).
+    /// </summary>
+    public void ApplyThreatStats(float newPatrolSpeed, float newChaseSpeed, float newWalkHearing, float newSprintHearing, float newHuntDuration)
+    {
+        patrolSpeed = newPatrolSpeed;
+        chaseSpeed = newChaseSpeed;
+        baseHearingRange = newWalkHearing;
+        sprintHearingRange = newSprintHearing;
+        huntPersistenceDuration = newHuntDuration;
+
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.speed = (currentState == ProctorState.Chasing) ? chaseSpeed : patrolSpeed;
+        }
+
+        Debug.Log($"[TheProctorAI] Threat stats updated: Patrol={patrolSpeed:F1}, Chase={chaseSpeed:F1}, Hearing={baseHearingRange:F1}/{sprintHearingRange:F1}m, HuntDur={huntPersistenceDuration:F1}s");
     }
 
     // ── Despawn ───────────────────────────────────────────────────────────────

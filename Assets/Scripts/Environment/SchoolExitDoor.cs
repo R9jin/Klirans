@@ -69,7 +69,15 @@ namespace Klirans.Environment
 
             if (canEscape)
             {
-                StartCoroutine(EscapeRoutine());
+                _isEscaping = true;
+                if (WinCutsceneDirector.Instance != null)
+                {
+                    WinCutsceneDirector.Instance.PlayWinCutscene();
+                }
+                else
+                {
+                    StartCoroutine(EscapeRoutine());
+                }
                 return;
             }
 
@@ -113,7 +121,15 @@ namespace Klirans.Environment
 
                 if (canEscape)
                 {
-                    StartCoroutine(EscapeRoutine());
+                    _isEscaping = true;
+                    if (WinCutsceneDirector.Instance != null)
+                    {
+                        WinCutsceneDirector.Instance.PlayWinCutscene();
+                    }
+                    else
+                    {
+                        StartCoroutine(EscapeRoutine());
+                    }
                 }
                 else if (!ObjectiveHUD.HasDiscoveredExitLockdown)
                 {

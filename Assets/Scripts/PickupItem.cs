@@ -23,6 +23,22 @@ public class PickupItem : MonoBehaviour, IInteractable
             bool added = InventoryManager.Instance.AddItem(itemData, amount);
             if (added)
             {
+                // Auto-equip and turn on flashlight immediately upon pickup
+                if (itemData != null && itemData.itemName.ToLower().Contains("flashlight"))
+                {
+                    if (FlashlightController.Instance != null)
+                    {
+                        FlashlightController.Instance.SetEquippedState(true);
+                    }
+                    if (ObjectiveHUD.Instance != null)
+                    {
+                        ObjectiveHUD.Instance.SetObjective(
+                            "SURVIVE THE CLEARANCE NIGHTMARE",
+                            "Nakatulog ka sa classroom at sarado na ang buong campus! Hanapin ang 4 na piraso ng clearance slip at kumpletuhin ang 6 na signatories bago mag-hatinggabi!"
+                        );
+                    }
+                }
+
                 var highlight = GetComponent<ItemVisualHighlight>() ?? GetComponentInChildren<ItemVisualHighlight>();
                 if (highlight != null) highlight.OnPickedUp();
 

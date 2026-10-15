@@ -30,30 +30,50 @@ public class DoorInteract : MonoBehaviour, IInteractable
     public bool isBlackoutLocked = false;
 
     private bool _wasLockedBeforeBlackout = false;
+    private bool _isSubscribedToBlackout = false;
 
     [Tooltip("Specific lockpin item required. If null, any item named 'Lockpin' works.")]
     public InventoryItem requiredLockpinItem;
 
     private void OnEnable()
     {
-        if (BlackoutManager.Instance != null)
-        {
-            BlackoutManager.Instance.OnBlackoutStart += HandleBlackoutStart;
-            BlackoutManager.Instance.OnBlackoutEnd += HandleBlackoutEnd;
-        }
+        TrySubscribeBlackout();
     }
 
     private void OnDisable()
     {
-        if (BlackoutManager.Instance != null)
+        UnsubscribeBlackout();
+    }
+
+    private void OnDestroy()
+    {
+        UnsubscribeBlackout();
+    }
+
+    private void TrySubscribeBlackout()
+    {
+        if (!_isSubscribedToBlackout && BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.OnBlackoutStart += HandleBlackoutStart;
+            BlackoutManager.Instance.OnBlackoutEnd += HandleBlackoutEnd;
+            _isSubscribedToBlackout = true;
+        }
+    }
+
+    private void UnsubscribeBlackout()
+    {
+        if (_isSubscribedToBlackout && BlackoutManager.Instance != null)
         {
             BlackoutManager.Instance.OnBlackoutStart -= HandleBlackoutStart;
             BlackoutManager.Instance.OnBlackoutEnd -= HandleBlackoutEnd;
+            _isSubscribedToBlackout = false;
         }
     }
 
     private void Start()
     {
+        TrySubscribeBlackout();
+
         closedRotation = transform.localRotation;
         openRotation = closedRotation * Quaternion.AngleAxis(openAngle, rotationAxis);
         targetRotation = closedRotation;
@@ -220,11 +240,13 @@ public class DoorInteract : MonoBehaviour, IInteractable
             if (isOpen && openSounds != null && openSounds.Length > 0)
             {
                 AudioClip clipToPlay = openSounds[Random.Range(0, openSounds.Length)];
-                audioSource.PlayOneShot(clipToPlay);
-                
-                if (clipToPlay.length > 0f)
+                if (clipToPlay != null)
                 {
-                    swingSpeed = Mathf.Abs(openAngle) / clipToPlay.length;
+                    audioSource.PlayOneShot(clipToPlay);
+                    if (clipToPlay.length > 0f)
+                    {
+                        swingSpeed = Mathf.Abs(openAngle) / clipToPlay.length;
+                    }
                 }
             }
             else if (!isOpen && closeSound != null)

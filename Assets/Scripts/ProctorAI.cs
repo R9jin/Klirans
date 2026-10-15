@@ -35,11 +35,13 @@ public class ProctorAI : MonoBehaviour
     public string talkingParam = "Talking";
 
     [Header("Footstep Audio")]
+    [Tooltip("Enable or disable footstep sounds for wandering student NPCs.")]
+    public bool enableFootsteps = false;
     [Tooltip("Audio clip for footsteps (softer/lighter atmospheric sound).")]
     public AudioClip footstepClip;
     [Range(0f, 1f)]
     [Tooltip("Lighter/softer volume for NPC footsteps.")]
-    public float footstepVolume = 0.20f;
+    public float footstepVolume = 0.0f;
     public float footstepMinDistance = 1.2f;
     public float footstepMaxDistance = 14.0f;
 
@@ -577,6 +579,18 @@ public class ProctorAI : MonoBehaviour
 
     private void InitFootstepAudio()
     {
+        if (!enableFootsteps)
+        {
+            _footstepAudio = GetComponent<AudioSource>();
+            if (_footstepAudio != null)
+            {
+                _footstepAudio.Stop();
+                _footstepAudio.clip = null;
+                _footstepAudio.enabled = false;
+            }
+            return;
+        }
+
         _footstepAudio = GetComponent<AudioSource>();
         if (_footstepAudio == null) _footstepAudio = gameObject.AddComponent<AudioSource>();
 
@@ -605,7 +619,7 @@ public class ProctorAI : MonoBehaviour
 
     private void UpdateFootstepAudio()
     {
-        if (_footstepAudio == null || _footstepAudio.clip == null) return;
+        if (!enableFootsteps || _footstepAudio == null || _footstepAudio.clip == null) return;
 
         bool isMoving = !_isTalking && _agent != null && _agent.isOnNavMesh && !_agent.isStopped && _agent.velocity.magnitude > 0.15f;
         float targetVol = isMoving ? footstepVolume : 0f;

@@ -167,13 +167,29 @@ public class ItemVisualHighlight : MonoBehaviour
                 sparkleHeightOffset = 0.032f;
                 break;
             case ItemCategory.ToolOrEquipment:
-                glowColor = new Color(0.92f, 0.96f, 1.0f, 1.0f); // Neutral steel/silver
-                lightRange = 0.24f;
-                strobePeakIntensity = 0.044f;
-                strobeMinIntensity = 0.004f;
-                strobePeriod = 2.7f;
-                sparkleScale = 0.024f;
-                sparkleHeightOffset = 0.028f;
+                bool isFlashlight = gameObject.name.ToLower().Contains("flashlight");
+                if (isFlashlight)
+                {
+                    glowColor = new Color(0.25f, 1.0f, 0.5f, 1.0f); // Bright emergency beacon
+                    lightRange = 3.5f;
+                    strobePeakIntensity = 1.6f;
+                    strobeMinIntensity = 0.6f;
+                    strobePeriod = 1.8f;
+                    sparkleScale = 0.08f;
+                    sparkleHeightOffset = 0.05f;
+                    fadeStartDistance = 15.0f;
+                    maxActiveDistance = 35.0f;
+                }
+                else
+                {
+                    glowColor = new Color(0.92f, 0.96f, 1.0f, 1.0f); // Neutral steel/silver
+                    lightRange = 0.24f;
+                    strobePeakIntensity = 0.044f;
+                    strobeMinIntensity = 0.004f;
+                    strobePeriod = 2.7f;
+                    sparkleScale = 0.024f;
+                    sparkleHeightOffset = 0.028f;
+                }
                 break;
             default:
                 glowColor = new Color(1.0f, 0.88f, 0.65f, 1.0f);

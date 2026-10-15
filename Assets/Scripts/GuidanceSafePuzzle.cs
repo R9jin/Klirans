@@ -32,6 +32,7 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
     private Text[] _digitTexts = new Text[3];
     private AudioSource _audioSource;
     private bool _isUIOpen = false;
+    public bool IsOpen => _isUIOpen;
 
     private void Awake()
     {

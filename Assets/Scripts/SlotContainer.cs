@@ -102,6 +102,18 @@ public abstract class SlotContainer : MonoBehaviour
         return false;
     }
 
+    public bool HasItemNamed(string nameSubstr)
+    {
+        EnsureSlotsInitialized();
+        if (string.IsNullOrEmpty(nameSubstr)) return false;
+        foreach (var slot in Slots)
+        {
+            if (!slot.IsEmpty && slot.item != null && slot.item.itemName.ToLower().Contains(nameSubstr.ToLower()))
+                return true;
+        }
+        return false;
+    }
+
     public bool HasFreeSlot()
     {
         EnsureSlotsInitialized();

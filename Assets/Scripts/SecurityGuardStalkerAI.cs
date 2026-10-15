@@ -123,6 +123,12 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         _animator = GetComponentInChildren<Animator>();
         _speedHash = Animator.StringToHash("Speed");
 
+        // Dynamic threat scaling (FNAF-style progression based on clearance signatures)
+        if (CampusThreatDirector.Instance != null)
+        {
+            CampusThreatDirector.Instance.ApplyStatsToGuard(this);
+        }
+
         SetupAudioSources();
         ConfigureNavMeshAgent();
         FindBones();
@@ -278,6 +284,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void Update()
     {
+        if (OpeningCutsceneDirector.IsCutsceneActive) return;
         if (currentState == GuardState.Inactive || currentState == GuardState.Jumpscare) return;
 
         if (_playerTransform == null) FindPlayerReferences();
@@ -677,6 +684,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void TriggerCatchSequence()
     {
+        if (OpeningCutsceneDirector.IsCutsceneActive) return;
         _hasCaughtPlayer = true;
         currentState = GuardState.Jumpscare;
 
@@ -714,5 +722,24 @@ public class SecurityGuardStalkerAI : MonoBehaviour
             }
             Debug.Log("[SecurityGuardStalkerAI] Student apprehended by Security Guard!");
         }
+    }
+
+    /// <summary>
+    /// Updates patrol, chase, vision, and whistle cadence based on final lockdown threat level.
+    /// </summary>
+    public void ApplyThreatStats(float newPatrolSpeed, float newChaseSpeed, float newVisionDist, float newWhistleMin, float newWhistleMax)
+    {
+        patrolSpeed = newPatrolSpeed;
+        chaseSpeed = newChaseSpeed;
+        visionMaxDistance = newVisionDist;
+        whistleIntervalMin = newWhistleMin;
+        whistleIntervalMax = newWhistleMax;
+
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.speed = (currentState == GuardState.Chasing) ? chaseSpeed : patrolSpeed;
+        }
+
+        Debug.Log($"[SecurityGuardStalkerAI] Threat stats updated: Patrol={patrolSpeed:F1}, Chase={chaseSpeed:F1}, Vision={visionMaxDistance:F1}m, Whistle={whistleIntervalMin:F0}-{whistleIntervalMax:F0}s");
     }
 }

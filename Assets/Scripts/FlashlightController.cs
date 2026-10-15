@@ -181,9 +181,12 @@ public class FlashlightController : MonoBehaviour
 
     private void Update()
     {
-        // Only listen for Left Click toggle when the flashlight is actively equipped
+        // Only listen for Left Click toggle when the flashlight is actively equipped and not interacting with UI
         if (isEquipped)
         {
+            if (PauseMenu.GameIsPaused || LockerHideManager.IsPlayerHidden || PauseMenu.IsAnyModalOrPuzzleOpen) return;
+            if (UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+
             if (Input.GetMouseButtonDown(0))
             {
                 ToggleLight();

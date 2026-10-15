@@ -103,9 +103,11 @@ public class ClearanceManager : MonoBehaviour
         if (_collectedSignatures.Contains(signatureIndex)) return false;
 
         _collectedSignatures.Add(signatureIndex);
-        Debug.Log($"[ClearanceManager] Signature {signatureIndex + 1} collected! ({_collectedSignatures.Count}/6)");
+        int total = _collectedSignatures.Count;
+        Debug.Log($"[ClearanceManager] Signature {signatureIndex + 1} collected! ({total}/6)");
 
         RefreshHeldPaperTexture();
+        OnSignatureCollected?.Invoke(signatureIndex, total);
         return true;
     }
 
@@ -115,6 +117,9 @@ public class ClearanceManager : MonoBehaviour
 
     /// <summary>True when the player has returned to the Registrar with all 6 signatures and submitted their slip.</summary>
     public bool IsSlipSubmitted { get; private set; } = false;
+
+    /// <summary>Fired when a new signature is collected (signatureIndex 0-5, totalCollected 1-6).</summary>
+    public static event System.Action<int, int> OnSignatureCollected;
 
     /// <summary>Fired when the final clearance slip is officially submitted, triggering the endgame.</summary>
     public static event System.Action OnSlipSubmittedEvent;
