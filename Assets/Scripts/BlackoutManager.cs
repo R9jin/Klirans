@@ -211,7 +211,7 @@ public class BlackoutManager : MonoBehaviour
     public void TriggerBlackout()
     {
         if (GameModeManager.IsFreeRoamMode) return;
-        if (OpeningCutsceneDirector.IsCutsceneActive) return;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (IsBlackoutActive) return;
         if (_blackoutCoroutine != null) StopCoroutine(_blackoutCoroutine);
         float duration = UnityEngine.Random.Range(blackoutDurationMin, blackoutDurationMax);
@@ -224,7 +224,7 @@ public class BlackoutManager : MonoBehaviour
 
     private IEnumerator BlackoutSchedule()
     {
-        while (OpeningCutsceneDirector.IsCutsceneActive) yield return new WaitForSeconds(0.5f);
+        while (OpeningCutsceneDirector.IsAnyCutscenePlaying) yield return new WaitForSeconds(0.5f);
 
         // Short startup grace period so the player isn't immediately hit on load
         yield return new WaitForSeconds(UnityEngine.Random.Range(30f, 60f));

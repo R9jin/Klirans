@@ -346,7 +346,7 @@ public class NPCJumpscareManager : MonoBehaviour
     private void Update()
     {
         if (GameModeManager.IsFreeRoamMode) return;
-        if (OpeningCutsceneDirector.IsCutsceneActive) return;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
 
         // Debug trigger for testing: press F8 to test jumpscare immediately
         if (Input.GetKeyDown(KeyCode.F8))
@@ -564,7 +564,7 @@ public class NPCJumpscareManager : MonoBehaviour
     public bool CanTriggerScare()
     {
         if (GameModeManager.IsFreeRoamMode) return false;
-        if (OpeningCutsceneDirector.IsCutsceneActive) return false;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return false;
         if (PauseMenu.GameIsPaused) return false;
         if (LockerHideManager.IsPlayerHidden) return false;
         if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return false;

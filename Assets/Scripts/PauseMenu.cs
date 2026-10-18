@@ -94,6 +94,7 @@ public class PauseMenu : MonoBehaviour
         {
             if (OpeningCutsceneDirector.IsCutsceneActive) return true;
             if (WinCutsceneDirector.IsCutsceneActive) return true;
+            if (GuardChaseCutsceneDirector.IsCutsceneActive) return true;
             if (TutorialScreenUI.IsOpen) return true;
             if (GameSettingsManager.IsSettingsOpen) return true;
             if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return true;

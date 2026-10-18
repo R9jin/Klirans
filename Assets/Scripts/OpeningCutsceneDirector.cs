@@ -14,7 +14,9 @@ public class OpeningCutsceneDirector : MonoBehaviour
     public static OpeningCutsceneDirector Instance { get; private set; }
     public static bool IsCutsceneActive { get; private set; } = false;
     public static bool IsAnyCutscenePlaying =>
-        IsCutsceneActive || (WinCutsceneDirector.Instance != null && WinCutsceneDirector.IsCutsceneActive);
+        IsCutsceneActive ||
+        (WinCutsceneDirector.Instance != null && WinCutsceneDirector.IsCutsceneActive) ||
+        (GuardChaseCutsceneDirector.Instance != null && GuardChaseCutsceneDirector.IsCutsceneActive);
 
     [Header("Configuration")]
     [Tooltip("Play the cutscene on game launch.")]

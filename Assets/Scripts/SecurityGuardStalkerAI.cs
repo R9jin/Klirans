@@ -305,7 +305,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
             return;
         }
 
-        if (OpeningCutsceneDirector.IsCutsceneActive) return;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (currentState == GuardState.Inactive || currentState == GuardState.Jumpscare) return;
 
         if (_playerTransform == null) FindPlayerReferences();
@@ -641,6 +641,22 @@ public class SecurityGuardStalkerAI : MonoBehaviour
                 }
             }
         }
+
+        // Dynamic Flashlight Corridor Sweeping
+        if (_flashlight != null)
+        {
+            if (currentState == GuardState.Chasing)
+            {
+                // Focused forward beam with subtle breathing jitter
+                _flashlight.transform.localRotation = Quaternion.Euler(15f, Mathf.Sin(Time.time * 12f) * 1.5f, 0f);
+            }
+            else if (isMoving)
+            {
+                // Eerie searching sweep across walls, lockers, and corners
+                float sweep = Mathf.Sin(Time.time * 2.4f) * 16.0f;
+                _flashlight.transform.localRotation = Quaternion.Euler(15f, sweep, 0f);
+            }
+        }
     }
 
     public void PlayWhistleBlast(float volume = 0.90f)
@@ -705,7 +721,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void TriggerCatchSequence()
     {
-        if (GameModeManager.IsFreeRoamMode || OpeningCutsceneDirector.IsCutsceneActive) return;
+        if (GameModeManager.IsFreeRoamMode || OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         _hasCaughtPlayer = true;
         currentState = GuardState.Jumpscare;
 

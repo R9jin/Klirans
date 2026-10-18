@@ -205,7 +205,7 @@ public class WeepingStudentAI : MonoBehaviour
 
     private void Update()
     {
-        if (OpeningCutsceneDirector.IsCutsceneActive) return;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (currentState == WeepingState.Inactive || currentState == WeepingState.Despawning) return;
         if (currentState == WeepingState.Jumpscare) return;
 
@@ -668,7 +668,7 @@ public class WeepingStudentAI : MonoBehaviour
     [ContextMenu("Test Catch Jumpscare")]
     public void TriggerCatchJumpscare()
     {
-        if (OpeningCutsceneDirector.IsCutsceneActive) return;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (_hasCaughtPlayer) return;
         _hasCaughtPlayer = true;
         currentState = WeepingState.Jumpscare;

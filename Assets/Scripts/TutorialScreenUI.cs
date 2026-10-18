@@ -141,6 +141,7 @@ public class TutorialScreenUI : MonoBehaviour
             if (SceneManager.GetActiveScene().name == "SampleScene" &&
                 !OpeningCutsceneDirector.IsCutsceneActive &&
                 !WinCutsceneDirector.IsCutsceneActive &&
+                !GuardChaseCutsceneDirector.IsCutsceneActive &&
                 !PauseMenu.GameIsPaused &&
                 !GameSettingsManager.IsSettingsOpen &&
                 !PauseMenu.IsAnyModalOrPuzzleOpen)

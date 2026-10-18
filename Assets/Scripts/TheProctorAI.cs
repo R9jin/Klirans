@@ -200,7 +200,7 @@ public class TheProctorAI : MonoBehaviour
 
     private void Update()
     {
-        if (OpeningCutsceneDirector.IsCutsceneActive) return;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (currentState == ProctorState.Inactive || currentState == ProctorState.Despawning) return;
         if (currentState == ProctorState.Jumpscare) return;
 
@@ -928,7 +928,7 @@ public class TheProctorAI : MonoBehaviour
     [ContextMenu("Test Catch Jumpscare")]
     public void TriggerCatchJumpscare()
     {
-        if (OpeningCutsceneDirector.IsCutsceneActive) return;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (_hasCaughtPlayer) return;
         _hasCaughtPlayer = true;
         currentState = ProctorState.Jumpscare;

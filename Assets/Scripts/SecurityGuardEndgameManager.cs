@@ -82,6 +82,9 @@ public class SecurityGuardEndgameManager : MonoBehaviour
     {
         if (GameModeManager.IsFreeRoamMode) return;
         ClearanceManager.OnSlipSubmittedEvent += HandleSlipSubmitted;
+
+        // Pre-initialize cutscene director
+        _ = GuardChaseCutsceneDirector.Instance;
     }
 
     private void OnDestroy()
@@ -96,7 +99,7 @@ public class SecurityGuardEndgameManager : MonoBehaviour
         // Debug key to test endgame immediately
         if (Input.GetKeyDown(debugTriggerKey) && !isEndgameActive)
         {
-            Debug.Log("[SecurityGuardEndgameManager] Debug trigger F8 pressed — launching Endgame Stalker!");
+            Debug.Log("[SecurityGuardEndgameManager] Debug trigger F9 pressed — launching Endgame Stalker!");
             TriggerEndgame();
         }
     }
@@ -107,8 +110,22 @@ public class SecurityGuardEndgameManager : MonoBehaviour
 
         if (!isEndgameActive)
         {
-            TriggerEndgame();
+            StartCoroutine(WaitDialogueAndTriggerEndgame());
         }
+    }
+
+    private IEnumerator WaitDialogueAndTriggerEndgame()
+    {
+        // Wait until player finishes reading and closes the Registrar dialogue
+        while (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive)
+        {
+            yield return null;
+        }
+
+        // Brief cinematic beat (0.4s) before the anomaly strikes!
+        yield return new WaitForSeconds(0.4f);
+
+        TriggerEndgame();
     }
 
     /// <summary>
@@ -119,9 +136,29 @@ public class SecurityGuardEndgameManager : MonoBehaviour
     {
         if (GameModeManager.IsFreeRoamMode) return;
         if (isEndgameActive) return;
-        isEndgameActive = true;
 
         Debug.Log("[SecurityGuardEndgameManager] ENDGAME ACTIVATED! Security guard vacating lobby booth to hunt student!");
+
+        // If GuardChaseCutsceneDirector exists, launch the cinematic anomaly chase cutscene
+        var cutscene = GuardChaseCutsceneDirector.Instance ?? FindAnyObjectByType<GuardChaseCutsceneDirector>(FindObjectsInactive.Include);
+        if (cutscene != null && !GuardChaseCutsceneDirector.IsCutsceneActive)
+        {
+            cutscene.PlayChaseCutscene();
+            return;
+        }
+
+        // Direct fallback
+        CompleteEndgameActivation();
+    }
+
+    /// <summary>
+    /// Activates the Stalker AI, vacates the lobby booth, and updates HUD.
+    /// Called when cutscene concludes or is skipped, or directly if cutscene is disabled.
+    /// </summary>
+    public void CompleteEndgameActivation()
+    {
+        if (GameModeManager.IsFreeRoamMode) return;
+        isEndgameActive = true;
 
         // 1. Play initial chilling building-wide haunted whistle broadcast
         if (_broadcastAudioSource != null && whistleBroadcastClip != null)
@@ -150,18 +187,18 @@ public class SecurityGuardEndgameManager : MonoBehaviour
         if (ObjectiveHUD.Instance != null)
         {
             ObjectiveHUD.Instance.SetObjective(
-                "ESCAPE THE CAMPUS",
-                "The Security Guard has abandoned his post and is hunting you! Evade him and escape through the Main Entrance Gate!"
+                "ESCAPE THE ANOMALOUS SECURITY GUARD!",
+                "The possessed Security Guard is hunting you through the hallways! Evade his flashlight, hide in lockers if needed, and reach the Main Entrance Gate!"
             );
         }
     }
 
-    private void SpawnOrActivateStalker()
+    public GameObject SpawnOrActivateStalker()
     {
         if (_spawnedStalker != null)
         {
             _spawnedStalker.SetActive(true);
-            return;
+            return _spawnedStalker;
         }
 
         // Sample valid NavMesh point
@@ -180,7 +217,7 @@ public class SecurityGuardEndgameManager : MonoBehaviour
             var agent = _spawnedStalker.GetComponent<UnityEngine.AI.NavMeshAgent>();
             if (agent != null) agent.Warp(stalkerSpawnPos);
             else _spawnedStalker.transform.position = stalkerSpawnPos;
-            return;
+            return _spawnedStalker;
         }
 
         // Otherwise instantiate from prefab or create dynamically from guard model
@@ -200,6 +237,8 @@ public class SecurityGuardEndgameManager : MonoBehaviour
             var agent = _spawnedStalker.GetComponent<UnityEngine.AI.NavMeshAgent>();
             if (agent != null) agent.Warp(stalkerSpawnPos);
         }
+
+        return _spawnedStalker;
     }
 
     public static GameObject CreateStalkerInstance(Vector3 spawnPos)
