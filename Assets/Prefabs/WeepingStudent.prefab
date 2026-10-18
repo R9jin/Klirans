@@ -174,7 +174,8 @@ MonoBehaviour:
   hallwayMaxZ: 30
   hallwayCenterX: -84
   hallwayHalfWidth: 2.4
-  footstepClip: {fileID: 8300000, guid: 3f734c3b3b8413f4ea8196a34b2ceaa0, type: 3}
+  enableFootsteps: 0
+  footstepClip: {fileID: 0}
   alertStingClip: {fileID: 8300000, guid: 2d9931a2f1685b940b6cfea9a1467a49, type: 3}
   freezeStingClip: {fileID: 0}
   jumpscareScreamClip: {fileID: 8300000, guid: c8b364fa8687a25499b288b0486c7619, type: 3}

@@ -54,10 +54,6 @@ public class PaperReamPickup : MonoBehaviour, IInteractable
         {
             added = InventoryManager.Instance.AddItem(paperItemData, 1);
         }
-        else if (StorageManager.Instance != null)
-        {
-            added = StorageManager.Instance.AddItem(paperItemData, 1);
-        }
 
         if (added)
         {

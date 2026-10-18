@@ -22,28 +22,27 @@ public class InventoryScreen : MonoBehaviour
 
     private void Start()
     {
-        inventoryMenuPanel.SetActive(false);
+        isOpen = false;
+        if (inventoryMenuPanel != null)
+            inventoryMenuPanel.SetActive(false);
     }
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Tab))
-            Toggle();
+        // Only 6 hotbar slots are used; the [TAB] bag is permanently disabled.
+        if (isOpen)
+        {
+            isOpen = false;
+            if (inventoryMenuPanel != null)
+                inventoryMenuPanel.SetActive(false);
+        }
     }
 
     public void Toggle()
     {
-        isOpen = !isOpen;
-        inventoryMenuPanel.SetActive(isOpen);
-
-        // Hide the item preview panel whenever the inventory is closed
-        if (!isOpen)
-            StorageMenu.HidePreview();
-
-        // Cursor still needs to unlock so you can click items in the bag.
-        // Player movement/look is intentionally NOT frozen anymore - the
-        // game keeps running while the bag is open.
-        Cursor.lockState = isOpen ? CursorLockMode.None : CursorLockMode.Locked;
-        Cursor.visible   = isOpen;
+        isOpen = false;
+        if (inventoryMenuPanel != null)
+            inventoryMenuPanel.SetActive(false);
+        StorageMenu.HidePreview();
     }
 }

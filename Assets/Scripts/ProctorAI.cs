@@ -35,11 +35,13 @@ public class ProctorAI : MonoBehaviour
     public string talkingParam = "Talking";
 
     [Header("Footstep Audio")]
+    [Tooltip("Enable or disable footstep sounds for wandering student NPCs.")]
+    public bool enableFootsteps = false;
     [Tooltip("Audio clip for footsteps (softer/lighter atmospheric sound).")]
     public AudioClip footstepClip;
     [Range(0f, 1f)]
     [Tooltip("Lighter/softer volume for NPC footsteps.")]
-    public float footstepVolume = 0.20f;
+    public float footstepVolume = 0.0f;
     public float footstepMinDistance = 1.2f;
     public float footstepMaxDistance = 14.0f;
 
@@ -136,6 +138,70 @@ public class ProctorAI : MonoBehaviour
             _modelInitialLocalPos = _modelChild.localPosition;
             _modelInitialLocalRot = _modelChild.localRotation;
         }
+
+        GameSettingsManager.EnforceLobbyRoundTableCollision();
+    }
+
+    private static Transform _cachedLobbyRoundTable;
+    private static Vector3 _lobbyTableCenter = new Vector3(-84.50f, 2.35f, 16.65f);
+    private const float LobbyTableKeepOutRadius = 1.38f;
+
+    private static void RefreshLobbyTableCache()
+    {
+        if (_cachedLobbyRoundTable == null)
+        {
+            var go = GameObject.Find("Lobby_RoundTable");
+            if (go != null)
+            {
+                _cachedLobbyRoundTable = go.transform;
+                var r = go.GetComponentInChildren<Renderer>();
+                _lobbyTableCenter = r != null ? r.bounds.center : go.transform.position;
+            }
+        }
+    }
+
+    private void EnforceRoundTableKeepOut()
+    {
+        RefreshLobbyTableCache();
+        if (_cachedLobbyRoundTable == null) return;
+
+        // Only applies on 1F (y between 1.5 and 4.2)
+        if (Mathf.Abs(transform.position.y - _lobbyTableCenter.y) > 1.8f) return;
+
+        Vector3 offset = transform.position - _lobbyTableCenter;
+        offset.y = 0f;
+        float dist = offset.magnitude;
+        if (dist < LobbyTableKeepOutRadius)
+        {
+            Vector3 pushDir = dist > 0.01f ? (offset / dist) : Vector3.forward;
+            // Steer tangentially + radially outward around the round table so the NPC walks around it smoothly
+            Vector3 tangent = new Vector3(-pushDir.z, 0f, pushDir.x);
+            if (_agent != null && _agent.hasPath)
+            {
+                Vector3 toTarget = _agent.steeringTarget - transform.position;
+                toTarget.y = 0f;
+                if (Vector3.Dot(tangent, toTarget) < 0f) tangent = -tangent;
+            }
+
+            Vector3 correctedPos = new Vector3(
+                _lobbyTableCenter.x + pushDir.x * LobbyTableKeepOutRadius,
+                transform.position.y,
+                _lobbyTableCenter.z + pushDir.z * LobbyTableKeepOutRadius
+            ) + tangent * (walkSpeed * Time.deltaTime * 0.85f);
+
+            if (_agent != null && _agent.isOnNavMesh)
+            {
+                _agent.Warp(correctedPos);
+                if (waypoints != null && _waypointIndex >= 0 && _waypointIndex < waypoints.Length && waypoints[_waypointIndex] != null)
+                {
+                    _agent.SetDestination(waypoints[_waypointIndex].position);
+                }
+            }
+            else
+            {
+                transform.position = correctedPos;
+            }
+        }
     }
 
     private void Start()
@@ -160,7 +226,34 @@ public class ProctorAI : MonoBehaviour
 
     private IEnumerator InitNavMeshPatrol()
     {
-        // Wait 1 frame so scene colliders and NavMesh are 100% active
+        GameSettingsManager.EnforceLobbyRoundTableCollision();
+        RefreshLobbyTableCache();
+
+        // Push any waypoints that lie inside Lobby_RoundTable's footprint outside its perimeter
+        if (_cachedLobbyRoundTable != null && waypoints != null)
+        {
+            for (int i = 0; i < waypoints.Length; i++)
+            {
+                if (waypoints[i] == null) continue;
+                if (Mathf.Abs(waypoints[i].position.y - _lobbyTableCenter.y) < 1.8f)
+                {
+                    Vector3 wpDiff = waypoints[i].position - _lobbyTableCenter;
+                    wpDiff.y = 0f;
+                    if (wpDiff.magnitude < LobbyTableKeepOutRadius + 0.25f)
+                    {
+                        Vector3 dir = wpDiff.sqrMagnitude > 0.001f ? wpDiff.normalized : Vector3.forward;
+                        waypoints[i].position = new Vector3(
+                            _lobbyTableCenter.x + dir.x * (LobbyTableKeepOutRadius + 0.30f),
+                            waypoints[i].position.y,
+                            _lobbyTableCenter.z + dir.z * (LobbyTableKeepOutRadius + 0.30f)
+                        );
+                    }
+                }
+            }
+        }
+
+        // Wait 2 frames so scene colliders and NavMeshObstacle carving are 100% active
+        yield return null;
         yield return null;
 
         // Force place agent on the NavMesh
@@ -227,8 +320,9 @@ public class ProctorAI : MonoBehaviour
             return;
         }
 
-        // Floor clamping: periodically check we haven't fallen through
+        // Floor clamping & Lobby_RoundTable keep-out
         FloorClamp();
+        EnforceRoundTableKeepOut();
 
         // Dialogue state: smoothly face player
         if (_isTalking)
@@ -577,6 +671,18 @@ public class ProctorAI : MonoBehaviour
 
     private void InitFootstepAudio()
     {
+        if (!enableFootsteps)
+        {
+            _footstepAudio = GetComponent<AudioSource>();
+            if (_footstepAudio != null)
+            {
+                _footstepAudio.Stop();
+                _footstepAudio.clip = null;
+                _footstepAudio.enabled = false;
+            }
+            return;
+        }
+
         _footstepAudio = GetComponent<AudioSource>();
         if (_footstepAudio == null) _footstepAudio = gameObject.AddComponent<AudioSource>();
 
@@ -605,7 +711,7 @@ public class ProctorAI : MonoBehaviour
 
     private void UpdateFootstepAudio()
     {
-        if (_footstepAudio == null || _footstepAudio.clip == null) return;
+        if (!enableFootsteps || _footstepAudio == null || _footstepAudio.clip == null) return;
 
         bool isMoving = !_isTalking && _agent != null && _agent.isOnNavMesh && !_agent.isStopped && _agent.velocity.magnitude > 0.15f;
         float targetVol = isMoving ? footstepVolume : 0f;

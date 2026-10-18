@@ -74,6 +74,18 @@ public class MenuButtonHover : MonoBehaviour, IPointerEnterHandler, IPointerExit
         }
     }
 
+    public void SetLabel(string newLabel)
+    {
+        _originalText = newLabel;
+        if (targetText == null)
+            targetText = GetComponentInChildren<Text>(true);
+        if (targetText != null)
+        {
+            targetText.text = newLabel;
+            targetText.color = normalColor;
+        }
+    }
+
     public void ResetToNormal()
     {
         if (targetText != null)

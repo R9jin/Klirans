@@ -58,6 +58,13 @@ public class PlayerMovement : MonoBehaviour
     [Tooltip("True while a jumpscare sequence locks camera zoom and orientation.")]
     public bool isJumpscareCameraOverride = false;
 
+    [Header("Movement Inertia & Smoothing")]
+    [Tooltip("Rate of acceleration when starting to move.")]
+    public float accelerationRate = 24.0f;
+    [Tooltip("Rate of deceleration when releasing movement keys (smooth deceleration, not abrupt freeze).")]
+    public float decelerationRate = 15.0f;
+    private Vector3 _currentPlanarVelocity = Vector3.zero;
+
     private Vector3 moveDirection = Vector3.zero;
     private float verticalVelocity = 0f;
     private float rotationX = 0f;
@@ -128,14 +135,63 @@ public class PlayerMovement : MonoBehaviour
             }
             reverb.reverbPreset = footstepReverbPreset;
         }
+
+        EnsureLobbyCollidersAndObstacles();
+    }
+
+    private void EnsureLobbyCollidersAndObstacles()
+    {
+        var roundTable = GameObject.Find("Lobby_RoundTable");
+        if (roundTable != null)
+        {
+            // 1. Ensure solid physical collision
+            var col = roundTable.GetComponent<Collider>();
+            if (col == null)
+            {
+                var box = roundTable.AddComponent<BoxCollider>();
+                box.isTrigger = false;
+                box.center = new Vector3(0f, 0.45f, 0f);
+                box.size = new Vector3(2.6f, 0.90f, 2.6f);
+            }
+            else
+            {
+                col.isTrigger = false;
+            }
+
+            // 2. Ensure NavMeshObstacle with dynamic carving so NPCs and monsters can NEVER pass through it
+            var obs = roundTable.GetComponent<UnityEngine.AI.NavMeshObstacle>();
+            if (obs == null)
+            {
+                obs = roundTable.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+            }
+            obs.shape = UnityEngine.AI.NavMeshObstacleShape.Box;
+            obs.center = new Vector3(0f, 0.45f, 0f);
+            obs.size = new Vector3(2.7f, 1.20f, 2.7f);
+            obs.carving = true;
+            obs.carveOnlyStationary = false;
+        }
+
+        foreach (var name in new string[] { "CoffeeTable_GlassTop", "CoffeeTable_Frame", "CoffeeTable_Leg1", "CoffeeTable_Leg2", "CoffeeTable_Leg3", "CoffeeTable_Leg4" })
+        {
+            var go = GameObject.Find(name);
+            if (go != null)
+            {
+                var c = go.GetComponent<Collider>();
+                if (c != null) c.isTrigger = false;
+            }
+        }
     }
 
     public void SetControlsEnabled(bool enabled)
     {
         canMove = enabled;
-        if (!enabled && footstepAudioSource != null && footstepAudioSource.isPlaying)
+        if (!enabled)
         {
-            footstepAudioSource.Pause();
+            _currentPlanarVelocity = Vector3.zero;
+            if (footstepAudioSource != null && footstepAudioSource.isPlaying)
+            {
+                footstepAudioSource.Pause();
+            }
         }
     }
 
@@ -148,12 +204,31 @@ public class PlayerMovement : MonoBehaviour
         HandleMouseLook();
     }
 
+    private bool _crouchToggled = false;
+
     private void UpdateMovementStates()
     {
-        isMoving = canMove && (Mathf.Abs(Input.GetAxis("Horizontal")) > 0.01f || Mathf.Abs(Input.GetAxis("Vertical")) > 0.01f);
-        isRunning = Input.GetKey(KeyCode.LeftShift) && isMoving && canMove && staminaSystem != null && staminaSystem.CanSprint;
-        
-        bool wantsCrouch = (Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl)) && canMove;
+        GameSettingsManager.GetMoveAxes(out float moveH, out float moveV);
+        bool hasInput = (Mathf.Abs(moveH) > 0.01f || Mathf.Abs(moveV) > 0.01f);
+        isMoving = canMove && (hasInput || _currentPlanarVelocity.sqrMagnitude > 0.05f);
+        isRunning = GameSettingsManager.GetKey(GameAction.Sprint) && hasInput && canMove && staminaSystem != null && staminaSystem.CanSprint;
+
+        bool crouchToggleMode = GameSettingsManager.Instance != null && GameSettingsManager.Instance.CrouchToggleMode;
+        bool wantsCrouch;
+        if (crouchToggleMode)
+        {
+            if (canMove && GameSettingsManager.GetKeyDown(GameAction.Crouch))
+            {
+                _crouchToggled = !_crouchToggled;
+            }
+            wantsCrouch = _crouchToggled && canMove;
+        }
+        else
+        {
+            _crouchToggled = false;
+            wantsCrouch = GameSettingsManager.GetKey(GameAction.Crouch) && canMove;
+        }
+
         if (!wantsCrouch && isCrouching)
         {
             // Only remain crouched if there is a low ceiling/obstacle blocking standing up
@@ -220,8 +295,15 @@ public class PlayerMovement : MonoBehaviour
             characterController.center = new Vector3(0f, defaultCenterY, 0f);
         }
 
-        float curSpeedX = canMove ? currentSpeed * Input.GetAxis("Vertical") : 0f;
-        float curSpeedY = canMove ? currentSpeed * Input.GetAxis("Horizontal") : 0f;
+        GameSettingsManager.GetMoveAxes(out float inputH, out float inputV);
+        Vector3 targetPlanarVelocity = Vector3.zero;
+        if (canMove)
+        {
+            targetPlanarVelocity = (forward * (inputV * currentSpeed)) + (right * (inputH * currentSpeed));
+        }
+
+        float smoothRate = targetPlanarVelocity.sqrMagnitude > 0.01f ? accelerationRate : decelerationRate;
+        _currentPlanarVelocity = Vector3.MoveTowards(_currentPlanarVelocity, targetPlanarVelocity, smoothRate * Time.deltaTime);
 
         if (characterController.isGrounded)
         {
@@ -235,7 +317,7 @@ public class PlayerMovement : MonoBehaviour
             if (verticalVelocity < -35f) verticalVelocity = -35f;
         }
 
-        moveDirection = (forward * curSpeedX) + (right * curSpeedY);
+        moveDirection = _currentPlanarVelocity;
         moveDirection.y = verticalVelocity;
 
         characterController.Move(moveDirection * Time.deltaTime);
@@ -356,11 +438,14 @@ public class PlayerMovement : MonoBehaviour
     {
         if (!canMove || PauseMenu.GameIsPaused || isDialogueCameraOverride || isJumpscareCameraOverride) return;
 
-        rotationX += -Input.GetAxis("Mouse Y") * lookSpeed;
+        float sens = GameSettingsManager.Instance != null ? GameSettingsManager.Instance.MouseSensitivity : lookSpeed;
+        float invertSign = (GameSettingsManager.Instance != null && GameSettingsManager.Instance.InvertMouseY) ? 1f : -1f;
+
+        rotationX += invertSign * Input.GetAxis("Mouse Y") * sens;
         rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);
         playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0f, 0f);
         
-        transform.rotation *= Quaternion.Euler(0f, Input.GetAxis("Mouse X") * lookSpeed, 0f);
+        transform.rotation *= Quaternion.Euler(0f, Input.GetAxis("Mouse X") * sens, 0f);
     }
 
     /// <summary>

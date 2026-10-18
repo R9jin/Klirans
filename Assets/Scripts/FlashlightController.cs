@@ -102,6 +102,49 @@ public class FlashlightController : MonoBehaviour
             {
                 if (col != null) Destroy(col);
             }
+            foreach (var hl in heldFlashlightModel.GetComponentsInChildren<ItemVisualHighlight>(true))
+            {
+                if (hl != null)
+                {
+                    hl.OnPickedUp();
+                    Destroy(hl);
+                }
+            }
+            foreach (var l in heldFlashlightModel.GetComponentsInChildren<Light>(true))
+            {
+                if (l != null && l != flashlightLight && l != flashlightSpillLight)
+                {
+                    l.enabled = false;
+                    Destroy(l.gameObject);
+                }
+            }
+            Transform glintL = heldFlashlightModel.transform.Find("ItemGlintLight");
+            if (glintL != null) Destroy(glintL.gameObject);
+            Transform glintS = heldFlashlightModel.transform.Find("ItemGlintSparkle");
+            if (glintS != null) Destroy(glintS.gameObject);
+        }
+
+        // Also strip any rogue ItemGlintLight / ItemVisualHighlight anywhere under the player/camera hierarchy
+        Camera mainCam = Camera.main ?? GetComponentInChildren<Camera>();
+        if (mainCam != null)
+        {
+            foreach (var hl in mainCam.GetComponentsInChildren<ItemVisualHighlight>(true))
+            {
+                if (hl != null)
+                {
+                    hl.OnPickedUp();
+                    Destroy(hl);
+                }
+            }
+            foreach (var l in mainCam.GetComponentsInChildren<Light>(true))
+            {
+                if (l != null && l != flashlightLight && l != flashlightSpillLight &&
+                    (l.gameObject.name.Contains("Glint") || l.type == LightType.Point))
+                {
+                    l.enabled = false;
+                    Destroy(l.gameObject);
+                }
+            }
         }
     }
 
@@ -179,15 +222,71 @@ public class FlashlightController : MonoBehaviour
         }
     }
 
+    public bool HasFlashlightInInventory()
+    {
+        InventoryManager inv = InventoryManager.Instance;
+        if (inv == null || inv.Slots == null) return false;
+        inv.EnsureSlotsInitialized();
+        foreach (var slot in inv.Slots)
+        {
+            if (slot != null && !slot.IsEmpty && slot.item != null)
+            {
+                if (slot.item == flashlightItemData || slot.item.itemName.ToLower().Contains("flashlight"))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    public static readonly Vector3 OffhandPosition = new Vector3(-0.26f, -0.22f, 0.42f);
+    public static readonly Quaternion OffhandRotation = Quaternion.Euler(-2.5f, 186f, 3.5f);
+
     private void Update()
     {
-        // Only listen for Left Click toggle when the flashlight is actively equipped
-        if (isEquipped)
+        bool hasFlashlight = HasFlashlightInInventory();
+
+        // Synchronize left-hand flashlight model visibility
+        if (heldFlashlightModel != null)
         {
-            if (Input.GetMouseButtonDown(0))
+            bool shouldBeVisible = hasFlashlight && !LockerHideManager.IsPlayerHidden;
+            if (heldFlashlightModel.activeSelf != shouldBeVisible)
             {
-                ToggleLight();
+                heldFlashlightModel.SetActive(shouldBeVisible);
             }
+            // Keep left-hand position locked in offhand (Minecraft shield / RE style)
+            var sway = heldFlashlightModel.GetComponent<ViewmodelSway>();
+            if (sway != null)
+            {
+                sway.SetBaseline(OffhandPosition, OffhandRotation);
+            }
+            else
+            {
+                heldFlashlightModel.transform.localPosition = OffhandPosition;
+                heldFlashlightModel.transform.localRotation = OffhandRotation;
+            }
+        }
+
+        if (!hasFlashlight)
+        {
+            isEquipped = false;
+            if (isLightOn)
+            {
+                isLightOn = false;
+                if (flashlightLight != null) flashlightLight.enabled = false;
+                if (flashlightSpillLight != null) flashlightSpillLight.enabled = false;
+            }
+            return;
+        }
+
+        isEquipped = true;
+
+        if (PauseMenu.GameIsPaused || LockerHideManager.IsPlayerHidden || PauseMenu.IsAnyModalOrPuzzleOpen) return;
+        if (UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+
+        // Left Click (Mouse 0) or [F] toggles the flashlight ON/OFF at any time!
+        if (Input.GetMouseButtonDown(0) || GameSettingsManager.GetKeyDown(GameAction.Flashlight))
+        {
+            ToggleLight();
         }
     }
 
@@ -197,48 +296,40 @@ public class FlashlightController : MonoBehaviour
     public void SetEquippedState(bool equipped)
     {
         AutoAssignReferences();
-        isEquipped = equipped;
+        StripRogueComponents();
+
+        bool hasFlashlight = HasFlashlightInInventory();
+        isEquipped = hasFlashlight;
 
         if (heldFlashlightModel != null)
         {
-            heldFlashlightModel.SetActive(equipped);
+            heldFlashlightModel.SetActive(hasFlashlight && !LockerHideManager.IsPlayerHidden);
+            var sway = heldFlashlightModel.GetComponent<ViewmodelSway>();
+            if (sway != null)
+            {
+                sway.SetBaseline(OffhandPosition, OffhandRotation);
+            }
+            else
+            {
+                heldFlashlightModel.transform.localPosition = OffhandPosition;
+                heldFlashlightModel.transform.localRotation = OffhandRotation;
+            }
         }
 
-        if (!equipped)
+        if (!hasFlashlight)
         {
-            // Turn off light when stowed/unequipped
             isLightOn = false;
-            if (flashlightLight != null)
-            {
-                flashlightLight.enabled = false;
-            }
-            if (flashlightSpillLight != null)
-            {
-                flashlightSpillLight.enabled = false;
-            }
-        }
-        else
-        {
-            // Turn on light when initially equipped
-            isLightOn = true;
-            if (flashlightLight != null)
-            {
-                flashlightLight.enabled = true;
-            }
-            if (flashlightSpillLight != null)
-            {
-                flashlightSpillLight.enabled = true;
-            }
-            PlayClickSound();
+            if (flashlightLight != null) flashlightLight.enabled = false;
+            if (flashlightSpillLight != null) flashlightSpillLight.enabled = false;
         }
     }
 
     /// <summary>
-    /// Toggles light on/off when player Left Clicks while holding flashlight.
+    /// Toggles light on/off when player Left Clicks while holding flashlight in offhand.
     /// </summary>
     public void ToggleLight()
     {
-        if (!isEquipped) return;
+        if (!HasFlashlightInInventory()) return;
 
         isLightOn = !isLightOn;
 

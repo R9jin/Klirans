@@ -158,6 +158,9 @@ public class MainMenuController : MonoBehaviour
             freeRoamButton.onClick.AddListener(PlayFreeRoam);
         }
 
+        // Ensure a "How to Play" (Tutorial) button is present in mainButtonsPanel
+        EnsureTutorialButtonInMainMenu();
+
         // Locate CanvasGroup on MainMenu_UI
         var canvas = GameObject.Find("Canvas");
         if (canvas != null)
@@ -348,17 +351,66 @@ public class MainMenuController : MonoBehaviour
         LoadingScreen.LoadScene("SampleScene");
     }
 
+    private void EnsureTutorialButtonInMainMenu()
+    {
+        if (mainButtonsPanel == null) return;
+        if (mainButtonsPanel.transform.Find("Btn_Tutorial") != null) return;
+
+        // Clone an existing button in mainButtonsPanel to preserve exact font, layout, and hover styling
+        Button templateBtn = freeRoamButton;
+        if (templateBtn == null)
+        {
+            var btns = mainButtonsPanel.GetComponentsInChildren<Button>(true);
+            if (btns != null && btns.Length > 0) templateBtn = btns[0];
+        }
+        if (templateBtn == null) return;
+
+        GameObject tutBtnGO = Instantiate(templateBtn.gameObject, mainButtonsPanel.transform);
+        tutBtnGO.name = "Btn_Tutorial";
+        // Place right after FreeRoam (or Play) and before Settings
+        int targetSibling = Mathf.Min(2, mainButtonsPanel.transform.childCount - 1);
+        tutBtnGO.transform.SetSiblingIndex(targetSibling);
+
+        var txt = tutBtnGO.GetComponentInChildren<Text>(true);
+        if (txt != null) txt.text = "How to Play";
+
+        var hover = tutBtnGO.GetComponent<MenuButtonHover>();
+        if (hover != null) hover.SetLabel("How to Play");
+
+        var btn = tutBtnGO.GetComponent<Button>();
+        if (btn != null)
+        {
+            btn.onClick = new Button.ButtonClickedEvent();
+            btn.onClick.AddListener(OpenTutorial);
+        }
+    }
+
+    public void OpenTutorial()
+    {
+        PlayClickSFX();
+        if (settingsPanel != null) settingsPanel.SetActive(false);
+        if (creditsPanel != null) creditsPanel.SetActive(false);
+        TutorialScreenUI.OpenTutorial(0, () =>
+        {
+            if (mainButtonsPanel != null) mainButtonsPanel.SetActive(true);
+        });
+    }
+
     public void OpenSettings()
     {
         PlayClickSFX();
-        if (mainButtonsPanel != null) mainButtonsPanel.SetActive(false);
-        if (settingsPanel != null) settingsPanel.SetActive(true);
+        if (settingsPanel != null) settingsPanel.SetActive(false);
         if (creditsPanel != null) creditsPanel.SetActive(false);
+        GameSettingsManager.OpenSettingsModal(() =>
+        {
+            if (mainButtonsPanel != null) mainButtonsPanel.SetActive(true);
+        });
     }
 
     public void CloseSettings()
     {
         PlayClickSFX();
+        GameSettingsManager.CloseSettingsModal();
         if (settingsPanel != null) settingsPanel.SetActive(false);
         if (mainButtonsPanel != null) mainButtonsPanel.SetActive(true);
     }

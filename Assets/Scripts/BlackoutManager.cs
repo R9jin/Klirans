@@ -68,11 +68,10 @@ public class BlackoutManager : MonoBehaviour
     public float powerUpVolume = 0.80f;
 
     // ── Ambient Light ─────────────────────────────────────────────────────────
-    [Header("Ambient Darkness")]
-    [Tooltip("Ambient color during blackout (pitch black).")]
-    public Color blackoutAmbientColor = new Color(0.002f, 0.002f, 0.004f, 1f);
-    [Tooltip("Ambient intensity during blackout (0 = pitch black).")]
-    public float blackoutAmbientIntensity = 0f;
+    [Tooltip("Ambient color during blackout (dim eerie night hue).")]
+    public Color blackoutAmbientColor = new Color(0.015f, 0.018f, 0.025f, 1f);
+    [Tooltip("Ambient intensity during blackout.")]
+    public float blackoutAmbientIntensity = 0.5f;
 
     // ── Flashlight Tuning ─────────────────────────────────────────────────────
     [Header("Flashlight Tuning for Blackout Atmosphere")]
@@ -212,6 +211,7 @@ public class BlackoutManager : MonoBehaviour
     public void TriggerBlackout()
     {
         if (GameModeManager.IsFreeRoamMode) return;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (IsBlackoutActive) return;
         if (_blackoutCoroutine != null) StopCoroutine(_blackoutCoroutine);
         float duration = UnityEngine.Random.Range(blackoutDurationMin, blackoutDurationMax);
@@ -224,6 +224,8 @@ public class BlackoutManager : MonoBehaviour
 
     private IEnumerator BlackoutSchedule()
     {
+        while (OpeningCutsceneDirector.IsAnyCutscenePlaying) yield return new WaitForSeconds(0.5f);
+
         // Short startup grace period so the player isn't immediately hit on load
         yield return new WaitForSeconds(UnityEngine.Random.Range(30f, 60f));
 
@@ -249,6 +251,14 @@ public class BlackoutManager : MonoBehaviour
         if (ClearanceManager.Instance != null)
         {
             signatures = Mathf.Clamp(ClearanceManager.Instance.SignatureCount, 0, 6);
+        }
+
+        if (CampusThreatDirector.Instance != null)
+        {
+            var p = CampusThreatDirector.Instance.CurrentProfile;
+            float wait = UnityEngine.Random.Range(p.blackoutIntervalMin, p.blackoutIntervalMax);
+            Debug.Log($"[BlackoutManager] Threat Level {signatures}/6 -> Next blackout scheduled in {wait:F1}s (Range: {p.blackoutIntervalMin:F0}s - {p.blackoutIntervalMax:F0}s)");
+            return wait;
         }
 
         if (!scaleFrequencyWithSignatures || signatures <= 0)
@@ -311,10 +321,10 @@ public class BlackoutManager : MonoBehaviour
             _mainSunLight.intensity = 0f;
         }
 
-        // Drop ambient and clear skybox to pitch black so no blue-white sky leaks into indoor textures
+        // Drop ambient to dim eerie blackout level so the floor remains vaguely discernible
         RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientLight = Color.black;
-        RenderSettings.ambientIntensity = 0f;
+        RenderSettings.ambientLight = blackoutAmbientColor;
+        RenderSettings.ambientIntensity = blackoutAmbientIntensity;
         RenderSettings.skybox = null;
 
         // ── PHASE 3: Darkness hold ────────────────────────────────────────────

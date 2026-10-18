@@ -18,9 +18,20 @@ public class DoorInteract : MonoBehaviour, IInteractable
     public Vector3 rotationAxis = Vector3.up;
 
     private bool isOpen = false;
+    public bool IsOpen => isOpen;
     private Quaternion closedRotation;
     private Quaternion openRotation;
     private Quaternion targetRotation;
+
+    public void ForceOpen()
+    {
+        isLocked = false;
+        isBlackoutLocked = false;
+        if (!isOpen)
+        {
+            ToggleDoor();
+        }
+    }
 
     [Header("Lock Settings")]
     [Tooltip("Is this door currently locked?")]
@@ -30,33 +41,60 @@ public class DoorInteract : MonoBehaviour, IInteractable
     public bool isBlackoutLocked = false;
 
     private bool _wasLockedBeforeBlackout = false;
+    private bool _isSubscribedToBlackout = false;
 
     [Tooltip("Specific lockpin item required. If null, any item named 'Lockpin' works.")]
     public InventoryItem requiredLockpinItem;
 
     private void OnEnable()
     {
-        if (BlackoutManager.Instance != null)
-        {
-            BlackoutManager.Instance.OnBlackoutStart += HandleBlackoutStart;
-            BlackoutManager.Instance.OnBlackoutEnd += HandleBlackoutEnd;
-        }
+        TrySubscribeBlackout();
     }
 
     private void OnDisable()
     {
-        if (BlackoutManager.Instance != null)
+        UnsubscribeBlackout();
+    }
+
+    private void OnDestroy()
+    {
+        UnsubscribeBlackout();
+    }
+
+    private void TrySubscribeBlackout()
+    {
+        if (!_isSubscribedToBlackout && BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.OnBlackoutStart += HandleBlackoutStart;
+            BlackoutManager.Instance.OnBlackoutEnd += HandleBlackoutEnd;
+            _isSubscribedToBlackout = true;
+        }
+    }
+
+    private void UnsubscribeBlackout()
+    {
+        if (_isSubscribedToBlackout && BlackoutManager.Instance != null)
         {
             BlackoutManager.Instance.OnBlackoutStart -= HandleBlackoutStart;
             BlackoutManager.Instance.OnBlackoutEnd -= HandleBlackoutEnd;
+            _isSubscribedToBlackout = false;
         }
     }
 
     private void Start()
     {
+        TrySubscribeBlackout();
+
         closedRotation = transform.localRotation;
         openRotation = closedRotation * Quaternion.AngleAxis(openAngle, rotationAxis);
         targetRotation = closedRotation;
+
+        string dName = gameObject.name.ToLowerInvariant();
+        if (dName.Contains("105") || dName.Contains("comlab"))
+        {
+            // Room 105 ComLab is locked by department custodian, pickable with the lockpin from the lobby
+            isLocked = true;
+        }
 
         // If spawned while blackout is already active, lock immediately
         if (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive)
@@ -99,6 +137,23 @@ public class DoorInteract : MonoBehaviour, IInteractable
                 {
                     audioSource.pitch = 1.35f;
                     audioSource.PlayOneShot(closeSound, 0.45f);
+                }
+                return;
+            }
+
+            bool hasPin = LockpickingMinigame.HasLockpin(requiredLockpinItem);
+            if (!hasPin)
+            {
+                // Play locked handle jiggle rattling sound
+                if (audioSource == null) audioSource = GetComponent<AudioSource>();
+                if (audioSource != null && closeSound != null)
+                {
+                    audioSource.pitch = 1.30f;
+                    audioSource.PlayOneShot(closeSound, 0.50f);
+                }
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Kailangan ng Lockpin", "Naka-lock ang Room 105 ComLab. Kumuha ng Lockpin sa Lobby table para buksan ang kandado.");
                 }
                 return;
             }
@@ -220,11 +275,13 @@ public class DoorInteract : MonoBehaviour, IInteractable
             if (isOpen && openSounds != null && openSounds.Length > 0)
             {
                 AudioClip clipToPlay = openSounds[Random.Range(0, openSounds.Length)];
-                audioSource.PlayOneShot(clipToPlay);
-                
-                if (clipToPlay.length > 0f)
+                if (clipToPlay != null)
                 {
-                    swingSpeed = Mathf.Abs(openAngle) / clipToPlay.length;
+                    audioSource.PlayOneShot(clipToPlay);
+                    if (clipToPlay.length > 0f)
+                    {
+                        swingSpeed = Mathf.Abs(openAngle) / clipToPlay.length;
+                    }
                 }
             }
             else if (!isOpen && closeSound != null)
@@ -257,7 +314,7 @@ public class DoorInteract : MonoBehaviour, IInteractable
             }
 
             bool hasPin = LockpickingMinigame.HasLockpin(requiredLockpinItem);
-            return hasPin ? "Press E to Pick Lock" : "Locked (Requires Lockpin)";
+            return hasPin ? "Press [E] to Pick Lock" : "Locked (Requires Lockpin from Lobby Table)";
         }
 
         return isOpen ? "Press E to Close" : "Press E to Open";

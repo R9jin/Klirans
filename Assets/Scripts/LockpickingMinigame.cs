@@ -109,6 +109,9 @@ public class LockpickingMinigame : MonoBehaviour
     {
         if (!isMinigameActive) return;
 
+        // Prevent instant close on the same frame or immediate next frame after pressing E to enter
+        if (Time.frameCount <= _openedFrame + 2) return;
+
         // Timer update
         timeLeft -= Time.deltaTime;
         if (timeLeft <= 0)
@@ -123,8 +126,8 @@ public class LockpickingMinigame : MonoBehaviour
             timerText.text = Mathf.CeilToInt(timeLeft).ToString() + "s";
         }
 
-        // 1. Leave Lockpicking (E / Q / L / ESC)
-        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.L) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Q))
+        // 1. Leave Lockpicking (ESC / Q / L)
+        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Q) || Input.GetKeyDown(KeyCode.L))
         {
             EndLockpicking(false, "Lockpicking left.");
             return;
@@ -140,14 +143,14 @@ public class LockpickingMinigame : MonoBehaviour
             selectedPinIndex = Mathf.Clamp(selectedPinIndex + 1, 0, totalPins - 1);
         }
 
-        // 3. Hit Pin (Right Click / W)
-        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.W))
+        // 3. Hit Pin (Right Click / W / Space / Up Arrow)
+        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.UpArrow))
         {
             HitActivePin();
         }
 
-        // 4. Lock Pin (Left Click / S)
-        if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.S))
+        // 4. Lock Pin (Left Click / S / Enter / Down Arrow)
+        if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.DownArrow))
         {
             TryLockActivePin();
         }
@@ -158,6 +161,8 @@ public class LockpickingMinigame : MonoBehaviour
         // Render UI
         UpdateUIRender();
     }
+
+    private int _openedFrame = -1;
 
     public void StartLockpicking(DoorInteract door)
     {
@@ -173,6 +178,7 @@ public class LockpickingMinigame : MonoBehaviour
 
         targetDoor = door;
         isMinigameActive = true;
+        _openedFrame = Time.frameCount;
         selectedPinIndex = 0;
         timeLeft = difficultyTimer;
 

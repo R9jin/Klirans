@@ -112,6 +112,13 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void Awake()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            currentState = GuardState.Inactive;
+            gameObject.SetActive(false);
+            return;
+        }
+
         if (ActiveStalker != null && ActiveStalker != this)
         {
             Destroy(gameObject);
@@ -123,6 +130,12 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         _animator = GetComponentInChildren<Animator>();
         _speedHash = Animator.StringToHash("Speed");
 
+        // Dynamic threat scaling (FNAF-style progression based on clearance signatures)
+        if (CampusThreatDirector.Instance != null)
+        {
+            CampusThreatDirector.Instance.ApplyStatsToGuard(this);
+        }
+
         SetupAudioSources();
         ConfigureNavMeshAgent();
         FindBones();
@@ -132,6 +145,13 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void Start()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            currentState = GuardState.Inactive;
+            gameObject.SetActive(false);
+            return;
+        }
+
         FindPlayerReferences();
         _nextWhistleTime = Time.time + Random.Range(4.0f, 9.0f); // First whistle soon after emergence
         PickHallwayPatrolTarget();
@@ -278,6 +298,14 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void Update()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            currentState = GuardState.Inactive;
+            gameObject.SetActive(false);
+            return;
+        }
+
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (currentState == GuardState.Inactive || currentState == GuardState.Jumpscare) return;
 
         if (_playerTransform == null) FindPlayerReferences();
@@ -613,6 +641,22 @@ public class SecurityGuardStalkerAI : MonoBehaviour
                 }
             }
         }
+
+        // Dynamic Flashlight Corridor Sweeping
+        if (_flashlight != null)
+        {
+            if (currentState == GuardState.Chasing)
+            {
+                // Focused forward beam with subtle breathing jitter
+                _flashlight.transform.localRotation = Quaternion.Euler(15f, Mathf.Sin(Time.time * 12f) * 1.5f, 0f);
+            }
+            else if (isMoving)
+            {
+                // Eerie searching sweep across walls, lockers, and corners
+                float sweep = Mathf.Sin(Time.time * 2.4f) * 16.0f;
+                _flashlight.transform.localRotation = Quaternion.Euler(15f, sweep, 0f);
+            }
+        }
     }
 
     public void PlayWhistleBlast(float volume = 0.90f)
@@ -677,6 +721,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void TriggerCatchSequence()
     {
+        if (GameModeManager.IsFreeRoamMode || OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         _hasCaughtPlayer = true;
         currentState = GuardState.Jumpscare;
 
@@ -698,11 +743,17 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         dir.y = 0;
         if (dir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(dir);
 
-        // Trigger Jumpscare / Failure Sequence through NPCJumpscareManager if present
+        // Trigger Jumpscare / Failure Sequence through NPCJumpscareManager using the Guard's own model
+        SkinnedMeshRenderer guardSMR = GetComponentInChildren<SkinnedMeshRenderer>();
+        if (guardSMR == null)
+        {
+            var boothGuard = GameObject.Find("Security_Guard_NPC") ?? FindAnyObjectByType<SecurityGuardInteract>(FindObjectsInactive.Include)?.gameObject;
+            if (boothGuard != null) guardSMR = boothGuard.GetComponentInChildren<SkinnedMeshRenderer>(true);
+        }
         var jumpscareMgr = NPCJumpscareManager.Instance ?? FindAnyObjectByType<NPCJumpscareManager>();
         if (jumpscareMgr != null)
         {
-            jumpscareMgr.TriggerJumpscare();
+            jumpscareMgr.TriggerJumpscare(guardSMR);
         }
         else
         {
@@ -714,5 +765,24 @@ public class SecurityGuardStalkerAI : MonoBehaviour
             }
             Debug.Log("[SecurityGuardStalkerAI] Student apprehended by Security Guard!");
         }
+    }
+
+    /// <summary>
+    /// Updates patrol, chase, vision, and whistle cadence based on final lockdown threat level.
+    /// </summary>
+    public void ApplyThreatStats(float newPatrolSpeed, float newChaseSpeed, float newVisionDist, float newWhistleMin, float newWhistleMax)
+    {
+        patrolSpeed = newPatrolSpeed;
+        chaseSpeed = newChaseSpeed;
+        visionMaxDistance = newVisionDist;
+        whistleIntervalMin = newWhistleMin;
+        whistleIntervalMax = newWhistleMax;
+
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.speed = (currentState == GuardState.Chasing) ? chaseSpeed : patrolSpeed;
+        }
+
+        Debug.Log($"[SecurityGuardStalkerAI] Threat stats updated: Patrol={patrolSpeed:F1}, Chase={chaseSpeed:F1}, Vision={visionMaxDistance:F1}m, Whistle={whistleIntervalMin:F0}-{whistleIntervalMax:F0}s");
     }
 }
