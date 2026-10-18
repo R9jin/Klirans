@@ -403,6 +403,7 @@ public class NPCJumpscareManager : MonoBehaviour
     /// </summary>
     private void OnControllerColliderHit(ControllerColliderHit hit)
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         if (_isScaring) return;
         if (Time.time < _cooldownUntil || Time.time < _touchRerollCooldownUntil) return;
         if (!CanTriggerScare()) return;
@@ -421,6 +422,7 @@ public class NPCJumpscareManager : MonoBehaviour
     /// </summary>
     private void HandleTouchOrBlock(WanderingNPCData npc, string source)
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         if (_isScaring) return;
         if (Time.time < _cooldownUntil || Time.time < _touchRerollCooldownUntil) return;
         if (!CanTriggerScare()) return;
@@ -449,6 +451,7 @@ public class NPCJumpscareManager : MonoBehaviour
     /// </summary>
     public void PunishPlayerError(string reason, float chance = 0.50f)
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         if (_isScaring || Time.time < _cooldownUntil) return;
         if (!CanTriggerScare()) return;
 
@@ -614,30 +617,52 @@ public class NPCJumpscareManager : MonoBehaviour
     }
 
     [ContextMenu("Trigger Jumpscare Now")]
-    public void TriggerJumpscare()
+    public void TriggerJumpscare(SkinnedMeshRenderer customSMR = null)
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         if (_isScaring || _scareRig == null) return;
+        if (customSMR != null)
+        {
+            _proximityChosenSMR = customSMR;
+        }
         StartCoroutine(FortniteStyleJumpscareSequence());
     }
 
     private IEnumerator FortniteStyleJumpscareSequence()
     {
-        _isScaring = true;
-
-        if (_cachedNPCs.Count == 0) CacheWanderingNPCs();
-        if (_cachedNPCs.Count == 0)
+        if (GameModeManager.IsFreeRoamMode)
         {
             _isScaring = false;
             yield break;
         }
 
+        _isScaring = true;
+
         SkinnedMeshRenderer chosenSMR = _proximityChosenSMR;
         _proximityChosenSMR = null;
 
-        if (chosenSMR == null)
+        bool isGuardCatch = (chosenSMR != null && (chosenSMR.name.ToLower().Contains("guard") || chosenSMR.transform.root.name.ToLower().Contains("guard"))) ||
+                            (SecurityGuardStalkerAI.ActiveStalker != null && SecurityGuardStalkerAI.ActiveStalker.currentState == SecurityGuardStalkerAI.GuardState.Jumpscare);
+
+        // If the Security Guard stalker is actively catching the student, ALWAYS use the Security Guard model, NEVER fall back to a random student!
+        if (isGuardCatch)
         {
-            int idx = Random.Range(0, _cachedNPCs.Count);
-            chosenSMR = _cachedNPCs[idx].smr;
+            if (chosenSMR == null && SecurityGuardStalkerAI.ActiveStalker != null)
+                chosenSMR = SecurityGuardStalkerAI.ActiveStalker.GetComponentInChildren<SkinnedMeshRenderer>();
+            if (chosenSMR == null)
+            {
+                var boothGuard = FindAnyObjectByType<SecurityGuardInteract>(FindObjectsInactive.Include);
+                if (boothGuard != null) chosenSMR = boothGuard.GetComponentInChildren<SkinnedMeshRenderer>(true);
+            }
+        }
+        else if (chosenSMR == null)
+        {
+            if (_cachedNPCs.Count == 0) CacheWanderingNPCs();
+            if (_cachedNPCs.Count > 0)
+            {
+                int idx = Random.Range(0, _cachedNPCs.Count);
+                chosenSMR = _cachedNPCs[idx].smr;
+            }
         }
 
         if (chosenSMR == null)
@@ -721,8 +746,8 @@ public class NPCJumpscareManager : MonoBehaviour
         var newTris = new List<int>();
         var oldToNew = new Dictionary<int, int>();
 
-        float keepMinY = -0.22f; // Chin & upper collar cutoff
-        float keepMaxY = 0.22f;  // Top of hair cutoff
+        float keepMinY = isGuardCatch ? -0.32f : -0.22f; // Chin & security uniform collar
+        float keepMaxY = isGuardCatch ? 0.38f : 0.22f;  // Top of security guard peaked cap & visor
 
         for (int i = 0; i < rawTris.Length; i += 3)
         {
@@ -763,11 +788,21 @@ public class NPCJumpscareManager : MonoBehaviour
         _activeBakedMesh.RecalculateNormals();
         _activeBakedMesh.RecalculateBounds();
 
-        // 3. Apply student texture with Unlit shader so it's 100% sharp and recognizable
+        // 3. Apply character texture with Unlit shader so it's 100% sharp and recognizable
         _scareMeshFilter.sharedMesh = _activeBakedMesh;
-        if (_unlitMaterial != null && chosenSMR.sharedMaterial != null)
+        if (_unlitMaterial != null)
         {
-            _unlitMaterial.mainTexture = chosenSMR.sharedMaterial.mainTexture;
+            Texture charTex = chosenSMR.sharedMaterial != null ? chosenSMR.sharedMaterial.mainTexture : null;
+            if (charTex == null && chosenSMR.sharedMaterial != null && chosenSMR.sharedMaterial.HasProperty("_BaseMap"))
+                charTex = chosenSMR.sharedMaterial.GetTexture("_BaseMap");
+            if (charTex == null && isGuardCatch)
+            {
+#if UNITY_EDITOR
+                charTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/NPC Assets/Texture/guard.png");
+#endif
+            }
+            if (charTex != null)
+                _unlitMaterial.mainTexture = charTex;
         }
 
         // 4. Audio scream / horror sting at FULL VOLUME

@@ -73,9 +73,10 @@ public static class Item3DModelFactory
     {
         GenerateAllModels();
     }
+#endif
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // PROCEDURAL MESH GENERATORS
+    // PROCEDURAL MESH GENERATORS (Available in both Editor and Runtime)
     // ═══════════════════════════════════════════════════════════════════════════
 
     public static Mesh CreateTorusMesh(float mainRadius, float tubeRadius, int radialSegments = 24, int tubeSegments = 16)
@@ -277,50 +278,88 @@ public static class Item3DModelFactory
         var tris = new List<int>();
 
         float hw = w * 0.5f, hh = h * 0.5f, hd = d * 0.5f;
-        float b = Mathf.Min(bevel, Mathf.Min(hw, Mathf.Min(hh, hd)) * 0.45f);
+        float b = Mathf.Clamp(bevel, 0.0005f, Mathf.Min(hw, Mathf.Min(hh, hd)) * 0.35f);
+        float ix = hw - b, iy = hh - b, iz = hd - b;
 
-        // Generates 8 main outer corners with chamfer faces
-        // Front face (+Z)
-        AddQuad(verts, uvs, tris,
-            new Vector3(-hw + b, -hh + b, hd),
-            new Vector3(hw - b, -hh + b, hd),
-            new Vector3(hw - b, hh - b, hd),
-            new Vector3(-hw + b, hh - b, hd));
+        // 24 corner vertices: 6 faces * 4 vertices
+        // Front (+Z) face vertices (viewed from +Z: +X is left, +Y is up -> clockwise: BL, TL, TR, BR)
+        Vector3 fBL = new Vector3(-ix, -iy,  hd);
+        Vector3 fTL = new Vector3(-ix,  iy,  hd);
+        Vector3 fTR = new Vector3( ix,  iy,  hd);
+        Vector3 fBR = new Vector3( ix, -iy,  hd);
 
-        // Back face (-Z)
-        AddQuad(verts, uvs, tris,
-            new Vector3(hw - b, -hh + b, -hd),
-            new Vector3(-hw + b, -hh + b, -hd),
-            new Vector3(-hw + b, hh - b, -hd),
-            new Vector3(hw - b, hh - b, -hd));
+        // Back (-Z) face vertices (viewed from -Z: -X is left, +Y is up -> clockwise: BR, TR, TL, BL in world X)
+        Vector3 bBL = new Vector3(-ix, -iy, -hd);
+        Vector3 bTL = new Vector3(-ix,  iy, -hd);
+        Vector3 bTR = new Vector3( ix,  iy, -hd);
+        Vector3 bBR = new Vector3( ix, -iy, -hd);
 
-        // Top face (+Y)
-        AddQuad(verts, uvs, tris,
-            new Vector3(-hw + b, hh, -hd + b),
-            new Vector3(-hw + b, hh, hd - b),
-            new Vector3(hw - b, hh, hd - b),
-            new Vector3(hw - b, hh, -hd + b));
+        // Top (+Y) face vertices
+        Vector3 tFL = new Vector3(-ix,  hh,  iz);
+        Vector3 tFR = new Vector3( ix,  hh,  iz);
+        Vector3 tBR = new Vector3( ix,  hh, -iz);
+        Vector3 tBL = new Vector3(-ix,  hh, -iz);
 
-        // Bottom face (-Y)
-        AddQuad(verts, uvs, tris,
-            new Vector3(-hw + b, -hh, hd - b),
-            new Vector3(-hw + b, -hh, -hd + b),
-            new Vector3(hw - b, -hh, -hd + b),
-            new Vector3(hw - b, -hh, hd - b));
+        // Bottom (-Y) face vertices
+        Vector3 dFL = new Vector3(-ix, -hh,  iz);
+        Vector3 dFR = new Vector3( ix, -hh,  iz);
+        Vector3 dBR = new Vector3( ix, -hh, -iz);
+        Vector3 dBL = new Vector3(-ix, -hh, -iz);
 
-        // Left face (-X)
-        AddQuad(verts, uvs, tris,
-            new Vector3(-hw, -hh + b, -hd + b),
-            new Vector3(-hw, -hh + b, hd - b),
-            new Vector3(-hw, hh - b, hd - b),
-            new Vector3(-hw, hh - b, -hd + b));
+        // Left (-X) face vertices
+        Vector3 lFB = new Vector3(-hw, -iy,  iz);
+        Vector3 lFT = new Vector3(-hw,  iy,  iz);
+        Vector3 lBT = new Vector3(-hw,  iy, -iz);
+        Vector3 lBB = new Vector3(-hw, -iy, -iz);
 
-        // Right face (+X)
-        AddQuad(verts, uvs, tris,
-            new Vector3(hw, -hh + b, hd - b),
-            new Vector3(hw, -hh + b, -hd + b),
-            new Vector3(hw, hh - b, -hd + b),
-            new Vector3(hw, hh - b, hd - b));
+        // Right (+X) face vertices
+        Vector3 rFB = new Vector3( hw, -iy,  iz);
+        Vector3 rFT = new Vector3( hw,  iy,  iz);
+        Vector3 rBT = new Vector3( hw,  iy, -iz);
+        Vector3 rBB = new Vector3( hw, -iy, -iz);
+
+        // ── 6 Main Faces (Outward Clockwise Winding, Full 0..1 UVs) ──
+        // Front (+Z): normal (0, 0, +1)
+        AddQuad(verts, uvs, tris, fBR, fTR, fTL, fBL);
+        // Back (-Z): normal (0, 0, -1)
+        AddQuad(verts, uvs, tris, bBL, bTL, bTR, bBR);
+        // Top (+Y): normal (0, +1, 0)
+        AddQuad(verts, uvs, tris, tBL, tBR, tFR, tFL);
+        // Bottom (-Y): normal (0, -1, 0)
+        AddQuad(verts, uvs, tris, dFL, dFR, dBR, dBL);
+        // Left (-X): normal (-1, 0, 0)
+        AddQuad(verts, uvs, tris, lFB, lFT, lBT, lBB);
+        // Right (+X): normal (+1, 0, 0)
+        AddQuad(verts, uvs, tris, rBB, rBT, rFT, rFB);
+
+        // ── 12 Bevel Edge Quads (Stitching all adjacent faces watertight) ──
+        // Front 4 edges
+        AddQuad(verts, uvs, tris, fTL, fTR, tFR, tFL); // Front-Top
+        AddQuad(verts, uvs, tris, dFL, dFR, fBR, fBL); // Front-Bottom
+        AddQuad(verts, uvs, tris, fBL, fTL, lFT, lFB); // Front-Left
+        AddQuad(verts, uvs, tris, rFB, rFT, fTR, fBR); // Front-Right
+
+        // Back 4 edges
+        AddQuad(verts, uvs, tris, tBL, tBR, bTR, bTL); // Back-Top
+        AddQuad(verts, uvs, tris, bBL, bBR, dBR, dBL); // Back-Bottom
+        AddQuad(verts, uvs, tris, lBB, lBT, bTL, bBL); // Back-Left
+        AddQuad(verts, uvs, tris, bBR, bTR, rBT, rBB); // Back-Right
+
+        // Middle 4 edges (Top/Bottom to Left/Right)
+        AddQuad(verts, uvs, tris, lFT, tFL, tBL, lBT); // Top-Left
+        AddQuad(verts, uvs, tris, tFR, rFT, rBT, tBR); // Top-Right
+        AddQuad(verts, uvs, tris, lBB, dBL, dFL, lFB); // Bottom-Left
+        AddQuad(verts, uvs, tris, dFR, dBR, rBB, rFB); // Bottom-Right
+
+        // ── 8 Bevel Corner Triangles (Watertight Corners) ──
+        AddTri(verts, uvs, tris, fTL, tFL, lFT); // Front-Top-Left
+        AddTri(verts, uvs, tris, fTR, rFT, tFR); // Front-Top-Right
+        AddTri(verts, uvs, tris, fBL, lFB, dFL); // Front-Bottom-Left
+        AddTri(verts, uvs, tris, fBR, dFR, rFB); // Front-Bottom-Right
+        AddTri(verts, uvs, tris, bTL, lBT, tBL); // Back-Top-Left
+        AddTri(verts, uvs, tris, bTR, tBR, rBT); // Back-Top-Right
+        AddTri(verts, uvs, tris, bBL, dBL, lBB); // Back-Bottom-Left
+        AddTri(verts, uvs, tris, bBR, rBB, dBR); // Back-Bottom-Right
 
         mesh.vertices = verts.ToArray();
         mesh.uv = uvs.ToArray();
@@ -334,11 +373,20 @@ public static class Item3DModelFactory
     {
         int start = verts.Count;
         verts.Add(v0); verts.Add(v1); verts.Add(v2); verts.Add(v3);
-        uvs.Add(new Vector2(0, 0)); uvs.Add(new Vector2(1, 0)); uvs.Add(new Vector2(1, 1)); uvs.Add(new Vector2(0, 1));
+        uvs.Add(new Vector2(0, 0)); uvs.Add(new Vector2(0, 1)); uvs.Add(new Vector2(1, 1)); uvs.Add(new Vector2(1, 0));
         tris.Add(start); tris.Add(start + 1); tris.Add(start + 2);
         tris.Add(start); tris.Add(start + 2); tris.Add(start + 3);
     }
 
+    private static void AddTri(List<Vector3> verts, List<Vector2> uvs, List<int> tris, Vector3 v0, Vector3 v1, Vector3 v2)
+    {
+        int start = verts.Count;
+        verts.Add(v0); verts.Add(v1); verts.Add(v2);
+        uvs.Add(new Vector2(0, 0)); uvs.Add(new Vector2(0.5f, 1)); uvs.Add(new Vector2(1, 0));
+        tris.Add(start); tris.Add(start + 1); tris.Add(start + 2);
+    }
+
+#if UNITY_EDITOR
     // ═══════════════════════════════════════════════════════════════════════════
     // DETAILED 3D MODEL GENERATORS
     // ═══════════════════════════════════════════════════════════════════════════

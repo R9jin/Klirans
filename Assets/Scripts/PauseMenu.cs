@@ -93,6 +93,9 @@ public class PauseMenu : MonoBehaviour
         get
         {
             if (OpeningCutsceneDirector.IsCutsceneActive) return true;
+            if (WinCutsceneDirector.IsCutsceneActive) return true;
+            if (TutorialScreenUI.IsOpen) return true;
+            if (GameSettingsManager.IsSettingsOpen) return true;
             if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return true;
             if (HamAndCheeseVendorUI.Instance != null && HamAndCheeseVendorUI.Instance.IsOpen) return true;
             if (LockpickingMinigame.Instance != null && LockpickingMinigame.Instance.IsActive) return true;
@@ -136,11 +139,27 @@ public class PauseMenu : MonoBehaviour
 
     public void Pause()
     {
+        SyncSlidersFromPrefs();
         SetPaused(true);
         Time.timeScale = 0f;
         GameIsPaused = true;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+    }
+
+    private void SyncSlidersFromPrefs()
+    {
+        float vol  = PlayerPrefs.GetFloat("MasterVolume",    1.0f);
+        float fov  = PlayerPrefs.GetFloat("CameraFOV",       60f);
+        float sens = PlayerPrefs.GetFloat("MouseSensitivity", 1.8f);
+
+        if (_volumeSlider      != null) _volumeSlider.SetValueWithoutNotify(vol);
+        if (_fovSlider         != null) _fovSlider.SetValueWithoutNotify(fov);
+        if (_sensitivitySlider != null) _sensitivitySlider.SetValueWithoutNotify(sens);
+
+        UpdateVolumeText(vol);
+        UpdateFOVText(fov);
+        UpdateSensText(sens);
     }
 
     public void LoadMenu()
@@ -240,7 +259,7 @@ public class PauseMenu : MonoBehaviour
         var titleBox = new GameObject("TitleBox");
         titleBox.transform.SetParent(_pausePanelRoot.transform, false);
         var titleBoxRT = titleBox.AddComponent<RectTransform>();
-        titleBoxRT.anchorMin = new Vector2(0f, 0.62f);
+        titleBoxRT.anchorMin = new Vector2(0f, 0.66f);
         titleBoxRT.anchorMax = new Vector2(1f, 0.95f);
         titleBoxRT.offsetMin = new Vector2(48f, 0f);
         titleBoxRT.offsetMax = new Vector2(-12f, 0f);
@@ -253,8 +272,8 @@ public class PauseMenu : MonoBehaviour
         var btnPanel = new GameObject("ButtonsPanel");
         btnPanel.transform.SetParent(_pausePanelRoot.transform, false);
         var btnPanelRT = btnPanel.AddComponent<RectTransform>();
-        btnPanelRT.anchorMin = new Vector2(0f, 0.06f);
-        btnPanelRT.anchorMax = new Vector2(1f, 0.58f);
+        btnPanelRT.anchorMin = new Vector2(0f, 0.22f);
+        btnPanelRT.anchorMax = new Vector2(1f, 0.64f);
         btnPanelRT.offsetMin = new Vector2(48f, 0f);
         btnPanelRT.offsetMax = new Vector2(-12f, 0f);
 
@@ -267,9 +286,11 @@ public class PauseMenu : MonoBehaviour
         vlg.childControlHeight   = true;
         vlg.padding              = new RectOffset(0, 0, 0, 0);
 
-        MakeMenuButton(btnPanel.transform, "Resume",       () => Resume());
-        MakeMenuButton(btnPanel.transform, "Main Menu",    () => LoadMenu());
-        MakeMenuButton(btnPanel.transform, "Quit",         () => QuitGame());
+        MakeMenuButton(btnPanel.transform, "Resume",            () => Resume());
+        MakeMenuButton(btnPanel.transform, "Tutorial / Help",   () => TutorialScreenUI.OpenTutorial(0, () => { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }));
+        MakeMenuButton(btnPanel.transform, "Settings",          () => GameSettingsManager.OpenSettingsModal(() => { SyncSlidersFromPrefs(); Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }));
+        MakeMenuButton(btnPanel.transform, "Main Menu",         () => LoadMenu());
+        MakeMenuButton(btnPanel.transform, "Quit",              () => QuitGame());
 
         // ── Settings strip at the bottom of the panel ─────────────────────────
         BuildSettingsStrip(_pausePanelRoot.transform);

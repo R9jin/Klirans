@@ -58,6 +58,8 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
     // ── Unity ─────────────────────────────────────────────────────────────────
     private void Awake()
     {
+        if (interactionRange < 4.2f) interactionRange = 4.2f;
+
         // Solid physical collider — NPC collides with the player
         var col = GetComponent<Collider>();
         if (col != null) col.isTrigger = false;
@@ -67,7 +69,38 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         rb.isKinematic = true;
         rb.useGravity = false;
 
+        EnsureStaffInteractionZone();
         EnsureVoiceAudioSource();
+    }
+
+    /// <summary>
+    /// Creates a generous trigger interaction volume encompassing the staff NPC and the space
+    /// across their counter/desk/window so the player can easily interact without pixel-hunting.
+    /// </summary>
+    private void EnsureStaffInteractionZone()
+    {
+        Transform zoneT = transform.Find("StaffInteractionZone");
+        GameObject zoneGO;
+        if (zoneT != null)
+        {
+            zoneGO = zoneT.gameObject;
+        }
+        else
+        {
+            zoneGO = new GameObject("StaffInteractionZone");
+            zoneGO.transform.SetParent(transform, false);
+        }
+
+        zoneGO.layer = gameObject.layer;
+        zoneGO.transform.localPosition = Vector3.zero;
+        zoneGO.transform.localRotation = Quaternion.identity;
+        zoneGO.transform.localScale = Vector3.one;
+
+        var box = zoneGO.GetComponent<BoxCollider>();
+        if (box == null) box = zoneGO.AddComponent<BoxCollider>();
+        box.isTrigger = true;
+        box.center = new Vector3(0f, 1.05f, 0.35f);
+        box.size = new Vector3(1.85f, 2.20f, 2.40f);
     }
 
     private void EnsureVoiceAudioSource()
@@ -115,6 +148,17 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
 
     public string GetPrompt()
     {
+        // Special case: Chasing runaway Registrar in hallway
+        if (signatureIndex == 3)
+        {
+            var staffAI = GetComponent<RoomStaffAI>();
+            if (staffAI != null && staffAI.isRunawayActive)
+            {
+                float chaseDist = _playerTransform != null ? Vector3.Distance(transform.position, _playerTransform.position) : 99f;
+                if (chaseDist <= 5.5f) return "[E] Habulin at Pakalmahin si Registrar!";
+            }
+        }
+
         // Distance gate — must be within interactionRange
         if (_playerTransform != null)
         {
@@ -143,11 +187,18 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
 
     public void Interact()
     {
-        // Distance gate
+        // Distance gate (allow wider range during hallway chase)
         if (_playerTransform != null)
         {
+            float maxRange = interactionRange;
+            if (signatureIndex == 3)
+            {
+                var staffAI = GetComponent<RoomStaffAI>();
+                if (staffAI != null && staffAI.isRunawayActive) maxRange = 5.5f;
+            }
+
             float dist = Vector3.Distance(transform.position, _playerTransform.position);
-            if (dist > interactionRange) return;
+            if (dist > maxRange) return;
         }
 
         if (ClearanceManager.Instance == null)
@@ -236,16 +287,36 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             }
         }
 
-        // Gate 4: Guidance Counselor (signatureIndex 1) requires solving the Core Values Scrambled Word Puzzle
+        // Gate 4: Guidance Counselor (signatureIndex 1) — Step 1: Tape Fetch, Step 2: Core Values Puzzle
         if (signatureIndex == 1)
         {
+            bool hasTape = PlayerHasItemNamed("Counseling Audio Cassette Tape") || PlayerHasItemNamed("Cassette Tape") || PlayerHasItemNamed("Tape") || PlayerHasItemNamed("Cassette");
+            if (!hasTape && !ClearanceManager.Instance.GuidanceTapeDelivered)
+            {
+                ShowDialogue("Tuloy ka sa Guidance & Counseling. Bago kita i-evaluate, kailangan nating suriin ang iyong Guidance Counseling Case File Audio Tape. Iniwan ito ng intern sa 2nd Floor Clinic desk o Guidance storage shelf. Hanapin at dalhin mo rito sa akin bago tayo magpatuloy.");
+                if (ObjectiveHUD.Instance != null)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Hanapin ang Counseling Tape", "Hanapin ang Counseling Audio Cassette Tape sa 2nd Floor Clinic desk o Guidance shelf at dalhin sa Counselor sa Room 207.");
+                }
+                return;
+            }
+            else if (hasTape && !ClearanceManager.Instance.GuidanceTapeDelivered)
+            {
+                ClearanceManager.Instance.GuidanceTapeDelivered = true;
+                RemoveItemNamed("Counseling Audio Cassette Tape", 1);
+                RemoveItemNamed("Cassette Tape", 1);
+                RemoveItemNamed("Tape", 1);
+                RemoveItemNamed("Cassette", 1);
+                Debug.Log("[ClearanceNPC] Guidance Counselor accepted the Counseling Tape!");
+            }
+
             var puzzle = GuidanceWordPuzzle.Instance ?? FindAnyObjectByType<GuidanceWordPuzzle>(FindObjectsInactive.Include);
             if (puzzle != null && !puzzle.IsSolved)
             {
-                ShowDialogue("Tuloy ka sa Guidance and Counseling. Bago ko ma-clear ang moral conduct standing mo, kailangan mong patunayan na aligned ka sa core values ng ating institusyon. Ayusin mo 'yung nagkandalitong mga letra dito sa evaluation sheet... kung gusto mong makapasa.");
+                ShowDialogue("Salamat at nahanap mo ang case file tape. Ngayon, para sa final evaluation ng moral standing mo, patunayan mong kabisado mo ang ating PnC Core Values. Ayusin mo ang nagkandalitong mga letra dito sa assessment sheet.");
                 if (ObjectiveHUD.Instance != null)
                 {
-                    ObjectiveHUD.Instance.SetObjective("Guidance Core Values Puzzle", "Unscramble the PnC Core Value letters on the guidance assessment sheet in Room 207.");
+                    ObjectiveHUD.Instance.SetObjective("Guidance Core Values Puzzle", "Ayusin ang nagkandalitong letra ng PnC Core Values sa Guidance assessment sheet sa Room 207.");
                 }
                 puzzle.OpenPuzzle(0);
                 return;
@@ -257,16 +328,16 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             }
         }
 
-        // Gate 4.5: CCS Dean / Department Head (signatureIndex 2) requires ComLab Accountability Form from the 1st Floor ComLab
+        // Gate 4.5: CCS Dean / Department Head (signatureIndex 2) — Requires ComLab 105 Power/Access & Accountability Form
         if (signatureIndex == 2)
         {
             bool hasComLabForm = (comlabFormItem != null && PlayerHasItem(comlabFormItem)) || PlayerHasItemNamed("ComLab Accountability Form");
             if (!hasComLabForm)
             {
-                ShowDialogue("College of Computing Studies. Bago ko mapirmahan 'yang Department Clearance mo, may flag pa ang terminal account mo sa database—may UNRESOLVED COMPUTER LAB TERMINAL HOLD ka! Iniwan ng ComLab custodian 'yung official ComLab Accountability Form mo sa 1st Floor Computer Lab (Room 105). Kunin mo muna doon sa desk at dalhin mo rito sa akin!");
+                ShowDialogue("College of Computing Studies. Bago ko mapirmahan 'yang Department Clearance mo, may flag pa ang terminal account mo sa database—may UNRESOLVED COMPUTER LAB TERMINAL HOLD ka! Naka-lock ang Room 105 ComLab at patid ang kuryente sa Slot 2 ng Main Breaker. Gamitin ang lockpin, ikabit ang 15A Ceramic Fuse sa Breaker para magka-ilaw, at kunin ang ComLab Accountability Form sa terminal desk!");
                 if (ObjectiveHUD.Instance != null)
                 {
-                    ObjectiveHUD.Instance.SetObjective("ComLab Terminal Hold", "Retrieve your ComLab Accountability Form from the 1st Floor Computer Lab in Room 105.");
+                    ObjectiveHUD.Instance.SetObjective("ComLab Terminal Hold", "Ibalik ang kuryente gamit ang 15A Ceramic Fuse sa Breaker at kunin ang ComLab Accountability Form sa Room 105.");
                 }
                 return;
             }
@@ -278,16 +349,43 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             }
         }
 
-        // Gate 5: University Registrar (signatureIndex 3) requires solving the Document Sort Puzzle
+        // Gate 5: University Registrar (signatureIndex 3) — Step 1: Runaway Chase, Step 2: Document Sort Puzzle
         if (signatureIndex == 3)
         {
+            var staffAI = GetComponent<RoomStaffAI>();
+            if (staffAI != null && !ClearanceManager.Instance.RegistrarChasedAndCalmed)
+            {
+                if (!staffAI.isRunawayActive)
+                {
+                    staffAI.TriggerRunaway(new Vector3(-84.0f, 2.43f, 20.0f));
+                    ShowDialogue("N-Narinig mo ba 'yung mga yabag sa pasilyo?! May halimaw na naglalakad sa dilim! WAAAAH! SARADO NA ANG REGISTRAR! HUWAG MO AKONG LAPITAN!");
+                    if (ObjectiveHUD.Instance != null)
+                    {
+                        ObjectiveHUD.Instance.SetObjective("HABULIN ANG REGISTRAR!", "Nag-panic at tumakbo sa pasilyo ang Registrar! Habulin siya sa hallway at pindutin ang [E] para pakalmahin!");
+                    }
+                    return;
+                }
+                else
+                {
+                    // Player caught up to fleeing staff in hallway!
+                    staffAI.CatchStaff();
+                    ClearanceManager.Instance.RegistrarChasedAndCalmed = true;
+                    ShowDialogue("H-Haaaa... Diyos ko po! Ikaw lang pala 'yan... Akala ko kung anong halimaw na 'yung sumugod sa opisina ko! Sobrang takot na ako sa blackout na 'to. Tara, bumalik tayo sa loob ng window bago may makakita sa atin.");
+                    if (ObjectiveHUD.Instance != null)
+                    {
+                        ObjectiveHUD.Instance.SetObjective("Bumalik sa Registrar Window", "Bumalik sa loob ng Room 104 Registrar Window 2 para asikasuhin ang mga student records.");
+                    }
+                    return;
+                }
+            }
+
             var sortPuzzle = RegistrarDocumentSortPuzzle.Instance ?? FindAnyObjectByType<RegistrarDocumentSortPuzzle>(FindObjectsInactive.Include);
             if (sortPuzzle != null && !sortPuzzle.IsSolved)
             {
-                ShowDialogue("Window 2, University Registrar. Bago ko masuri at matatakan 'yang clearance mo, tambak pa ang kalat na student grade sheets dito sa archival desk. Ayusin at i-sort mo muna 'tong stack ng mga dokumento sa tamang archival trays para maging maayos ang records natin.");
+                ShowDialogue("Dahil sa takot ko kanina, nagkandalatag ang mga records sa desk! Ayusin at i-sort mo muna 'tong stack ng mga student grade records sa tamang trays para ma-verify ko ang credentials mo.");
                 if (ObjectiveHUD.Instance != null)
                 {
-                    ObjectiveHUD.Instance.SetObjective("Registrar Document Sorting", "Sort the stack of student grade records into the correct trays at Window 2 of the University Registrar in Room 104.");
+                    ObjectiveHUD.Instance.SetObjective("Registrar Document Sorting", "I-sort ang stack ng student grade records sa tamang archival trays sa Window 2 ng University Registrar sa Room 104.");
                 }
                 sortPuzzle.OpenPuzzle();
                 return;
@@ -299,16 +397,40 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             }
         }
 
-        // Gate 6: University Cashier (signatureIndex 4) requires solving the Balance Sheet Math Puzzle
+        // Gate 6: University Cashier (signatureIndex 4) — Step 1: Peso Coin Fee, Step 2: Balance Sheet Math Puzzle
         if (signatureIndex == 4)
         {
+            bool hasPaidFee = ClearanceManager.Instance.CashierFeePaid;
+            bool hasCoin = PlayerHasItemNamed("Peso Coin") || PlayerHasItemNamed("Coin") || (CoinManager.Instance != null && CoinManager.Instance.HasCoins(5));
+
+            if (!hasPaidFee)
+            {
+                if (!hasCoin)
+                {
+                    ShowDialogue("Window 2, Cashier Department. May pending clearance processing fee ka pa sa records. Hindi kita puwedeng kuwentahan nang walang physical deposit. Hanapin mo ang lumang Peso Coin sa student lounge o mesa sa hallway at dalhin dito sa window slot.");
+                    if (ObjectiveHUD.Instance != null)
+                    {
+                        ObjectiveHUD.Instance.SetObjective("Bayaran ang Cashier Fee", "Hanapin ang Peso Coin sa Ground Floor Student Lounge o hallway at ibayad sa Cashier Window 2 sa Room 102.");
+                    }
+                    return;
+                }
+                else
+                {
+                    ClearanceManager.Instance.CashierFeePaid = true;
+                    if (PlayerHasItemNamed("Peso Coin")) RemoveItemNamed("Peso Coin", 1);
+                    else if (PlayerHasItemNamed("Coin")) RemoveItemNamed("Coin", 1);
+                    else if (CoinManager.Instance != null) CoinManager.Instance.SpendCoins(5);
+                    Debug.Log("[ClearanceNPC] Cashier accepted clearance deposit fee!");
+                }
+            }
+
             var cashierPuzzle = CashierBalancePuzzle.Instance ?? FindAnyObjectByType<CashierBalancePuzzle>(FindObjectsInactive.Include);
             if (cashierPuzzle != null && !cashierPuzzle.IsSolved)
             {
-                ShowDialogue("Window 2, Cashier Department. Bago ko matatakan 'yang clearance slip mo, may pending unsettled fees ka pa sa records. Inusad ko 'yung assessment balance sheet mo rito sa window slot. Kuwentahin mo ang eksaktong total na dapat bayaran at i-submit mo para ma-clear ang payment status mo.");
+                ShowDialogue("Tinanggap ko na ang fee deposit mo. Ngayon, kuwentahin mo ang eksaktong total ng unsettled balance sa assessment sheet para ma-verify sa official receipt ledger.");
                 if (ObjectiveHUD.Instance != null)
                 {
-                    ObjectiveHUD.Instance.SetObjective("Cashier Balance Sheet", "Calculate and submit the unsettled balance total at Window 2 of the University Cashier in Room 102.");
+                    ObjectiveHUD.Instance.SetObjective("Cashier Balance Sheet", "Kuwentahin at i-submit ang eksaktong total ng unsettled fees sa Cashier Window 2 sa Room 102.");
                 }
                 cashierPuzzle.OpenPuzzle();
                 return;
@@ -443,10 +565,6 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
             {
                 InventoryManager.Instance.AddItem(blankPaperItem, 1);
             }
-            else if (StorageManager.Instance != null)
-            {
-                StorageManager.Instance.AddItem(blankPaperItem, 1);
-            }
             Debug.Log($"[{npcName}] Issued Blank_Paper clearance slip to player.");
         }
     }
@@ -465,26 +583,20 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         return PlayerHasItem(blankPaperItem);
     }
 
-    /// <summary>True if the player is carrying the specified item in hotbar or bag storage.</summary>
+    /// <summary>True if the player is carrying the specified item in the 6-slot hotbar.</summary>
     private bool PlayerHasItem(InventoryItem item)
     {
         if (item == null) return true;
-        bool inHotbar = InventoryManager.Instance != null && InventoryManager.Instance.HasItem(item);
-        bool inStorage = StorageManager.Instance != null && StorageManager.Instance.HasItem(item);
-        return inHotbar || inStorage;
+        return InventoryManager.Instance != null && InventoryManager.Instance.HasItem(item);
     }
 
-    /// <summary>Removes item from hotbar or bag storage.</summary>
+    /// <summary>Removes item from the 6-slot hotbar.</summary>
     private void RemoveItemFromPlayer(InventoryItem item, int amount = 1)
     {
         if (item == null) return;
         if (InventoryManager.Instance != null && InventoryManager.Instance.HasItem(item))
         {
             InventoryManager.Instance.RemoveItem(item, amount);
-        }
-        else if (StorageManager.Instance != null && StorageManager.Instance.HasItem(item))
-        {
-            StorageManager.Instance.RemoveItem(item, amount);
         }
     }
 
@@ -493,14 +605,6 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
         if (InventoryManager.Instance != null)
         {
             foreach (var slot in InventoryManager.Instance.Slots)
-            {
-                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf(partialName, System.StringComparison.OrdinalIgnoreCase) >= 0)
-                    return true;
-            }
-        }
-        if (StorageManager.Instance != null)
-        {
-            foreach (var slot in StorageManager.Instance.Slots)
             {
                 if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf(partialName, System.StringComparison.OrdinalIgnoreCase) >= 0)
                     return true;
@@ -518,17 +622,6 @@ public class ClearanceNPC : MonoBehaviour, IInteractable
                 if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf(partialName, System.StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     InventoryManager.Instance.RemoveItem(slot.item, amount);
-                    return;
-                }
-            }
-        }
-        if (StorageManager.Instance != null)
-        {
-            foreach (var slot in StorageManager.Instance.Slots)
-            {
-                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf(partialName, System.StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    StorageManager.Instance.RemoveItem(slot.item, amount);
                     return;
                 }
             }

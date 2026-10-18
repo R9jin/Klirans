@@ -105,17 +105,18 @@ public class CampusThreatDirector : MonoBehaviour
     // Runtime state
     private int _currentSignatures = 0;
     private AudioSource _audioSource;
-    private GameObject _bannerRoot;
-    private Text _bannerStageText;
-    private Text _bannerDescText;
-    private CanvasGroup _bannerCanvasGroup;
-    private Coroutine _bannerCoroutine;
 
     public int CurrentSignatures => _currentSignatures;
     public ThreatProfile CurrentProfile => GetProfileForSignatures(_currentSignatures);
 
     private void Awake()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            enabled = false;
+            return;
+        }
+
         if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
@@ -132,11 +133,20 @@ public class CampusThreatDirector : MonoBehaviour
         }
 
         InitializeDefaultProfilesIfEmpty();
-        BuildThreatBannerUI();
+
+        // Ensure no threat banner HUD exists (per user requirement: silent diegetic difficulty escalation)
+        var existingBanner = GameObject.Find("ThreatBannerPanel");
+        if (existingBanner != null) Destroy(existingBanner);
     }
 
     private void Start()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            enabled = false;
+            return;
+        }
+
         // Hook into ClearanceManager
         ClearanceManager.OnSignatureCollected += HandleSignatureCollected;
 
@@ -157,6 +167,8 @@ public class CampusThreatDirector : MonoBehaviour
 
     private void Update()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         if (Input.GetKeyDown(debugAdvanceThreatKey))
         {
@@ -177,6 +189,7 @@ public class CampusThreatDirector : MonoBehaviour
 
     private void HandleSignatureCollected(int signatureIndex, int totalCollected)
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         SetThreatLevel(totalCollected, true);
     }
 
@@ -185,6 +198,7 @@ public class CampusThreatDirector : MonoBehaviour
     /// </summary>
     public void SetThreatLevel(int signatures, bool showBannerAndStinger)
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         _currentSignatures = Mathf.Clamp(signatures, 0, 6);
         ApplyThreatProfile(_currentSignatures, showBannerAndStinger);
     }
@@ -238,11 +252,11 @@ public class CampusThreatDirector : MonoBehaviour
             ApplyStatsToGuard(SecurityGuardStalkerAI.ActiveStalker);
         }
 
-        // 6. Audio stinger & atmospheric on-screen prompt
+        // 6. Audio stinger (diegetic dread chord, without immersion-breaking UI text banner)
         if (showBannerAndStinger)
         {
             PlayDreadStinger();
-            ShowThreatNotification(profile.stageName, profile.atmosphericPrompt);
+            // Diegetic design: difficulty scaling happens seamlessly without immersion-breaking on-screen banner
         }
     }
 
@@ -338,126 +352,11 @@ public class CampusThreatDirector : MonoBehaviour
     }
 
     // ── On-Screen Threat Notification UI ──────────────────────────────────────
-
-    private void BuildThreatBannerUI()
-    {
-        Canvas hudCanvas = null;
-        var canvasGo = GameObject.Find("HudCanvas");
-        if (canvasGo != null) hudCanvas = canvasGo.GetComponent<Canvas>();
-        if (hudCanvas == null) hudCanvas = FindAnyObjectByType<Canvas>();
-
-        if (hudCanvas == null) return;
-
-        // Check if banner already exists
-        Transform existing = hudCanvas.transform.Find("ThreatBannerPanel");
-        if (existing != null)
-        {
-            _bannerRoot = existing.gameObject;
-            _bannerCanvasGroup = _bannerRoot.GetComponent<CanvasGroup>();
-            _bannerStageText = existing.Find("StageText")?.GetComponent<Text>();
-            _bannerDescText = existing.Find("DescText")?.GetComponent<Text>();
-            return;
-        }
-
-        // Create sleek retro-horror banner
-        _bannerRoot = new GameObject("ThreatBannerPanel");
-        _bannerRoot.transform.SetParent(hudCanvas.transform, false);
-
-        RectTransform rt = _bannerRoot.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 1f);
-        rt.anchorMax = new Vector2(0.5f, 1f);
-        rt.pivot = new Vector2(0.5f, 1f);
-        rt.anchoredPosition = new Vector2(0f, -38f);
-        rt.sizeDelta = new Vector2(620f, 64f);
-
-        Image bg = _bannerRoot.AddComponent<Image>();
-        bg.color = new Color(0.04f, 0.02f, 0.02f, 0.88f); // Dark charcoal red backing
-
-        // Outline
-        Outline outline = _bannerRoot.AddComponent<Outline>();
-        outline.effectColor = new Color(0.75f, 0.12f, 0.12f, 0.65f); // Dried crimson border
-        outline.effectDistance = new Vector2(1.5f, -1.5f);
-
-        _bannerCanvasGroup = _bannerRoot.AddComponent<CanvasGroup>();
-        _bannerCanvasGroup.alpha = 0f;
-        _bannerCanvasGroup.blocksRaycasts = false;
-        _bannerCanvasGroup.interactable = false;
-
-        Font font = Resources.Load<Font>("Fonts/Typewriter_Bold") 
-                 ?? Resources.Load<Font>("Typewriter_Bold")
-                 ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") 
-                 ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
-
-        // 1. Stage Header Text
-        GameObject stageGO = new GameObject("StageText");
-        stageGO.transform.SetParent(_bannerRoot.transform, false);
-        RectTransform stageRT = stageGO.AddComponent<RectTransform>();
-        stageRT.anchorMin = new Vector2(0f, 0.5f);
-        stageRT.anchorMax = new Vector2(1f, 1f);
-        stageRT.anchoredPosition = new Vector2(0f, -4f);
-        stageRT.sizeDelta = new Vector2(-24f, 24f);
-
-        _bannerStageText = stageGO.AddComponent<Text>();
-        _bannerStageText.font = font;
-        _bannerStageText.fontSize = 14;
-        _bannerStageText.fontStyle = FontStyle.Bold;
-        _bannerStageText.alignment = TextAnchor.MiddleCenter;
-        _bannerStageText.color = new Color(1.0f, 0.32f, 0.32f, 1f); // Vibrant warning crimson
-
-        // 2. Descriptive / Taglish Prompt Text
-        GameObject descGO = new GameObject("DescText");
-        descGO.transform.SetParent(_bannerRoot.transform, false);
-        RectTransform descRT = descGO.AddComponent<RectTransform>();
-        descRT.anchorMin = new Vector2(0f, 0f);
-        descRT.anchorMax = new Vector2(1f, 0.5f);
-        descRT.anchoredPosition = new Vector2(0f, 4f);
-        descRT.sizeDelta = new Vector2(-24f, 24f);
-
-        _bannerDescText = descGO.AddComponent<Text>();
-        _bannerDescText.font = font;
-        _bannerDescText.fontSize = 12;
-        _bannerDescText.fontStyle = FontStyle.Normal;
-        _bannerDescText.alignment = TextAnchor.MiddleCenter;
-        _bannerDescText.color = new Color(0.92f, 0.90f, 0.86f, 0.95f); // Off-white typewriter ink
-    }
-
     public void ShowThreatNotification(string stageTitle, string description)
     {
-        if (_bannerRoot == null) BuildThreatBannerUI();
-        if (_bannerRoot == null || _bannerCanvasGroup == null) return;
-
-        if (_bannerStageText != null) _bannerStageText.text = stageTitle.ToUpper();
-        if (_bannerDescText != null) _bannerDescText.text = description;
-
-        if (_bannerCoroutine != null) StopCoroutine(_bannerCoroutine);
-        _bannerCoroutine = StartCoroutine(AnimateBannerRoutine());
-    }
-
-    private IEnumerator AnimateBannerRoutine()
-    {
-        // Fade in
-        float elapsed = 0f;
-        while (elapsed < 0.4f)
-        {
-            elapsed += Time.deltaTime;
-            _bannerCanvasGroup.alpha = Mathf.Lerp(0f, 1f, elapsed / 0.4f);
-            yield return null;
-        }
-        _bannerCanvasGroup.alpha = 1f;
-
-        // Display for 4.5 seconds
-        yield return new WaitForSeconds(4.5f);
-
-        // Fade out
-        elapsed = 0f;
-        while (elapsed < 0.8f)
-        {
-            elapsed += Time.deltaTime;
-            _bannerCanvasGroup.alpha = Mathf.Lerp(1f, 0f, elapsed / 0.8f);
-            yield return null;
-        }
-        _bannerCanvasGroup.alpha = 0f;
-        _bannerCoroutine = null;
+        // User requested: do NOT indicate night difficulty escalation on the HUD
+        var existing = GameObject.Find("ThreatBannerPanel");
+        if (existing != null) Destroy(existing);
     }
 
     // ── Default FNAF Night 3 Difficulty Curve Initialization ──────────────────

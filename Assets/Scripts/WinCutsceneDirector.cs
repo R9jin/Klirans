@@ -7,24 +7,8 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// WinCutsceneDirector — Cinematic victory ending cutscene for KLIRANS.
-///
-/// Narrative Scenario:
-/// Having collected all official department signatures and validated the clearance slip,
-/// the student reaches the main campus exit gate.
-/// The heavy iron chains snap open, and the student bolts through the threshold into the night air.
-/// The gates slam shut behind them, sealing the nightmare inside.
-/// Looking back at the pitch-black university building one last time, the student gazes down at
-/// their official, validated clearance slip—stamped and cleared before midnight.
-///
-/// Features:
-/// - Cinematic 2.35:1 widescreen letterboxing.
-/// - Dynamic 3D camera choreography: gate breach, outdoor sprint, turnaround to face the school, and slip inspection.
-/// - Atmospheric sound design: gate creaks, heavy running steps, relieved panting, door slam, and victory chime.
-/// - Holographic Clearance Slip preview card with 6 official seals and "CANDIDATE FOR GRADUATION" stamp.
-/// - Taglish subtitles and inner dialogue.
-/// - Polished Victory Screen with stats and interactive buttons: Play Again, Main Menu, and Quit.
-/// - Bottom-right responsive Skip button: "[SPACE] / [ESC] Laktawan (Skip)".
-/// - Debug replay key (F8) in editor and development builds.
+/// Features authentic paper UI graphics (ScrambledPaper_HUD, GuidancePaperSheet, signed6,
+/// PaidClearedStamp, ArchivedStamp, KeypadButton_Normal) and 3D outdoor gate escape choreography.
 /// </summary>
 public class WinCutsceneDirector : MonoBehaviour
 {
@@ -37,6 +21,15 @@ public class WinCutsceneDirector : MonoBehaviour
 
     [Tooltip("Scene to load when clicking Main Menu.")]
     public string mainMenuSceneName = "MainMenu";
+
+    [Header("Paper UI Sprites")]
+    public Sprite dialoguePaperSprite;
+    public Sprite blankPaperSprite;
+    public Sprite signedSlipSprite;
+    public Sprite documentSheetSprite;
+    public Sprite paidClearedStampSprite;
+    public Sprite archivedStampSprite;
+    public Sprite buttonPaperSprite;
 
     [Header("Audio Clips")]
     public AudioClip gateOpenClip;
@@ -64,6 +57,8 @@ public class WinCutsceneDirector : MonoBehaviour
     private GameObject _subtitleBox;
     private Text _subtitleText;
     private Text _speakerTagText;
+    private Text _contextTagText;
+    private Coroutine _typewriterRoutine;
 
     private GameObject _clearanceCardBox;
     private Text _clearanceTitleText;
@@ -91,9 +86,12 @@ public class WinCutsceneDirector : MonoBehaviour
     // Runtime state
     private Coroutine _cutsceneRoutine;
     private PlayerMovement _playerMovement;
+    private CharacterController _characterController;
     private Camera _playerCamera;
     private Vector3 _originalCamLocalPos;
     private Quaternion _originalCamLocalRot;
+    private Transform _securityGateTransform;
+    private Vector3 _securityGateClosedPos;
     private bool _hasSkipped = false;
 
     public event Action OnCutsceneFinished;
@@ -108,7 +106,7 @@ public class WinCutsceneDirector : MonoBehaviour
         Instance = this;
 
         SetupAudioSources();
-        LoadDefaultAudio();
+        LoadDefaultAssets();
         BuildCutsceneUI();
         SetUIVisible(false);
     }
@@ -130,7 +128,6 @@ public class WinCutsceneDirector : MonoBehaviour
 
         if (!IsCutsceneActive || _hasSkipped) return;
 
-        // Skip input detection: Space, Escape, Return, or button click
         if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Return))
         {
             SkipCutscene();
@@ -164,9 +161,24 @@ public class WinCutsceneDirector : MonoBehaviour
         _musicSource.volume = 0.50f;
     }
 
-    private void LoadDefaultAudio()
+    private void LoadDefaultAssets()
     {
 #if UNITY_EDITOR
+        if (dialoguePaperSprite == null)
+            dialoguePaperSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/ScrambledPaper_HUD.png");
+        if (blankPaperSprite == null)
+            blankPaperSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/Blank_paper.png");
+        if (signedSlipSprite == null)
+            signedSlipSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/signed6.png");
+        if (documentSheetSprite == null)
+            documentSheetSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/Blank_paper.png");
+        if (paidClearedStampSprite == null)
+            paidClearedStampSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/PaidClearedStamp.png");
+        if (archivedStampSprite == null)
+            archivedStampSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/ArchivedStamp.png");
+        if (buttonPaperSprite == null)
+            buttonPaperSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/KeypadButton_Normal.png");
+
         if (gateOpenClip == null)
             gateOpenClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/yodguard-door-opening-slowly-1-535465.mp3");
         if (gateSlamClip == null)
@@ -189,17 +201,32 @@ public class WinCutsceneDirector : MonoBehaviour
         if (_playerMovement == null)
             _playerMovement = FindAnyObjectByType<PlayerMovement>();
 
-        if (_playerMovement != null && _playerMovement.playerCamera != null)
+        if (_playerMovement != null)
         {
-            _playerCamera = _playerMovement.playerCamera;
-            _originalCamLocalPos = _playerCamera.transform.localPosition;
-            _originalCamLocalRot = _playerCamera.transform.localRotation;
+            _characterController = _playerMovement.GetComponent<CharacterController>();
+            if (_playerMovement.playerCamera != null)
+            {
+                _playerCamera = _playerMovement.playerCamera;
+                _originalCamLocalPos = _playerCamera.transform.localPosition;
+                _originalCamLocalRot = _playerCamera.transform.localRotation;
+            }
         }
-        else if (Camera.main != null)
+
+        if (_playerCamera == null && Camera.main != null)
         {
             _playerCamera = Camera.main;
             _originalCamLocalPos = _playerCamera.transform.localPosition;
             _originalCamLocalRot = _playerCamera.transform.localRotation;
+        }
+
+        if (_securityGateTransform == null)
+        {
+            var gateGO = GameObject.Find("06_Security_Grille_Gate");
+            if (gateGO != null)
+            {
+                _securityGateTransform = gateGO.transform;
+                _securityGateClosedPos = _securityGateTransform.position;
+            }
         }
     }
 
@@ -210,27 +237,44 @@ public class WinCutsceneDirector : MonoBehaviour
     {
         if (IsCutsceneActive) return;
 
+        // If the opening cutscene is still active when F8 is pressed, stop it cleanly first
+        if (OpeningCutsceneDirector.Instance != null && OpeningCutsceneDirector.IsCutsceneActive)
+        {
+            OpeningCutsceneDirector.Instance.SkipCutscene();
+        }
+
         FindPlayerReferences();
 
         IsCutsceneActive = true;
         _hasSkipped = false;
 
-        // Lock player movement and camera controls
+        // Lock player movement and disable CharacterController so scripted movement is smooth
         if (_playerMovement != null)
         {
             _playerMovement.SetControlsEnabled(false);
             _playerMovement.isDialogueCameraOverride = true;
         }
+        if (_characterController != null)
+        {
+            _characterController.enabled = false;
+        }
+        if (_playerCamera != null)
+        {
+            var heldFlashlight = _playerCamera.transform.Find("HeldFlashlight");
+            if (heldFlashlight != null) heldFlashlight.gameObject.SetActive(false);
+        }
 
-        // Hide regular gameplay HUD overlays
         HideGameplayHUD(true);
 
-        // Reset UI components
         SetLetterboxVisible(true);
         HideSubtitles();
         if (_clearanceCardBox != null) _clearanceCardBox.SetActive(false);
         if (_victoryScreenBox != null) _victoryScreenBox.SetActive(false);
+        if (_skipPromptRoot != null) _skipPromptRoot.SetActive(true);
         if (_blackBackdrop != null) _blackBackdrop.color = new Color(0f, 0f, 0f, 0f);
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
 
         SetUIVisible(true);
 
@@ -251,10 +295,29 @@ public class WinCutsceneDirector : MonoBehaviour
             StopCoroutine(_cutsceneRoutine);
             _cutsceneRoutine = null;
         }
+        if (_typewriterRoutine != null)
+        {
+            StopCoroutine(_typewriterRoutine);
+            _typewriterRoutine = null;
+        }
 
         if (_ambienceSource != null) _ambienceSource.Stop();
         if (_voiceSource != null) _voiceSource.Stop();
         if (_sfxSource != null) _sfxSource.Stop();
+
+        // Place camera at the outdoor turnaround vantage point looking at the school gate
+        if (_securityGateTransform != null)
+            _securityGateTransform.position = _securityGateClosedPos;
+        if (_playerMovement != null)
+        {
+            _playerMovement.transform.position = new Vector3(-71.8f, 2.35f, 16.50f);
+            _playerMovement.transform.rotation = Quaternion.Euler(0f, 270f, 0f);
+        }
+        if (_playerCamera != null)
+        {
+            _playerCamera.transform.localPosition = _originalCamLocalPos;
+            _playerCamera.transform.localRotation = Quaternion.Euler(-4f, 0f, 0f);
+        }
 
         StartCoroutine(FastSkipToVictoryScreen());
     }
@@ -264,13 +327,12 @@ public class WinCutsceneDirector : MonoBehaviour
         HideSubtitles();
         if (_clearanceCardBox != null) _clearanceCardBox.SetActive(false);
 
-        // Fade backdrop to solid black
         float fade = 0.35f;
-        Color c = _blackBackdrop != null ? _blackBackdrop.color : Color.black;
+        Color c = _blackBackdrop != null ? _blackBackdrop.color : new Color(0f, 0f, 0f, 0.45f);
         while (fade > 0f)
         {
             fade -= Time.unscaledDeltaTime;
-            c.a = Mathf.Clamp01(1f - (fade / 0.35f));
+            c.a = Mathf.Lerp(0f, 0.45f, 1f - (fade / 0.35f));
             if (_blackBackdrop != null) _blackBackdrop.color = c;
             yield return null;
         }
@@ -283,24 +345,45 @@ public class WinCutsceneDirector : MonoBehaviour
     private IEnumerator CutsceneSequence()
     {
         // ── BEAT 1: Gate Unlocking & Creaking Open ───────────────────────────
+        Vector3 lobbyStartPos = new Vector3(-77.8f, 2.35f, 16.50f);
+        Vector3 outdoorSidewalkPos = new Vector3(-71.8f, 2.35f, 16.50f);
+
+        if (_playerMovement != null)
+        {
+            _playerMovement.transform.position = lobbyStartPos;
+            // Face East (+X, Yaw = 90°) directly toward the Main Exit Gate and street
+            _playerMovement.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+        }
         if (_playerCamera != null)
         {
-            // Position camera facing the gate
+            _playerCamera.transform.localPosition = _originalCamLocalPos;
             _playerCamera.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
         }
 
-        // Play heavy iron door creaking open
         if (_sfxSource != null && gateOpenClip != null)
         {
             _sfxSource.PlayOneShot(gateOpenClip, 0.95f);
         }
 
-        ShowSubtitle("STUDENT", "Bukas na ang mga trangka ng gate! Heto na ang pagkakataon ko...!");
+        ShowSubtitle("ESTUDYANTE (IKAW)", "Bukas na ang mga trangka ng Main Gate! Kumpleto na ang clearance ko—heto na ang pagkakataon ko!", "PNC MAIN GATE // 11:58 PM");
 
-        yield return new WaitForSeconds(2.8f);
+        // Slide the iron security grille gate open smoothly
+        float gateOpenDuration = 2.4f;
+        float gateElapsed = 0f;
+        Vector3 gateOpenPos = _securityGateClosedPos + new Vector3(0f, 0f, 2.35f);
+        while (gateElapsed < gateOpenDuration)
+        {
+            gateElapsed += Time.unscaledDeltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, gateElapsed / gateOpenDuration);
+            if (_securityGateTransform != null)
+                _securityGateTransform.position = Vector3.Lerp(_securityGateClosedPos, gateOpenPos, t);
+            yield return null;
+        }
+
+        yield return new WaitForSeconds(0.4f);
 
         // ── BEAT 2: Frantic Sprint Out Through the Threshold ─────────────────
-        ShowSubtitle("STUDENT", "TAKBO! HUWAG KANG LILINGON!");
+        ShowSubtitle("ESTUDYANTE (IKAW)", "TAKBO! LABAS NA SA CAMPUS BAGO MAG-HATINGGABI!", "PAGTAKAS // MAIN EXIT");
 
         if (_voiceSource != null && gaspingClip != null)
         {
@@ -315,10 +398,6 @@ public class WinCutsceneDirector : MonoBehaviour
             _sfxSource.Play();
         }
 
-        // Camera rushes forward to the outside sidewalk while bobbing
-        Vector3 playerStartPos = (_playerMovement != null) ? _playerMovement.transform.position : new Vector3(-75.5f, 2.35f, 16.5f);
-        Vector3 targetOutdoorPos = new Vector3(-68.5f, playerStartPos.y, 16.5f);
-
         float runDuration = 2.2f;
         float elapsedRun = 0f;
         while (elapsedRun < runDuration)
@@ -328,14 +407,15 @@ public class WinCutsceneDirector : MonoBehaviour
 
             if (_playerMovement != null)
             {
-                _playerMovement.transform.position = Vector3.Lerp(playerStartPos, targetOutdoorPos, t);
+                _playerMovement.transform.position = Vector3.Lerp(lobbyStartPos, outdoorSidewalkPos, t);
             }
 
-            // Head bobbing during sprint
             if (_playerCamera != null)
             {
                 float bob = Mathf.Sin(elapsedRun * 14f) * 0.08f;
+                float roll = Mathf.Cos(elapsedRun * 7f) * 1.4f;
                 _playerCamera.transform.localPosition = _originalCamLocalPos + new Vector3(0f, bob, 0f);
+                _playerCamera.transform.localRotation = Quaternion.Euler(2f, 0f, roll);
             }
 
             yield return null;
@@ -348,15 +428,19 @@ public class WinCutsceneDirector : MonoBehaviour
             _sfxSource.pitch = 1.0f;
         }
 
-        // Violent gate slam behind the player sealing the campus!
+        // Slam the security grille gate shut behind the student!
+        if (_securityGateTransform != null)
+        {
+            _securityGateTransform.position = _securityGateClosedPos;
+        }
         if (_sfxSource != null && gateSlamClip != null)
         {
             _sfxSource.PlayOneShot(gateSlamClip, 1.0f);
         }
 
-        yield return new WaitForSeconds(0.8f);
+        yield return new WaitForSeconds(0.6f);
 
-        // ── BEAT 3: Stop Outside & Look Back at the Dark Campus ──────────────
+        // ── BEAT 3: Stop on the Lit Sidewalk & Turn Back to Face the Campus ──
         if (_voiceSource != null && relievedBreathingClip != null)
         {
             _voiceSource.clip = relievedBreathingClip;
@@ -364,42 +448,42 @@ public class WinCutsceneDirector : MonoBehaviour
             _voiceSource.Play();
         }
 
-        // Turn camera 180 degrees to look back at the looming building
-        if (_playerCamera != null)
+        // Smooth 180-degree world turnaround from East (90°) to West (270°) so the camera looks back at the PNC Archway & Gate
+        Quaternion startYaw = Quaternion.Euler(0f, 90f, 0f);
+        Quaternion endYaw = Quaternion.Euler(0f, 270f, 0f);
+        float turnDuration = 1.25f;
+        float turnElapsed = 0f;
+        while (turnElapsed < turnDuration)
         {
-            Quaternion startRot = _playerCamera.transform.localRotation;
-            Quaternion backRot = Quaternion.Euler(-4f, 180f, 0f);
-
-            float turnDuration = 1.2f;
-            float turnElapsed = 0f;
-            while (turnElapsed < turnDuration)
+            turnElapsed += Time.unscaledDeltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, turnElapsed / turnDuration);
+            if (_playerMovement != null)
+                _playerMovement.transform.rotation = Quaternion.Slerp(startYaw, endYaw, t);
+            if (_playerCamera != null)
             {
-                turnElapsed += Time.unscaledDeltaTime;
-                float t = Mathf.SmoothStep(0f, 1f, turnElapsed / turnDuration);
-                _playerCamera.transform.localRotation = Quaternion.Slerp(startRot, backRot, t);
-                yield return null;
+                _playerCamera.transform.localPosition = _originalCamLocalPos;
+                _playerCamera.transform.localRotation = Quaternion.Slerp(Quaternion.Euler(2f, 0f, 0f), Quaternion.Euler(-4f, 0f, 0f), t);
             }
+            yield return null;
         }
 
-        ShowSubtitle("STUDENT", "N-nakalabas ako... Buhay ako... Nakatakas ako sa loob ng campus!");
+        ShowSubtitle("ESTUDYANTE (IKAW)", "N-nakalabas ako... Buhay ako! Nakatakas ako mula sa loob ng BCH Building!", "LABAS NG CAMPUS // LIGTAS");
 
-        yield return new WaitForSeconds(3.5f);
+        yield return new WaitForSeconds(3.4f);
 
-        // ── BEAT 4: Clearance Slip Reveal Card ───────────────────────────────
-        // Glance down at hands
+        // ── BEAT 4: Official Signed Clearance Slip Inspection ────────────────
         if (_playerCamera != null)
         {
-            Quaternion lookDownRot = Quaternion.Euler(28f, 180f, 0f);
+            Quaternion lookDownRot = Quaternion.Euler(18f, 0f, 0f);
             float lookElapsed = 0f;
             while (lookElapsed < 0.6f)
             {
                 lookElapsed += Time.unscaledDeltaTime;
-                _playerCamera.transform.localRotation = Quaternion.Slerp(Quaternion.Euler(-4f, 180f, 0f), lookDownRot, lookElapsed / 0.6f);
+                _playerCamera.transform.localRotation = Quaternion.Slerp(Quaternion.Euler(-4f, 0f, 0f), lookDownRot, lookElapsed / 0.6f);
                 yield return null;
             }
         }
 
-        // Display Clearance Slip Holographic Card
         if (_clearanceCardBox != null)
         {
             _clearanceCardBox.SetActive(true);
@@ -410,7 +494,6 @@ public class WinCutsceneDirector : MonoBehaviour
             _sfxSource.PlayOneShot(victoryChimeClip, 1.0f);
         }
 
-        // Play victory music in background
         if (_musicSource != null && victoryMusicClip != null)
         {
             _musicSource.clip = victoryMusicClip;
@@ -418,42 +501,41 @@ public class WinCutsceneDirector : MonoBehaviour
             _musicSource.Play();
         }
 
-        ShowSubtitle("STUDENT", "Kumpleto ang lahat ng anim na selyo bago mag-hatinggabi! Makakagraduate na ako!");
+        ShowSubtitle("ESTUDYANTE (IKAW)", "Kumpleto ang lahat ng anim na pirma at selyo bago mag-hatinggabi! Makakagraduate na ako sa wakas!", "CLEARANCE VALIDATED // 6/6");
 
-        yield return new WaitForSeconds(4.5f);
+        yield return new WaitForSeconds(4.4f);
 
         if (_clearanceCardBox != null)
         {
             _clearanceCardBox.SetActive(false);
         }
 
-        // ── BEAT 5: Final Night Sky Resolution ───────────────────────────────
-        // Look up at the midnight starry sky
+        // ── BEAT 5: Final Glance at the Campus Gate ──────────────────────────
         if (_playerCamera != null)
         {
-            Quaternion lookUpRot = Quaternion.Euler(-26f, 180f, 0f);
+            Quaternion lookArchRot = Quaternion.Euler(-6f, 0f, 0f);
             float lookUpElapsed = 0f;
-            while (lookUpElapsed < 0.8f)
+            while (lookUpElapsed < 0.7f)
             {
                 lookUpElapsed += Time.unscaledDeltaTime;
-                _playerCamera.transform.localRotation = Quaternion.Slerp(Quaternion.Euler(28f, 180f, 0f), lookUpRot, lookUpElapsed / 0.8f);
+                _playerCamera.transform.localRotation = Quaternion.Slerp(Quaternion.Euler(18f, 0f, 0f), lookArchRot, lookUpElapsed / 0.7f);
                 yield return null;
             }
         }
 
-        ShowSubtitle("STUDENT", "Wala na... Tapos na ang bangungot. Ligtas na ako sa wakas.");
+        ShowSubtitle("ESTUDYANTE (IKAW)", "Tapos na ang bangungot ng clearance signing. Ligtas na ako.", "11:59 PM // CLEARED");
 
-        yield return new WaitForSeconds(3.5f);
+        yield return new WaitForSeconds(3.2f);
 
         HideSubtitles();
 
-        // ── BEAT 6: Fade to Cinematic Black & Show Victory Card ──────────────
+        // ── BEAT 6: Dim Vignette & Present Official Paper Victory Document ───
         float fadeElapsed = 0f;
-        Color c = _blackBackdrop != null ? _blackBackdrop.color : Color.black;
-        while (fadeElapsed < 1.0f)
+        Color c = new Color(0f, 0f, 0f, 0f);
+        while (fadeElapsed < 0.8f)
         {
             fadeElapsed += Time.unscaledDeltaTime;
-            c.a = Mathf.Clamp01(fadeElapsed / 1.0f);
+            c.a = Mathf.Lerp(0f, 0.45f, fadeElapsed / 0.8f);
             if (_blackBackdrop != null) _blackBackdrop.color = c;
             yield return null;
         }
@@ -464,13 +546,12 @@ public class WinCutsceneDirector : MonoBehaviour
     private void DisplayVictoryScreen()
     {
         if (_voiceSource != null && _voiceSource.isPlaying) _voiceSource.Stop();
-        if (_blackBackdrop != null) _blackBackdrop.color = Color.black;
+        if (_blackBackdrop != null) _blackBackdrop.color = new Color(0f, 0f, 0f, 0.48f);
 
         SetLetterboxVisible(false);
         HideSubtitles();
         if (_skipPromptRoot != null) _skipPromptRoot.SetActive(false);
 
-        // Ensure victory music continues
         if (_musicSource != null && !_musicSource.isPlaying && victoryMusicClip != null)
         {
             _musicSource.clip = victoryMusicClip;
@@ -483,7 +564,6 @@ public class WinCutsceneDirector : MonoBehaviour
             _victoryScreenBox.SetActive(true);
         }
 
-        // Unlock cursor for victory buttons
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
@@ -496,6 +576,7 @@ public class WinCutsceneDirector : MonoBehaviour
     public void OnPlayAgainClicked()
     {
         PlayButtonSound();
+        IsCutsceneActive = false;
         Time.timeScale = 1.0f;
         SceneManager.LoadScene(gameplaySceneName);
     }
@@ -503,6 +584,7 @@ public class WinCutsceneDirector : MonoBehaviour
     public void OnMainMenuClicked()
     {
         PlayButtonSound();
+        IsCutsceneActive = false;
         Time.timeScale = 1.0f;
         SceneManager.LoadScene(mainMenuSceneName);
     }
@@ -523,16 +605,36 @@ public class WinCutsceneDirector : MonoBehaviour
 
     // ── UI Helper Methods ────────────────────────────────────────────────────
 
-    private void ShowSubtitle(string speaker, string dialogue)
+    private void ShowSubtitle(string speaker, string dialogue, string contextTag = "KLIRANS // TALA")
     {
         if (_subtitleBox == null) return;
         _subtitleBox.SetActive(true);
         if (_speakerTagText != null) _speakerTagText.text = speaker;
-        if (_subtitleText != null) _subtitleText.text = dialogue;
+        if (_contextTagText != null) _contextTagText.text = contextTag;
+
+        if (_typewriterRoutine != null) StopCoroutine(_typewriterRoutine);
+        _typewriterRoutine = StartCoroutine(TypewriterReveal(dialogue));
+    }
+
+    private IEnumerator TypewriterReveal(string fullText)
+    {
+        if (_subtitleText == null) yield break;
+        _subtitleText.text = "";
+        for (int i = 0; i < fullText.Length; i++)
+        {
+            _subtitleText.text = fullText.Substring(0, i + 1);
+            yield return new WaitForSecondsRealtime(0.016f);
+        }
+        _subtitleText.text = fullText;
     }
 
     private void HideSubtitles()
     {
+        if (_typewriterRoutine != null)
+        {
+            StopCoroutine(_typewriterRoutine);
+            _typewriterRoutine = null;
+        }
         if (_subtitleBox != null) _subtitleBox.SetActive(false);
     }
 
@@ -576,7 +678,7 @@ public class WinCutsceneDirector : MonoBehaviour
         }
     }
 
-    // ── Dynamic UI Builder ───────────────────────────────────────────────────
+    // ── Dynamic Paper UI Builder ─────────────────────────────────────────────
 
     private void BuildCutsceneUI()
     {
@@ -585,7 +687,7 @@ public class WinCutsceneDirector : MonoBehaviour
 
         _canvas = _canvasGO.GetComponent<Canvas>();
         _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        _canvas.sortingOrder = 998; // Highest priority overlay
+        _canvas.sortingOrder = 998;
 
         var scaler = _canvasGO.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -594,10 +696,10 @@ public class WinCutsceneDirector : MonoBehaviour
 
         _canvasGroup = _canvasGO.GetComponent<CanvasGroup>();
 
-        Font retroFont = LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
-        Font secondaryFont = LoadFont("Fonts/Lucida_Typewriter_Bold", "Assets/Fonts/Lucida_Typewriter_Bold.ttf");
+        Font horrorFont = LoadFont("Main Menu/watch people die", "Assets/Main Menu/watch people die.ttf");
+        Font typewriterFont = LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
 
-        // 1. Black Backdrop
+        // 1. Dim/Black Backdrop
         var bgGO = new GameObject("BlackBackdrop", typeof(RectTransform), typeof(Image));
         bgGO.transform.SetParent(_canvasGO.transform, false);
         var bgRT = bgGO.GetComponent<RectTransform>();
@@ -608,21 +710,21 @@ public class WinCutsceneDirector : MonoBehaviour
         _blackBackdrop.color = new Color(0f, 0f, 0f, 0f);
         _blackBackdrop.raycastTarget = false;
 
-        // 2. Cinematic Letterbox Bars (2.35:1 aspect)
-        _letterboxTop = CreateLetterbox("Letterbox_Top", new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), 85f);
-        _letterboxBottom = CreateLetterbox("Letterbox_Bottom", new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), 85f);
+        // 2. Cinematic Letterbox Bars
+        _letterboxTop = CreateLetterbox("Letterbox_Top", new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), 75f);
+        _letterboxBottom = CreateLetterbox("Letterbox_Bottom", new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), 75f);
 
-        // 3. Subtitles Box
-        BuildSubtitleBox(retroFont, secondaryFont);
+        // 3. Taped Paper Dialogue Box (matching NPCDialogueSystem)
+        BuildSubtitleBox(horrorFont, typewriterFont);
 
-        // 4. Hologram Clearance Slip Preview Card
-        BuildClearanceCard(retroFont, secondaryFont);
+        // 4. Signed Paper Clearance Form Preview Card (Beat 4)
+        BuildClearanceCard(horrorFont, typewriterFont);
 
-        // 5. Final Victory Screen Box
-        BuildVictoryScreenBox(retroFont, secondaryFont);
+        // 5. Final Official Paper Clearance Certificate Victory Screen
+        BuildVictoryScreenBox(horrorFont, typewriterFont);
 
-        // 6. Skip Prompt (Bottom Right)
-        BuildSkipPrompt(retroFont);
+        // 6. Pinned Paper Skip Note (Bottom Right)
+        BuildSkipPrompt(typewriterFont);
     }
 
     private RectTransform CreateLetterbox(string name, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, float height)
@@ -640,202 +742,309 @@ public class WinCutsceneDirector : MonoBehaviour
         return rt;
     }
 
-    private void BuildSubtitleBox(Font primaryFont, Font secondaryFont)
+    private void BuildSubtitleBox(Font horrorFont, Font typewriterFont)
     {
-        _subtitleBox = new GameObject("SubtitleBox", typeof(RectTransform), typeof(Image));
+        _subtitleBox = new GameObject("SubtitlePaperBox", typeof(RectTransform), typeof(Image));
         _subtitleBox.transform.SetParent(_canvasGO.transform, false);
         var rt = _subtitleBox.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.12f);
-        rt.anchorMax = new Vector2(0.5f, 0.12f);
+        rt.anchorMin = new Vector2(0.5f, 0.13f);
+        rt.anchorMax = new Vector2(0.5f, 0.13f);
         rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(1100f, 85f);
+        rt.sizeDelta = new Vector2(880f, 180f);
+        rt.localRotation = Quaternion.Euler(0f, 0f, -0.5f);
 
         var bg = _subtitleBox.GetComponent<Image>();
-        bg.color = new Color(0.02f, 0.02f, 0.03f, 0.85f);
+        bg.sprite = dialoguePaperSprite != null ? dialoguePaperSprite : blankPaperSprite;
+        bg.color = new Color(0.96f, 0.92f, 0.84f, 0.98f);
 
-        var outline = _subtitleBox.AddComponent<Outline>();
-        outline.effectColor = new Color(0.2f, 0.7f, 0.4f, 0.6f);
-        outline.effectDistance = new Vector2(1f, -1f);
+        var shadow = _subtitleBox.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.72f);
+        shadow.effectDistance = new Vector2(4f, -5f);
 
+        // Speaker Header (Left, crimson horror font)
         var tagGO = new GameObject("SpeakerTag", typeof(RectTransform), typeof(Text));
         tagGO.transform.SetParent(_subtitleBox.transform, false);
         var trt = tagGO.GetComponent<RectTransform>();
-        trt.anchorMin = new Vector2(0.02f, 0.60f);
-        trt.anchorMax = new Vector2(0.35f, 0.95f);
-        trt.offsetMin = Vector2.zero;
-        trt.offsetMax = Vector2.zero;
+        trt.anchorMin = new Vector2(0.09f, 0.65f);
+        trt.anchorMax = new Vector2(0.62f, 0.87f);
+        trt.sizeDelta = Vector2.zero;
         _speakerTagText = tagGO.GetComponent<Text>();
-        _speakerTagText.font = primaryFont;
-        _speakerTagText.fontSize = 17;
+        _speakerTagText.font = horrorFont;
+        _speakerTagText.fontSize = 21;
         _speakerTagText.fontStyle = FontStyle.Bold;
-        _speakerTagText.color = new Color(0.35f, 0.95f, 0.55f);
+        _speakerTagText.color = new Color(0.68f, 0.05f, 0.05f, 1f);
         _speakerTagText.alignment = TextAnchor.MiddleLeft;
 
+        // Context / Location Tag (Right, faded typewriter ink)
+        var ctxGO = new GameObject("ContextTag", typeof(RectTransform), typeof(Text));
+        ctxGO.transform.SetParent(_subtitleBox.transform, false);
+        var crt = ctxGO.GetComponent<RectTransform>();
+        crt.anchorMin = new Vector2(0.58f, 0.66f);
+        crt.anchorMax = new Vector2(0.91f, 0.86f);
+        crt.sizeDelta = Vector2.zero;
+        _contextTagText = ctxGO.GetComponent<Text>();
+        _contextTagText.font = typewriterFont;
+        _contextTagText.fontSize = 13;
+        _contextTagText.fontStyle = FontStyle.Bold;
+        _contextTagText.alignment = TextAnchor.MiddleRight;
+        _contextTagText.color = new Color(0.32f, 0.23f, 0.17f, 0.90f);
+
+        // Subtle Ink Divider Rule
+        var divGO = new GameObject("InkDivider", typeof(RectTransform), typeof(Image));
+        divGO.transform.SetParent(_subtitleBox.transform, false);
+        var drt = divGO.GetComponent<RectTransform>();
+        drt.anchorMin = new Vector2(0.09f, 0.62f);
+        drt.anchorMax = new Vector2(0.91f, 0.63f);
+        drt.sizeDelta = Vector2.zero;
+        divGO.GetComponent<Image>().color = new Color(0.25f, 0.16f, 0.12f, 0.35f);
+
+        // Dialogue Body Text (Dark charcoal typewriter ink)
         var subGO = new GameObject("DialogueText", typeof(RectTransform), typeof(Text));
         subGO.transform.SetParent(_subtitleBox.transform, false);
         var srt = subGO.GetComponent<RectTransform>();
-        srt.anchorMin = new Vector2(0.02f, 0.05f);
-        srt.anchorMax = new Vector2(0.98f, 0.60f);
-        srt.offsetMin = Vector2.zero;
-        srt.offsetMax = Vector2.zero;
+        srt.anchorMin = new Vector2(0.09f, 0.14f);
+        srt.anchorMax = new Vector2(0.91f, 0.59f);
+        srt.sizeDelta = Vector2.zero;
         _subtitleText = subGO.GetComponent<Text>();
-        _subtitleText.font = secondaryFont;
-        _subtitleText.fontSize = 17;
-        _subtitleText.color = new Color(0.95f, 0.95f, 0.95f);
-        _subtitleText.alignment = TextAnchor.MiddleLeft;
+        _subtitleText.font = typewriterFont;
+        _subtitleText.fontSize = 18;
+        _subtitleText.lineSpacing = 1.18f;
+        _subtitleText.color = new Color(0.07f, 0.05f, 0.04f, 1f);
+        _subtitleText.alignment = TextAnchor.UpperLeft;
+        _subtitleText.horizontalOverflow = HorizontalWrapMode.Wrap;
     }
 
-    private void BuildClearanceCard(Font primaryFont, Font secondaryFont)
+    private void BuildClearanceCard(Font horrorFont, Font typewriterFont)
     {
-        _clearanceCardBox = new GameObject("ClearanceCardBox", typeof(RectTransform), typeof(Image));
+        _clearanceCardBox = new GameObject("ClearanceCardPaper", typeof(RectTransform), typeof(Image));
         _clearanceCardBox.transform.SetParent(_canvasGO.transform, false);
         var rt = _clearanceCardBox.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.52f);
-        rt.anchorMax = new Vector2(0.5f, 0.52f);
+        rt.anchorMin = new Vector2(0.5f, 0.55f);
+        rt.anchorMax = new Vector2(0.5f, 0.55f);
         rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(740f, 380f);
+        rt.sizeDelta = new Vector2(800f, 410f);
+        rt.localRotation = Quaternion.Euler(0f, 0f, -0.8f);
 
         var bg = _clearanceCardBox.GetComponent<Image>();
-        bg.color = new Color(0.06f, 0.08f, 0.06f, 0.94f);
+        bg.sprite = documentSheetSprite != null ? documentSheetSprite : (blankPaperSprite != null ? blankPaperSprite : dialoguePaperSprite);
+        bg.color = new Color(0.96f, 0.92f, 0.85f, 0.99f);
 
-        var outline = _clearanceCardBox.AddComponent<Outline>();
-        outline.effectColor = new Color(0.2f, 0.85f, 0.45f, 0.9f);
-        outline.effectDistance = new Vector2(2f, -2f);
+        var shadow = _clearanceCardBox.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.82f);
+        shadow.effectDistance = new Vector2(6f, -7f);
+
+        // Left: Actual Signed 6-Department Clearance Slip Graphic (signed6.png)
+        if (signedSlipSprite != null)
+        {
+            var slipGO = new GameObject("SignedSlipGraphic", typeof(RectTransform), typeof(Image));
+            slipGO.transform.SetParent(_clearanceCardBox.transform, false);
+            var slrt = slipGO.GetComponent<RectTransform>();
+            slrt.anchorMin = new Vector2(0.11f, 0.16f);
+            slrt.anchorMax = new Vector2(0.43f, 0.84f);
+            slrt.sizeDelta = Vector2.zero;
+            slrt.localRotation = Quaternion.Euler(0f, 0f, 1.5f);
+            var sImg = slipGO.GetComponent<Image>();
+            sImg.sprite = signedSlipSprite;
+            sImg.preserveAspect = true;
+            sImg.color = Color.white;
+        }
+
+        // Rubber Stamp Overlay (PaidClearedStamp.png)
+        if (paidClearedStampSprite != null)
+        {
+            var stampImgGO = new GameObject("PaidClearedStamp", typeof(RectTransform), typeof(Image));
+            stampImgGO.transform.SetParent(_clearanceCardBox.transform, false);
+            var sirt = stampImgGO.GetComponent<RectTransform>();
+            sirt.anchorMin = new Vector2(0.68f, 0.14f);
+            sirt.anchorMax = new Vector2(0.89f, 0.42f);
+            sirt.sizeDelta = Vector2.zero;
+            sirt.localRotation = Quaternion.Euler(0f, 0f, -14f);
+            var stImg = stampImgGO.GetComponent<Image>();
+            stImg.sprite = paidClearedStampSprite;
+            stImg.preserveAspect = true;
+            stImg.color = new Color(1f, 1f, 1f, 0.88f);
+        }
 
         // Header Title
         var titleGO = new GameObject("Title", typeof(RectTransform), typeof(Text));
         titleGO.transform.SetParent(_clearanceCardBox.transform, false);
         var trt = titleGO.GetComponent<RectTransform>();
-        trt.anchorMin = new Vector2(0.04f, 0.84f);
-        trt.anchorMax = new Vector2(0.96f, 0.98f);
-        trt.offsetMin = Vector2.zero;
-        trt.offsetMax = Vector2.zero;
+        trt.anchorMin = new Vector2(0.45f, 0.72f);
+        trt.anchorMax = new Vector2(0.89f, 0.86f);
+        trt.sizeDelta = Vector2.zero;
         _clearanceTitleText = titleGO.GetComponent<Text>();
-        _clearanceTitleText.font = primaryFont;
+        _clearanceTitleText.font = horrorFont;
         _clearanceTitleText.fontSize = 20;
         _clearanceTitleText.fontStyle = FontStyle.Bold;
-        _clearanceTitleText.color = new Color(0.35f, 0.95f, 0.55f);
-        _clearanceTitleText.text = "PAMANTASAN NG CABUYAO // STUDENT CLEARANCE FORM";
-        _clearanceTitleText.alignment = TextAnchor.MiddleCenter;
+        _clearanceTitleText.color = new Color(0.68f, 0.05f, 0.05f, 1f);
+        _clearanceTitleText.text = "PAMANTASAN NG CABUYAO // CLEARED";
+        _clearanceTitleText.alignment = TextAnchor.MiddleLeft;
 
-        // Signatures Grid Text
+        // Signatures Grid Text in dark typewriter ink
         var stampsGO = new GameObject("StampsText", typeof(RectTransform), typeof(Text));
         stampsGO.transform.SetParent(_clearanceCardBox.transform, false);
         var srt = stampsGO.GetComponent<RectTransform>();
-        srt.anchorMin = new Vector2(0.06f, 0.22f);
-        srt.anchorMax = new Vector2(0.94f, 0.82f);
-        srt.offsetMin = Vector2.zero;
-        srt.offsetMax = Vector2.zero;
+        srt.anchorMin = new Vector2(0.45f, 0.26f);
+        srt.anchorMax = new Vector2(0.89f, 0.71f);
+        srt.sizeDelta = Vector2.zero;
         _clearanceStampsText = stampsGO.GetComponent<Text>();
-        _clearanceStampsText.font = secondaryFont;
-        _clearanceStampsText.fontSize = 16;
-        _clearanceStampsText.lineSpacing = 1.35f;
-        _clearanceStampsText.color = new Color(0.90f, 0.95f, 0.90f);
+        _clearanceStampsText.font = typewriterFont;
+        _clearanceStampsText.fontSize = 14;
+        _clearanceStampsText.lineSpacing = 1.28f;
+        _clearanceStampsText.color = new Color(0.08f, 0.06f, 0.05f, 0.98f);
         _clearanceStampsText.text =
-            "[✓] LIBRARY & ARCHIVES          — SEALED & SIGNED (Rm 308)\n" +
-            "[✓] GUIDANCE & COUNSELING       — SEALED & SIGNED (Rm 204)\n" +
-            "[✓] COMPUTER LABORATORY        — SEALED & SIGNED (Rm 105)\n" +
-            "[✓] UNIVERSITY CLINIC          — SEALED & SIGNED (Rm 102)\n" +
-            "[✓] CASHIER & ACCOUNTING       — SEALED & SIGNED (Window 1)\n" +
-            "[✓] REGISTRAR / EXEC. VP       — SEALED & SIGNED (Window 2)";
+            "[X] LIBRARY & ARCHIVES    — SIGNED (Rm 308)\n" +
+            "[X] GUIDANCE OFFICE       — SIGNED (Rm 207)\n" +
+            "[X] COMPUTER LABORATORY   — SIGNED (Rm 105)\n" +
+            "[X] UNIVERSITY CLINIC     — SIGNED (Rm 102)\n" +
+            "[X] CASHIER WINDOW        — SIGNED (Win 1)\n" +
+            "[X] REGISTRAR / EVP       — SIGNED (Win 2)";
 
-        // Golden Graduation Stamp
+        // Official Verdict Line
         var stampGO = new GameObject("GraduationStamp", typeof(RectTransform), typeof(Text));
         stampGO.transform.SetParent(_clearanceCardBox.transform, false);
         var stmpRT = stampGO.GetComponent<RectTransform>();
-        stmpRT.anchorMin = new Vector2(0.04f, 0.04f);
-        stmpRT.anchorMax = new Vector2(0.96f, 0.20f);
-        stmpRT.offsetMin = Vector2.zero;
-        stmpRT.offsetMax = Vector2.zero;
+        stmpRT.anchorMin = new Vector2(0.45f, 0.13f);
+        stmpRT.anchorMax = new Vector2(0.89f, 0.25f);
+        stmpRT.sizeDelta = Vector2.zero;
         _clearanceStatusStampText = stampGO.GetComponent<Text>();
-        _clearanceStatusStampText.font = primaryFont;
-        _clearanceStatusStampText.fontSize = 19;
+        _clearanceStatusStampText.font = typewriterFont;
+        _clearanceStatusStampText.fontSize = 14;
         _clearanceStatusStampText.fontStyle = FontStyle.Bold;
-        _clearanceStatusStampText.color = new Color(1.0f, 0.82f, 0.25f);
-        _clearanceStatusStampText.alignment = TextAnchor.MiddleCenter;
-        _clearanceStatusStampText.text = "★ OFFICIAL VERDICT: CLEARED // CANDIDATE FOR GRADUATION ★";
+        _clearanceStatusStampText.color = new Color(0.62f, 0.06f, 0.06f, 1f);
+        _clearanceStatusStampText.alignment = TextAnchor.MiddleLeft;
+        _clearanceStatusStampText.text = "VERDICT: CANDIDATE FOR GRADUATION (6/6)";
     }
 
-    private void BuildVictoryScreenBox(Font primaryFont, Font secondaryFont)
+    private void BuildVictoryScreenBox(Font horrorFont, Font typewriterFont)
     {
-        _victoryScreenBox = new GameObject("VictoryScreenBox", typeof(RectTransform), typeof(Image));
+        _victoryScreenBox = new GameObject("VictoryScreenDocument", typeof(RectTransform), typeof(Image));
         _victoryScreenBox.transform.SetParent(_canvasGO.transform, false);
         var rt = _victoryScreenBox.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(880f, 620f);
+        rt.sizeDelta = new Vector2(920f, 670f);
 
         var bg = _victoryScreenBox.GetComponent<Image>();
-        bg.color = new Color(0.04f, 0.05f, 0.05f, 0.96f);
+        bg.sprite = documentSheetSprite != null ? documentSheetSprite : (blankPaperSprite != null ? blankPaperSprite : dialoguePaperSprite);
+        bg.color = new Color(0.96f, 0.93f, 0.86f, 0.99f);
 
-        var outline = _victoryScreenBox.AddComponent<Outline>();
-        outline.effectColor = new Color(0.2f, 0.85f, 0.45f, 0.9f);
-        outline.effectDistance = new Vector2(2f, -2f);
+        var shadow = _victoryScreenBox.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
+        shadow.effectDistance = new Vector2(8f, -9f);
 
-        // Title
+        // Decorative Rubber Stamps in Top Corners
+        if (paidClearedStampSprite != null)
+        {
+            var stampL = new GameObject("StampCleared", typeof(RectTransform), typeof(Image));
+            stampL.transform.SetParent(_victoryScreenBox.transform, false);
+            var slRT = stampL.GetComponent<RectTransform>();
+            slRT.anchorMin = new Vector2(0.71f, 0.74f);
+            slRT.anchorMax = new Vector2(0.88f, 0.89f);
+            slRT.sizeDelta = Vector2.zero;
+            slRT.localRotation = Quaternion.Euler(0f, 0f, -12f);
+            var slImg = stampL.GetComponent<Image>();
+            slImg.sprite = paidClearedStampSprite;
+            slImg.preserveAspect = true;
+            slImg.color = new Color(1f, 1f, 1f, 0.90f);
+            slImg.raycastTarget = false;
+        }
+
+        if (archivedStampSprite != null)
+        {
+            var stampR = new GameObject("StampArchived", typeof(RectTransform), typeof(Image));
+            stampR.transform.SetParent(_victoryScreenBox.transform, false);
+            var srRT = stampR.GetComponent<RectTransform>();
+            srRT.anchorMin = new Vector2(0.12f, 0.74f);
+            srRT.anchorMax = new Vector2(0.28f, 0.89f);
+            srRT.sizeDelta = Vector2.zero;
+            srRT.localRotation = Quaternion.Euler(0f, 0f, 9f);
+            var srImg = stampR.GetComponent<Image>();
+            srImg.sprite = archivedStampSprite;
+            srImg.preserveAspect = true;
+            srImg.color = new Color(1f, 1f, 1f, 0.85f);
+            srImg.raycastTarget = false;
+        }
+
+        // Title (Crimson Horror Stamp Header)
         var titleGO = new GameObject("VictoryTitle", typeof(RectTransform), typeof(Text));
         titleGO.transform.SetParent(_victoryScreenBox.transform, false);
         var trt = titleGO.GetComponent<RectTransform>();
-        trt.anchorMin = new Vector2(0.05f, 0.84f);
-        trt.anchorMax = new Vector2(0.95f, 0.97f);
-        trt.offsetMin = Vector2.zero;
-        trt.offsetMax = Vector2.zero;
+        trt.anchorMin = new Vector2(0.14f, 0.78f);
+        trt.anchorMax = new Vector2(0.86f, 0.88f);
+        trt.sizeDelta = Vector2.zero;
         _victoryTitleText = titleGO.GetComponent<Text>();
-        _victoryTitleText.font = primaryFont;
-        _victoryTitleText.fontSize = 38;
+        _victoryTitleText.font = horrorFont;
+        _victoryTitleText.fontSize = 36;
         _victoryTitleText.fontStyle = FontStyle.Bold;
-        _victoryTitleText.color = new Color(0.35f, 0.95f, 0.55f);
+        _victoryTitleText.color = new Color(0.68f, 0.05f, 0.05f, 1f);
         _victoryTitleText.alignment = TextAnchor.MiddleCenter;
         _victoryTitleText.text = "CLEARANCE GRANTED";
 
-        // Subtitle
+        // Subtitle in dark typewriter ink
         var subGO = new GameObject("VictorySubtitle", typeof(RectTransform), typeof(Text));
         subGO.transform.SetParent(_victoryScreenBox.transform, false);
         var srt = subGO.GetComponent<RectTransform>();
-        srt.anchorMin = new Vector2(0.05f, 0.74f);
-        srt.anchorMax = new Vector2(0.95f, 0.83f);
-        srt.offsetMin = Vector2.zero;
-        srt.offsetMax = Vector2.zero;
+        srt.anchorMin = new Vector2(0.14f, 0.70f);
+        srt.anchorMax = new Vector2(0.86f, 0.78f);
+        srt.sizeDelta = Vector2.zero;
         _victorySubtitleText = subGO.GetComponent<Text>();
-        _victorySubtitleText.font = secondaryFont;
-        _victorySubtitleText.fontSize = 18;
-        _victorySubtitleText.color = new Color(0.85f, 0.92f, 0.85f);
+        _victorySubtitleText.font = typewriterFont;
+        _victorySubtitleText.fontSize = 15;
+        _victorySubtitleText.fontStyle = FontStyle.Bold;
+        _victorySubtitleText.color = new Color(0.12f, 0.09f, 0.07f, 0.96f);
         _victorySubtitleText.alignment = TextAnchor.MiddleCenter;
         _victorySubtitleText.text = "Nakatakas ka sa bangungot ng pamantasan bago mag-hatinggabi.";
 
-        // Stats card box
-        var statsBox = new GameObject("StatsBox", typeof(RectTransform), typeof(Image));
+        // Pinned Paper Note Card for Stats + Signed Slip Preview
+        var statsBox = new GameObject("StatsPaperNote", typeof(RectTransform), typeof(Image));
         statsBox.transform.SetParent(_victoryScreenBox.transform, false);
         var sbrt = statsBox.GetComponent<RectTransform>();
-        sbrt.anchorMin = new Vector2(0.08f, 0.38f);
-        sbrt.anchorMax = new Vector2(0.92f, 0.71f);
-        sbrt.offsetMin = Vector2.zero;
-        sbrt.offsetMax = Vector2.zero;
-        statsBox.GetComponent<Image>().color = new Color(0.02f, 0.03f, 0.03f, 0.85f);
+        sbrt.anchorMin = new Vector2(0.12f, 0.36f);
+        sbrt.anchorMax = new Vector2(0.88f, 0.70f);
+        sbrt.sizeDelta = Vector2.zero;
+        var sbImg = statsBox.GetComponent<Image>();
+        sbImg.sprite = dialoguePaperSprite != null ? dialoguePaperSprite : blankPaperSprite;
+        sbImg.color = new Color(0.94f, 0.89f, 0.80f, 0.98f);
+
+        if (signedSlipSprite != null)
+        {
+            var miniSlip = new GameObject("MiniSignedSlip", typeof(RectTransform), typeof(Image));
+            miniSlip.transform.SetParent(statsBox.transform, false);
+            var msRT = miniSlip.GetComponent<RectTransform>();
+            msRT.anchorMin = new Vector2(0.08f, 0.14f);
+            msRT.anchorMax = new Vector2(0.32f, 0.86f);
+            msRT.sizeDelta = Vector2.zero;
+            msRT.localRotation = Quaternion.Euler(0f, 0f, 2.2f);
+            var msImg = miniSlip.GetComponent<Image>();
+            msImg.sprite = signedSlipSprite;
+            msImg.preserveAspect = true;
+            msImg.color = Color.white;
+        }
 
         var statsTextGO = new GameObject("StatsText", typeof(RectTransform), typeof(Text));
         statsTextGO.transform.SetParent(statsBox.transform, false);
         var strt = statsTextGO.GetComponent<RectTransform>();
-        strt.anchorMin = new Vector2(0.06f, 0.05f);
-        strt.anchorMax = new Vector2(0.94f, 0.95f);
-        strt.offsetMin = Vector2.zero;
-        strt.offsetMax = Vector2.zero;
+        strt.anchorMin = new Vector2(0.35f, 0.14f);
+        strt.anchorMax = new Vector2(0.91f, 0.86f);
+        strt.sizeDelta = Vector2.zero;
         _victoryStatsText = statsTextGO.GetComponent<Text>();
-        _victoryStatsText.font = secondaryFont;
-        _victoryStatsText.fontSize = 17;
-        _victoryStatsText.lineSpacing = 1.4f;
-        _victoryStatsText.color = new Color(0.90f, 0.95f, 0.90f);
+        _victoryStatsText.font = typewriterFont;
+        _victoryStatsText.fontSize = 14;
+        _victoryStatsText.lineSpacing = 1.35f;
+        _victoryStatsText.color = new Color(0.08f, 0.06f, 0.05f, 0.98f);
+        _victoryStatsText.alignment = TextAnchor.MiddleLeft;
         _victoryStatsText.text =
-            "• STATUS: ALL 6 DEPARTMENT SIGNATURES SECURED (6/6)\n" +
-            "• CAMPUS MAIN GATE: BREACHED & ESCAPED\n" +
-            "• DEADLINE STATUS: SUBMITTED BEFORE MIDNIGHT\n" +
-            "• FINAL VERDICT: CANDIDATE FOR GRADUATION";
+            "• CLEARANCE SIGNATURES: 6 / 6 KUMPLETO\n" +
+            "• CAMPUS MAIN GATE: NABUKSAN AT NAKATAKAS\n" +
+            "• ORAS NG PAGLABAS: 11:59 PM (UMABOT SA CUTOFF)\n" +
+            "• HATOL NG REGISTRAR: CANDIDATE FOR GRADUATION";
 
-        // Buttons: Play Again, Main Menu, Quit
-        _playAgainButton = CreateVictoryButton("PlayAgainButton", "MAGLARO MULI // PLAY AGAIN", new Vector2(0.5f, 0.27f), new Vector2(480f, 48f), primaryFont, OnPlayAgainClicked);
-        _mainMenuButton = CreateVictoryButton("MainMenuButton", "PANGUNAHING MENU // MAIN MENU", new Vector2(0.5f, 0.17f), new Vector2(480f, 48f), primaryFont, OnMainMenuClicked);
-        _quitButton = CreateVictoryButton("QuitButton", "LUMABAS SA LARO // QUIT", new Vector2(0.5f, 0.07f), new Vector2(480f, 48f), primaryFont, OnQuitClicked);
+        // Paper Card Buttons: Play Again, Main Menu, Quit
+        _playAgainButton = CreateVictoryButton("PlayAgainButton", "MAGLARO MULI // PLAY AGAIN", new Vector2(0.5f, 0.29f), new Vector2(440f, 48f), typewriterFont, OnPlayAgainClicked);
+        _mainMenuButton = CreateVictoryButton("MainMenuButton", "PANGUNAHING MENU // MAIN MENU", new Vector2(0.5f, 0.20f), new Vector2(440f, 48f), typewriterFont, OnMainMenuClicked);
+        _quitButton = CreateVictoryButton("QuitButton", "LUMABAS SA LARO // QUIT", new Vector2(0.5f, 0.11f), new Vector2(440f, 48f), typewriterFont, OnQuitClicked);
     }
 
     private Button CreateVictoryButton(string name, string label, Vector2 anchor, Vector2 size, Font font, UnityEngine.Events.UnityAction action)
@@ -849,32 +1058,33 @@ public class WinCutsceneDirector : MonoBehaviour
         rt.sizeDelta = size;
 
         var img = btnGO.GetComponent<Image>();
-        img.color = new Color(0.12f, 0.24f, 0.16f, 0.95f);
+        img.sprite = buttonPaperSprite != null ? buttonPaperSprite : dialoguePaperSprite;
+        img.color = new Color(0.93f, 0.87f, 0.76f, 0.98f);
 
-        var outline = btnGO.AddComponent<Outline>();
-        outline.effectColor = new Color(0.35f, 0.95f, 0.55f, 0.8f);
-        outline.effectDistance = new Vector2(1.5f, -1.5f);
+        var shadow = btnGO.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.55f);
+        shadow.effectDistance = new Vector2(3f, -4f);
 
         var btn = btnGO.GetComponent<Button>();
         var colors = btn.colors;
         colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(1.2f, 1.2f, 1.2f, 1.0f);
-        colors.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1.0f);
+        colors.highlightedColor = new Color(1.0f, 0.92f, 0.82f, 1.0f);
+        colors.pressedColor = new Color(0.82f, 0.74f, 0.65f, 1.0f);
         btn.colors = colors;
         if (action != null) btn.onClick.AddListener(action);
 
         var textGO = new GameObject("Label", typeof(RectTransform), typeof(Text));
         textGO.transform.SetParent(btnGO.transform, false);
         var trt = textGO.GetComponent<RectTransform>();
-        trt.anchorMin = Vector2.zero;
-        trt.anchorMax = Vector2.one;
+        trt.anchorMin = new Vector2(0.06f, 0.10f);
+        trt.anchorMax = new Vector2(0.94f, 0.90f);
         trt.sizeDelta = Vector2.zero;
 
         var txt = textGO.GetComponent<Text>();
         txt.font = font;
-        txt.fontSize = 17;
+        txt.fontSize = 16;
         txt.fontStyle = FontStyle.Bold;
-        txt.color = new Color(0.95f, 1.0f, 0.95f);
+        txt.color = new Color(0.14f, 0.06f, 0.05f, 1f);
         txt.alignment = TextAnchor.MiddleCenter;
         txt.text = label;
 
@@ -883,21 +1093,23 @@ public class WinCutsceneDirector : MonoBehaviour
 
     private void BuildSkipPrompt(Font font)
     {
-        _skipPromptRoot = new GameObject("SkipPromptRoot", typeof(RectTransform), typeof(Image), typeof(Button));
+        _skipPromptRoot = new GameObject("SkipPromptPaper", typeof(RectTransform), typeof(Image), typeof(Button));
         _skipPromptRoot.transform.SetParent(_canvasGO.transform, false);
         var rt = _skipPromptRoot.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(1f, 0f);
         rt.anchorMax = new Vector2(1f, 0f);
         rt.pivot = new Vector2(1f, 0f);
-        rt.anchoredPosition = new Vector2(-28f, 22f);
-        rt.sizeDelta = new Vector2(320f, 40f);
+        rt.anchoredPosition = new Vector2(-36f, 24f);
+        rt.sizeDelta = new Vector2(285f, 54f);
+        rt.localRotation = Quaternion.Euler(0f, 0f, -1.5f);
 
         var img = _skipPromptRoot.GetComponent<Image>();
-        img.color = new Color(0.04f, 0.04f, 0.05f, 0.75f);
+        img.sprite = dialoguePaperSprite != null ? dialoguePaperSprite : buttonPaperSprite;
+        img.color = new Color(0.95f, 0.90f, 0.82f, 0.96f);
 
-        var outline = _skipPromptRoot.AddComponent<Outline>();
-        outline.effectColor = new Color(0.35f, 0.95f, 0.55f, 0.6f);
-        outline.effectDistance = new Vector2(1f, -1f);
+        var shadow = _skipPromptRoot.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.70f);
+        shadow.effectDistance = new Vector2(3f, -4f);
 
         _skipButton = _skipPromptRoot.GetComponent<Button>();
         _skipButton.onClick.AddListener(SkipCutscene);
@@ -905,16 +1117,17 @@ public class WinCutsceneDirector : MonoBehaviour
         var textGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
         textGO.transform.SetParent(_skipPromptRoot.transform, false);
         var trt = textGO.GetComponent<RectTransform>();
-        trt.anchorMin = Vector2.zero;
-        trt.anchorMax = Vector2.one;
+        trt.anchorMin = new Vector2(0.08f, 0.12f);
+        trt.anchorMax = new Vector2(0.92f, 0.88f);
         trt.sizeDelta = Vector2.zero;
 
         _skipPromptText = textGO.GetComponent<Text>();
         _skipPromptText.font = font;
-        _skipPromptText.fontSize = 15;
-        _skipPromptText.color = new Color(0.75f, 0.95f, 0.80f);
+        _skipPromptText.fontSize = 14;
+        _skipPromptText.fontStyle = FontStyle.Bold;
+        _skipPromptText.color = new Color(0.12f, 0.06f, 0.05f, 0.98f);
         _skipPromptText.alignment = TextAnchor.MiddleCenter;
-        _skipPromptText.text = "[SPACE] / [ESC] Laktawan (Skip)";
+        _skipPromptText.text = "[SPACE / ESC] LAKTAWAN";
     }
 
     private Font LoadFont(string resourcesPath, string assetPath)

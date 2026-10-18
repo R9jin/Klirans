@@ -112,6 +112,13 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void Awake()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            currentState = GuardState.Inactive;
+            gameObject.SetActive(false);
+            return;
+        }
+
         if (ActiveStalker != null && ActiveStalker != this)
         {
             Destroy(gameObject);
@@ -138,6 +145,13 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void Start()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            currentState = GuardState.Inactive;
+            gameObject.SetActive(false);
+            return;
+        }
+
         FindPlayerReferences();
         _nextWhistleTime = Time.time + Random.Range(4.0f, 9.0f); // First whistle soon after emergence
         PickHallwayPatrolTarget();
@@ -284,6 +298,13 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void Update()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            currentState = GuardState.Inactive;
+            gameObject.SetActive(false);
+            return;
+        }
+
         if (OpeningCutsceneDirector.IsCutsceneActive) return;
         if (currentState == GuardState.Inactive || currentState == GuardState.Jumpscare) return;
 
@@ -684,7 +705,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void TriggerCatchSequence()
     {
-        if (OpeningCutsceneDirector.IsCutsceneActive) return;
+        if (GameModeManager.IsFreeRoamMode || OpeningCutsceneDirector.IsCutsceneActive) return;
         _hasCaughtPlayer = true;
         currentState = GuardState.Jumpscare;
 
@@ -706,11 +727,17 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         dir.y = 0;
         if (dir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(dir);
 
-        // Trigger Jumpscare / Failure Sequence through NPCJumpscareManager if present
+        // Trigger Jumpscare / Failure Sequence through NPCJumpscareManager using the Guard's own model
+        SkinnedMeshRenderer guardSMR = GetComponentInChildren<SkinnedMeshRenderer>();
+        if (guardSMR == null)
+        {
+            var boothGuard = GameObject.Find("Security_Guard_NPC") ?? FindAnyObjectByType<SecurityGuardInteract>(FindObjectsInactive.Include)?.gameObject;
+            if (boothGuard != null) guardSMR = boothGuard.GetComponentInChildren<SkinnedMeshRenderer>(true);
+        }
         var jumpscareMgr = NPCJumpscareManager.Instance ?? FindAnyObjectByType<NPCJumpscareManager>();
         if (jumpscareMgr != null)
         {
-            jumpscareMgr.TriggerJumpscare();
+            jumpscareMgr.TriggerJumpscare(guardSMR);
         }
         else
         {

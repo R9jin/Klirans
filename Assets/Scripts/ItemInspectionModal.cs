@@ -69,6 +69,33 @@ public class ItemInspectionModal : MonoBehaviour
         // Ignore close keys on the same frame the modal was opened to prevent instant close
         if (Time.frameCount == _openedFrame) return;
 
+        // Scroll navigation via Mouse Wheel, Up/Down, W/S, PageUp/PageDown
+        if (_scrollRect != null)
+        {
+            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            if (Mathf.Abs(scroll) > 0.0001f)
+            {
+                // Invert so scrolling mouse wheel down moves text downward
+                _scrollRect.verticalNormalizedPosition = Mathf.Clamp01(_scrollRect.verticalNormalizedPosition + scroll * 0.45f);
+            }
+            if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S))
+            {
+                _scrollRect.verticalNormalizedPosition = Mathf.Clamp01(_scrollRect.verticalNormalizedPosition - Time.unscaledDeltaTime * 1.8f);
+            }
+            else if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W))
+            {
+                _scrollRect.verticalNormalizedPosition = Mathf.Clamp01(_scrollRect.verticalNormalizedPosition + Time.unscaledDeltaTime * 1.8f);
+            }
+            if (Input.GetKeyDown(KeyCode.PageDown))
+            {
+                _scrollRect.verticalNormalizedPosition = Mathf.Clamp01(_scrollRect.verticalNormalizedPosition - 0.35f);
+            }
+            else if (Input.GetKeyDown(KeyCode.PageUp))
+            {
+                _scrollRect.verticalNormalizedPosition = Mathf.Clamp01(_scrollRect.verticalNormalizedPosition + 0.35f);
+            }
+        }
+
         // Close on E, Space, Return, Tab, or Escape
         if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.Escape))
         {
@@ -108,8 +135,11 @@ public class ItemInspectionModal : MonoBehaviour
             _iconImage.gameObject.SetActive(icon != null);
         }
 
-        if (_scrollRect != null)
+        // Force layout calculations so the scroll bounds are updated immediately
+        Canvas.ForceUpdateCanvases();
+        if (_scrollRect != null && _scrollRect.content != null)
         {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_scrollRect.content);
             _scrollRect.verticalNormalizedPosition = 1f; // Scroll to top
         }
 
@@ -157,6 +187,16 @@ public class ItemInspectionModal : MonoBehaviour
     {
         var hud = GameObject.Find("HudCanvas");
         if (hud == null) return;
+
+        // Clean up any stray serialized ItemInspectionOverlay objects under HudCanvas
+        for (int i = hud.transform.childCount - 1; i >= 0; i--)
+        {
+            Transform child = hud.transform.GetChild(i);
+            if (child != null && child.name == "ItemInspectionOverlay")
+            {
+                Destroy(child.gameObject);
+            }
+        }
 
         // Load authentic typewriter font and horror heading font
         Font typewriterFont = Resources.Load<Font>("Fonts/Typewriter_Bold");
@@ -270,19 +310,52 @@ public class ItemInspectionModal : MonoBehaviour
         sepGO.GetComponent<Image>().color = new Color(0.35f, 0.30f, 0.25f, 0.5f);
 
         // ── Scrollable Body Text (Uses RectMask2D — guarantees text is never clipped by failed stencil buffer!) ──
-        var scrollGO = new GameObject("TextScrollRect", typeof(RectTransform), typeof(ScrollRect), typeof(RectMask2D));
+        var scrollGO = new GameObject("TextScrollRect", typeof(RectTransform), typeof(ScrollRect), typeof(RectMask2D), typeof(Image));
         scrollGO.transform.SetParent(paperGO.transform, false);
         var scrollRT = scrollGO.GetComponent<RectTransform>();
         scrollRT.anchorMin = new Vector2(0f, 0f);
         scrollRT.anchorMax = new Vector2(1f, 1f);
         scrollRT.offsetMin = new Vector2(52f, 68f);
-        scrollRT.offsetMax = new Vector2(-36f, -100f);
+        scrollRT.offsetMax = new Vector2(-46f, -100f);
+
+        var scrollHitImg = scrollGO.GetComponent<Image>();
+        scrollHitImg.color = Color.clear;
+        scrollHitImg.raycastTarget = true;
 
         _scrollRect = scrollGO.GetComponent<ScrollRect>();
         _scrollRect.horizontal = false;
         _scrollRect.vertical = true;
         _scrollRect.movementType = ScrollRect.MovementType.Clamped;
-        _scrollRect.scrollSensitivity = 32f;
+        _scrollRect.scrollSensitivity = 45f;
+
+        // Visual Scrollbar on the right margin of the paper
+        var scrollbarGO = new GameObject("PaperScrollbar", typeof(RectTransform), typeof(Image), typeof(Scrollbar));
+        scrollbarGO.transform.SetParent(paperGO.transform, false);
+        var sbRT = scrollbarGO.GetComponent<RectTransform>();
+        sbRT.anchorMin = new Vector2(1f, 0f);
+        sbRT.anchorMax = new Vector2(1f, 1f);
+        sbRT.pivot = new Vector2(1f, 0.5f);
+        sbRT.anchoredPosition = new Vector2(-22f, -16f);
+        sbRT.sizeDelta = new Vector2(8f, -180f);
+
+        var sbImg = scrollbarGO.GetComponent<Image>();
+        sbImg.color = new Color(0.25f, 0.20f, 0.15f, 0.20f);
+
+        var handleGO = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+        handleGO.transform.SetParent(scrollbarGO.transform, false);
+        var handleRT = handleGO.GetComponent<RectTransform>();
+        handleRT.sizeDelta = Vector2.zero;
+
+        var handleImg = handleGO.GetComponent<Image>();
+        handleImg.color = new Color(0.40f, 0.32f, 0.24f, 0.85f);
+
+        var scrollbar = scrollbarGO.GetComponent<Scrollbar>();
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+        scrollbar.targetGraphic = handleImg;
+        scrollbar.handleRect = handleRT;
+
+        _scrollRect.verticalScrollbar = scrollbar;
+        _scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
         // Content
         var contentGO = new GameObject("ScrollContent", typeof(RectTransform), typeof(ContentSizeFitter), typeof(VerticalLayoutGroup));

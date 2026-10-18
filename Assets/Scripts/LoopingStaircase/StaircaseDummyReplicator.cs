@@ -66,8 +66,8 @@ public class StaircaseDummyReplicator : MonoBehaviour
     public bool makeDummiesInvisible = true;
 
     [Header("Audio & Flashlight Features")]
-    public bool enableFootstepEchoes = true;
-    [Range(0f, 1f)] public float footstepEchoVolume = 0.25f;
+    public bool enableFootstepEchoes = false;
+    [Range(0f, 1f)] public float footstepEchoVolume = 0f;
     public bool syncFlashlight = true;
 
     [Serializable]
@@ -100,12 +100,18 @@ public class StaircaseDummyReplicator : MonoBehaviour
         }
         Instance = this;
 
+        // Player is a single body — never emit duplicate footstep echoes from staircase dummies
+        enableFootstepEchoes = false;
+        footstepEchoVolume = 0f;
+
         AutoFindPlayerReferences();
         EnsureDummiesExist();
     }
 
     private void Start()
     {
+        enableFootstepEchoes = false;
+        footstepEchoVolume = 0f;
         AutoFindPlayerReferences();
         EnsureDummiesExist();
     }
@@ -372,19 +378,13 @@ public class StaircaseDummyReplicator : MonoBehaviour
                     }
                 }
 
-                // Sync 3D footstep echoes
-                if (d.audioSource != null && enableFootstepEchoes)
+                // Player is a single body: ensure staircase dummy AudioSources are permanently silent
+                if (d.audioSource != null)
                 {
-                    d.audioSource.volume = footstepEchoVolume;
-                    if (smoothedSpeed > 0.1f)
-                    {
-                        d.audioSource.pitch = smoothedSpeed > 1.5f ? 1.35f : 1.0f;
-                        if (!d.audioSource.isPlaying) d.audioSource.Play();
-                    }
-                    else
-                    {
-                        if (d.audioSource.isPlaying) d.audioSource.Stop();
-                    }
+                    if (d.audioSource.isPlaying) d.audioSource.Stop();
+                    d.audioSource.volume = 0f;
+                    d.audioSource.mute = true;
+                    d.audioSource.enabled = false;
                 }
             }
             else

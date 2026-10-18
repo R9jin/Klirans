@@ -85,6 +85,13 @@ public class ItemVisualHighlight : MonoBehaviour
 
     private void Awake()
     {
+        if (IsAttachedToPlayerOrHeldViewmodel())
+        {
+            OnPickedUp();
+            Destroy(this);
+            return;
+        }
+
         _coinPickup = GetComponent<CoinPickup>() ?? GetComponentInParent<CoinPickup>();
         // Organic phase offset so multiple items in a room don't strobe in perfect unison
         _phaseOffset = Random.Range(0f, strobePeriod);
@@ -96,7 +103,47 @@ public class ItemVisualHighlight : MonoBehaviour
 
     private void Start()
     {
+        if (IsAttachedToPlayerOrHeldViewmodel())
+        {
+            OnPickedUp();
+            Destroy(this);
+            return;
+        }
         FindCamera();
+    }
+
+    private bool IsAttachedToPlayerOrHeldViewmodel()
+    {
+        string lowerName = gameObject.name.ToLower();
+        if (lowerName.Contains("held") || lowerName.Contains("viewmodel")) return true;
+        if (GetComponentInParent<PlayerMovement>() != null) return true;
+        if (GetComponentInParent<FlashlightController>() != null) return true;
+        if (GetComponentInParent<Camera>() != null) return true;
+        if (transform.root != null && transform.root.CompareTag("Player")) return true;
+        return false;
+    }
+
+    private bool IsFlashlightAlreadyHeldOrOwned()
+    {
+        if (category != ItemCategory.ToolOrEquipment) return false;
+        if (!gameObject.name.ToLower().Contains("flashlight")) return false;
+
+        if (FlashlightController.Instance != null && FlashlightController.Instance.IsEquipped)
+            return true;
+
+        if (InventoryManager.Instance != null && InventoryManager.Instance.Slots != null)
+        {
+            var slots = InventoryManager.Instance.Slots;
+            for (int i = 0; i < slots.Count; i++)
+            {
+                if (slots[i] != null && !slots[i].IsEmpty && slots[i].item != null &&
+                    slots[i].item.itemName != null && slots[i].item.itemName.ToLower().Contains("flashlight"))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void FindCamera()
@@ -321,6 +368,19 @@ public class ItemVisualHighlight : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (IsAttachedToPlayerOrHeldViewmodel())
+        {
+            OnPickedUp();
+            Destroy(this);
+            return;
+        }
+
+        if (IsFlashlightAlreadyHeldOrOwned())
+        {
+            SetHighlightVisible(false);
+            return;
+        }
+
         // 1. If parent CoinPickup is currently collected & waiting to respawn, keep hidden
         if (_coinPickup == null)
         {

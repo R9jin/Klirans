@@ -164,33 +164,21 @@ public class SlotMenu : MonoBehaviour, ISlotOwner
             UseConsumable(slot);
     }
 
-    /// <summary>Double click on a hotbar slot: send it to the bag/storage if there's room.</summary>
+    /// <summary>Double click on a hotbar slot: inspect the item in 3D (no separate Tab bag).</summary>
     public void OnSlotDoubleClicked(InventorySlot slot)
     {
-        if (StorageManager.Instance == null || slot == null || slot.IsEmpty) return;
-
-        if (!StorageManager.Instance.HasFreeSlot())
+        if (slot == null || slot.IsEmpty || slot.item == null) return;
+        PingVisibility();
+        if (!ItemInspectionViewer3D.IsOpen)
         {
-            Debug.Log("Storage is full.");
-            return;
-        }
-
-        InventoryItem item = slot.item;
-        int           qty  = slot.quantity;
-
-        if (StorageManager.Instance.AddItem(item, qty))
-        {
-            slot.quantity -= qty;
-            if (slot.quantity <= 0) slot.Clear();
-            InventoryManager.Instance.NotifyChanged();
+            ItemInspectionViewer3D.Inspect(slot.item);
         }
     }
 
     /// <summary>Click on an empty hotbar slot: hide preview if inventory is open.</summary>
     public void OnSlotDeselected()
     {
-        if (InventoryScreen.Instance != null && InventoryScreen.Instance.IsOpen)
-            StorageMenu.HidePreview();
+        StorageMenu.HidePreview();
     }
 
     // ─── Private ─────────────────────────────────────────────────────

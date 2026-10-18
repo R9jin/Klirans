@@ -53,6 +53,12 @@ public class SecurityGuardEndgameManager : MonoBehaviour
 
     private void Awake()
     {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            isEndgameActive = false;
+            return;
+        }
+
         if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
@@ -74,6 +80,7 @@ public class SecurityGuardEndgameManager : MonoBehaviour
 
     private void Start()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         ClearanceManager.OnSlipSubmittedEvent += HandleSlipSubmitted;
     }
 
@@ -84,6 +91,8 @@ public class SecurityGuardEndgameManager : MonoBehaviour
 
     private void Update()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
+
         // Debug key to test endgame immediately
         if (Input.GetKeyDown(debugTriggerKey) && !isEndgameActive)
         {
@@ -94,6 +103,8 @@ public class SecurityGuardEndgameManager : MonoBehaviour
 
     private void HandleSlipSubmitted()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
+
         if (!isEndgameActive)
         {
             TriggerEndgame();
@@ -106,27 +117,34 @@ public class SecurityGuardEndgameManager : MonoBehaviour
     [ContextMenu("Trigger Endgame Stalker")]
     public void TriggerEndgame()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         if (isEndgameActive) return;
         isEndgameActive = true;
 
         Debug.Log("[SecurityGuardEndgameManager] ENDGAME ACTIVATED! Security guard vacating lobby booth to hunt student!");
 
-        // 1. Vacate the lobby security booth (hide stationary sitting NPC)
-        var lobbyGuard = GameObject.Find("Security_Guard_NPC");
-        if (lobbyGuard != null)
-        {
-            lobbyGuard.SetActive(false);
-            Debug.Log("[SecurityGuardEndgameManager] Lobby Security_Guard_NPC vacated from booth!");
-        }
-
-        // 2. Play initial chilling building-wide haunted whistle broadcast
+        // 1. Play initial chilling building-wide haunted whistle broadcast
         if (_broadcastAudioSource != null && whistleBroadcastClip != null)
         {
             _broadcastAudioSource.PlayOneShot(whistleBroadcastClip, 0.90f);
         }
 
-        // 3. Spawn or activate the Stalker Guard
+        // 2. Spawn or activate the Stalker Guard BEFORE hiding the sitting lobby guard
+        // This ensures the visual Armature, SkinnedMeshRenderer, and materials are cleanly cloned!
         SpawnOrActivateStalker();
+
+        // 3. Vacate the lobby security booth (hide stationary sitting NPC)
+        var lobbyGuard = GameObject.Find("Security_Guard_NPC");
+        if (lobbyGuard == null)
+        {
+            var guardInteract = FindAnyObjectByType<SecurityGuardInteract>(FindObjectsInactive.Include);
+            if (guardInteract != null) lobbyGuard = guardInteract.gameObject;
+        }
+        if (lobbyGuard != null)
+        {
+            lobbyGuard.SetActive(false);
+            Debug.Log("[SecurityGuardEndgameManager] Lobby Security_Guard_NPC vacated from booth!");
+        }
 
         // 4. Update ObjectiveHUD
         if (ObjectiveHUD.Instance != null)
@@ -189,24 +207,72 @@ public class SecurityGuardEndgameManager : MonoBehaviour
         GameObject stalkerRoot = new GameObject("SecurityGuard_Stalker");
         stalkerRoot.transform.position = spawnPos;
 
-        // Model child
-        GameObject guardModelPrefab = null;
-#if UNITY_EDITOR
-        guardModelPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NPC Assets/Models/guard.fbx");
-#endif
-        if (guardModelPrefab != null)
+        // Model child — Clone visual Armature from the lobby Security_Guard_NPC
+        GameObject visualSource = null;
+        var lobbyGuard = GameObject.Find("Security_Guard_NPC");
+        if (lobbyGuard == null)
         {
-            GameObject modelInstance = Instantiate(guardModelPrefab, stalkerRoot.transform);
+            var guardInteract = FindAnyObjectByType<SecurityGuardInteract>(FindObjectsInactive.Include);
+            if (guardInteract != null) lobbyGuard = guardInteract.gameObject;
+        }
+
+        if (lobbyGuard != null)
+        {
+            Transform existingArmature = lobbyGuard.transform.Find("Armature");
+            if (existingArmature != null)
+            {
+                visualSource = existingArmature.gameObject;
+            }
+            else
+            {
+                var smr = lobbyGuard.GetComponentInChildren<SkinnedMeshRenderer>(true);
+                if (smr != null) visualSource = smr.transform.parent != null ? smr.transform.parent.gameObject : smr.gameObject;
+            }
+        }
+
+        if (visualSource != null)
+        {
+            GameObject modelInstance = Instantiate(visualSource, stalkerRoot.transform);
             modelInstance.name = "Armature";
             modelInstance.transform.localPosition = Vector3.zero;
             modelInstance.transform.localRotation = Quaternion.identity;
+            modelInstance.transform.localScale = Vector3.one;
+            modelInstance.SetActive(true);
 
-            // Runtime Animator Controller
+            // Re-bind animator to stalker hierarchy
+            var anim = modelInstance.GetComponent<Animator>();
+            if (anim != null) anim.Rebind();
+        }
+        else
+        {
+            // Fallback: load model from Assets
+            GameObject guardModelPrefab = null;
 #if UNITY_EDITOR
-            var ctrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/NPC Assets/AnimatorControllers/SecurityGuard_Ctrl.controller");
-            var anim = modelInstance.GetComponent<Animator>() ?? modelInstance.AddComponent<Animator>();
-            if (ctrl != null) anim.runtimeAnimatorController = ctrl;
+            guardModelPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NPC Assets/Animations/animateds/guard.fbx") ??
+                               UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NPC Assets/Models/guard.fbx");
 #endif
+            if (guardModelPrefab != null)
+            {
+                GameObject modelInstance = Instantiate(guardModelPrefab, stalkerRoot.transform);
+                modelInstance.name = "Armature";
+                modelInstance.transform.localPosition = Vector3.zero;
+                modelInstance.transform.localRotation = Quaternion.identity;
+
+#if UNITY_EDITOR
+                var ctrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/NPC Assets/AnimatorControllers/SecurityGuard_Ctrl.controller");
+                var anim = modelInstance.GetComponent<Animator>() ?? modelInstance.AddComponent<Animator>();
+                if (ctrl != null) anim.runtimeAnimatorController = ctrl;
+
+                var mat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/NPC Assets/Materials/SecurityGuard_Mat.mat");
+                if (mat != null)
+                {
+                    foreach (var r in modelInstance.GetComponentsInChildren<Renderer>(true))
+                    {
+                        r.sharedMaterial = mat;
+                    }
+                }
+#endif
+            }
         }
 
         // Capsule Collider

@@ -83,19 +83,9 @@ public class FragmentManager : MonoBehaviour
             collectedFragmentItems.Add(itemData);
 
             InventoryManager inventory = InventoryManager.Instance;
-            StorageManager storage = StorageManager.Instance;
-
-            // 1. Try adding to InventoryManager (6-Slot Hotbar on screen) so it appears immediately
-            bool itemAdded = false;
             if (inventory != null)
             {
-                itemAdded = inventory.AddItem(itemData, 1);
-            }
-
-            // 2. Fallback to StorageManager (12-Slot Bag Inventory) if Hotbar is full
-            if (!itemAdded && storage != null)
-            {
-                storage.AddItem(itemData, 1);
+                inventory.AddItem(itemData, 1);
             }
         }
 
@@ -133,7 +123,7 @@ public class FragmentManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Triggers minigame completion: consumes the 4 fragment items from hotbar/bag inventory and awards the completed Blank_Paper clearance slip.
+    /// Triggers minigame completion: consumes the 4 fragment items from hotbar inventory and awards the completed Blank_Paper clearance slip.
     /// </summary>
     private void CompleteFragmentPuzzle()
     {
@@ -146,25 +136,37 @@ public class FragmentManager : MonoBehaviour
         }
 
         InventoryManager inventory = InventoryManager.Instance;
-        StorageManager storage = StorageManager.Instance;
 
-        // 1. Remove individual fragment items from Hotbar/Bag inventory
+        // 1. Remove individual fragment items from 6-slot Hotbar inventory
         foreach (var fragItem in collectedFragmentItems)
         {
-            if (fragItem != null)
+            if (fragItem != null && inventory != null && inventory.HasItem(fragItem))
             {
-                if (inventory != null && inventory.HasItem(fragItem))
-                {
-                    inventory.RemoveItem(fragItem, 1);
-                }
-                else if (storage != null && storage.HasItem(fragItem))
-                {
-                    storage.RemoveItem(fragItem, 1);
-                }
+                inventory.RemoveItem(fragItem, 1);
             }
         }
 
-        // 2. Add the completed Blank_Paper Clearance Slip item to Inventory/Bag
+        // Ensure Blank_Paper uses signed0 from PlayerAssets as default complete slip after piecing them together
+#if UNITY_EDITOR
+        if (blankPaperRewardItem != null)
+        {
+            Sprite signed0Sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/signed0.png");
+            if (signed0Sprite == null)
+            {
+                Texture2D signed0Tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/PlayerAssets/signed0.png");
+                if (signed0Tex != null)
+                {
+                    signed0Sprite = Sprite.Create(signed0Tex, new Rect(0, 0, signed0Tex.width, signed0Tex.height), new Vector2(0.5f, 0.5f), 100f);
+                }
+            }
+            if (signed0Sprite != null)
+            {
+                blankPaperRewardItem.icon = signed0Sprite;
+            }
+        }
+#endif
+
+        // 2. Add the completed Blank_Paper Clearance Slip item to 6-slot Inventory
         bool itemAdded = AddRewardToPlayerInventory();
 
         if (ClearancePiecesHUD.Instance != null)
@@ -192,25 +194,16 @@ public class FragmentManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Adds the Blank_Paper item directly into the player's hotbar or bag inventory.
+    /// Adds the Blank_Paper item directly into the player's 6-slot hotbar inventory.
     /// </summary>
     private bool AddRewardToPlayerInventory()
     {
         InventoryManager inventory = InventoryManager.Instance;
-        StorageManager storage = StorageManager.Instance;
 
-        // 1. Try adding to InventoryManager (6-Slot Hotbar on screen)
         if (inventory != null && blankPaperRewardItem != null)
         {
             bool addedToHotbar = inventory.AddItem(blankPaperRewardItem, 1);
             if (addedToHotbar) return true;
-        }
-
-        // 2. Fallback to StorageManager (12-Slot Bag Inventory)
-        if (storage != null && blankPaperRewardItem != null)
-        {
-            bool addedToBag = storage.AddItem(blankPaperRewardItem, 1);
-            if (addedToBag) return true;
         }
 
         return false;

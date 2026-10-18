@@ -26,6 +26,11 @@ public class RoomStaffAI : MonoBehaviour
     public string speedParameter = "Speed";
     public string talkingParameter = "Talking";
 
+    [Header("Runaway Chase Feature")]
+    public bool isRunawayActive = false;
+    public bool isReturningHome = false;
+    private UnityEngine.AI.NavMeshAgent _navAgent;
+
     // Runtime state
     private Animator _animator;
     private Transform _playerTransform;
@@ -68,6 +73,27 @@ public class RoomStaffAI : MonoBehaviour
 
     private void Update()
     {
+        if (isRunawayActive)
+        {
+            if (_navAgent != null && _navAgent.isOnNavMesh)
+            {
+                float spd = _navAgent.velocity.magnitude > 0.1f ? 2.0f : 0f;
+                UpdateAnimator(spd, false);
+            }
+
+            if (Time.time >= _nextPanicScreamTime)
+            {
+                PlayPanicScream();
+                _nextPanicScreamTime = Time.time + Random.Range(3.5f, 5.5f);
+            }
+            return;
+        }
+
+        if (isReturningHome)
+        {
+            return;
+        }
+
         bool hasChair = _sitController != null && _sitController.HasChair;
 
         // If not managed by chair controller, enforce stationary post
@@ -160,5 +186,149 @@ public class RoomStaffAI : MonoBehaviour
     {
         _homePosition = transform.position;
         _homeRotation = transform.rotation;
+    }
+
+    private AudioSource _panicAudioSource;
+    private float _nextPanicScreamTime = 0f;
+
+    public void TriggerRunaway(Vector3 hallwayTarget)
+    {
+        isRunawayActive = true;
+        isReturningHome = false;
+
+        if (_sitController == null) _sitController = GetComponent<NPCSitController>();
+        if (_sitController != null && _sitController.HasChair)
+        {
+            _sitController.StandUp();
+        }
+
+        // Auto-open nearby doors so runaway is completely unobstructed
+        foreach (var door in FindObjectsByType<DoorInteract>(FindObjectsInactive.Exclude))
+        {
+            if (Vector3.Distance(door.transform.position, transform.position) < 6.5f)
+            {
+                door.ForceOpen();
+            }
+        }
+
+        _navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        if (_navAgent == null)
+        {
+            _navAgent = gameObject.AddComponent<UnityEngine.AI.NavMeshAgent>();
+            _navAgent.radius = 0.35f;
+            _navAgent.height = 1.8f;
+            _navAgent.baseOffset = 0f;
+            _navAgent.acceleration = 14f;
+            _navAgent.angularSpeed = 380f;
+        }
+
+        _navAgent.enabled = true;
+        _navAgent.speed = 3.3f;
+        _navAgent.stoppingDistance = 0.5f;
+
+        // Warp agent safely to nearest valid NavMesh location
+        if (UnityEngine.AI.NavMesh.SamplePosition(transform.position, out UnityEngine.AI.NavMeshHit startHit, 3.5f, UnityEngine.AI.NavMesh.AllAreas))
+        {
+            _navAgent.Warp(startHit.position);
+        }
+
+        UnityEngine.AI.NavMeshHit hit;
+        if (UnityEngine.AI.NavMesh.SamplePosition(hallwayTarget, out hit, 6.0f, UnityEngine.AI.NavMesh.AllAreas))
+        {
+            _navAgent.SetDestination(hit.position);
+        }
+        else
+        {
+            _navAgent.SetDestination(hallwayTarget);
+        }
+
+        // Audio panic screams
+        EnsurePanicAudioSource();
+        PlayPanicScream();
+        _nextPanicScreamTime = Time.time + 3.2f;
+
+        UpdateAnimator(2.0f, false);
+    }
+
+    private void EnsurePanicAudioSource()
+    {
+        if (_panicAudioSource == null)
+        {
+            _panicAudioSource = gameObject.AddComponent<AudioSource>();
+            _panicAudioSource.spatialBlend = 0.65f;
+            _panicAudioSource.minDistance = 2.0f;
+            _panicAudioSource.maxDistance = 22.0f;
+            _panicAudioSource.playOnAwake = false;
+            _panicAudioSource.volume = 0.85f;
+        }
+    }
+
+    private void PlayPanicScream()
+    {
+        EnsurePanicAudioSource();
+        var clrNpc = GetComponent<ClearanceNPC>();
+        AudioClip clip = (clrNpc != null && clrNpc.mumbleAudioClip != null) ? clrNpc.mumbleAudioClip : null;
+#if UNITY_EDITOR
+        if (clip == null)
+            clip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/freesound_community-human_male_crazy-mumbles_1-30950.mp3");
+#endif
+        if (_panicAudioSource != null && clip != null)
+        {
+            _panicAudioSource.pitch = Random.Range(1.20f, 1.35f);
+            _panicAudioSource.PlayOneShot(clip, 0.85f);
+        }
+    }
+
+    public void CatchStaff()
+    {
+        if (!isRunawayActive) return;
+
+        isRunawayActive = false;
+        isReturningHome = true;
+
+        if (_panicAudioSource != null && _panicAudioSource.isPlaying)
+        {
+            _panicAudioSource.Stop();
+        }
+
+        if (_navAgent != null && _navAgent.isOnNavMesh)
+        {
+            _navAgent.isStopped = true;
+            _navAgent.velocity = Vector3.zero;
+        }
+
+        StartCoroutine(ReturnHomeRoutine());
+    }
+
+    private IEnumerator ReturnHomeRoutine()
+    {
+        yield return new WaitForSeconds(0.6f);
+
+        if (_navAgent != null && _navAgent.isOnNavMesh)
+        {
+            _navAgent.isStopped = false;
+            _navAgent.speed = 1.5f;
+            _navAgent.SetDestination(_homePosition);
+
+            while (_navAgent != null && _navAgent.enabled && Vector3.Distance(transform.position, _homePosition) > 0.8f)
+            {
+                UpdateAnimator(1.0f, false);
+                yield return null;
+            }
+
+            _navAgent.isStopped = true;
+            _navAgent.enabled = false;
+        }
+
+        transform.position = _homePosition;
+        transform.rotation = _homeRotation;
+        isReturningHome = false;
+
+        if (_sitController != null && _sitController.HasChair)
+        {
+            _sitController.SitDown();
+        }
+
+        UpdateAnimator(0f, false);
     }
 }

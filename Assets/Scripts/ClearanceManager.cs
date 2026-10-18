@@ -46,6 +46,12 @@ public class ClearanceManager : MonoBehaviour
     [Tooltip("Signed sprites for the HUD slip (Index 0 = signed1 … Index 5 = signed6).")]
     public Sprite[] signedSprites = new Sprite[6];
 
+    // ── Staff Quest Multi-Stage Progression ──────────────────────────────────
+    [Header("Staff Quest Progression")]
+    public bool GuidanceTapeDelivered = false;
+    public bool RegistrarChasedAndCalmed = false;
+    public bool CashierFeePaid = false;
+
     // ── Runtime ────────────────────────────────────────────────────────────────
     private HashSet<int> _collectedSignatures = new HashSet<int>();
 
@@ -54,6 +60,79 @@ public class ClearanceManager : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+        EnsurePlayerAssetsSlipTexturesLoaded();
+    }
+
+    private void EnsurePlayerAssetsSlipTexturesLoaded()
+    {
+#if UNITY_EDITOR
+        // Always ensure signed0.png in Assets/PlayerAssets is the default complete slip texture after piecing fragments together
+        Texture2D s0Tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/PlayerAssets/signed0.png");
+        if (s0Tex != null)
+        {
+            blankTexture = s0Tex;
+            Sprite s0Sp = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/signed0.png");
+            if (s0Sp == null)
+                s0Sp = Sprite.Create(s0Tex, new Rect(0, 0, s0Tex.width, s0Tex.height), new Vector2(0.5f, 0.5f), 100f);
+            blankSprite = s0Sp;
+        }
+
+        if (signedTextures == null || signedTextures.Length < 6)
+            signedTextures = new Texture[6];
+        if (signedSprites == null || signedSprites.Length < 6)
+            signedSprites = new Sprite[6];
+
+        for (int i = 0; i < 6; i++)
+        {
+            string path = $"Assets/PlayerAssets/signed{i + 1}.png";
+            Texture2D sTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (sTex != null)
+            {
+                signedTextures[i] = sTex;
+                Sprite sSp = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                if (sSp == null)
+                    sSp = Sprite.Create(sTex, new Rect(0, 0, sTex.width, sTex.height), new Vector2(0.5f, 0.5f), 100f);
+                signedSprites[i] = sSp;
+            }
+        }
+#endif
+    }
+
+    public Texture GetCurrentSlipTexture()
+    {
+        EnsurePlayerAssetsSlipTexturesLoaded();
+        int highest = -1;
+        foreach (int idx in _collectedSignatures)
+            if (idx > highest) highest = idx;
+
+        if (highest < 0)
+            return blankTexture;
+        if (signedTextures != null && highest < signedTextures.Length && signedTextures[highest] != null)
+            return signedTextures[highest];
+        return blankTexture;
+    }
+
+    public Sprite GetCurrentSlipSprite()
+    {
+        EnsurePlayerAssetsSlipTexturesLoaded();
+        int highest = -1;
+        foreach (int idx in _collectedSignatures)
+            if (idx > highest) highest = idx;
+
+        if (highest < 0)
+        {
+            if (blankSprite != null) return blankSprite;
+            if (blankTexture is Texture2D bTex)
+                return Sprite.Create(bTex, new Rect(0, 0, bTex.width, bTex.height), new Vector2(0.5f, 0.5f), 100f);
+        }
+        else
+        {
+            if (signedSprites != null && highest < signedSprites.Length && signedSprites[highest] != null)
+                return signedSprites[highest];
+            if (signedTextures != null && highest < signedTextures.Length && signedTextures[highest] is Texture2D sTex)
+                return Sprite.Create(sTex, new Rect(0, 0, sTex.width, sTex.height), new Vector2(0.5f, 0.5f), 100f);
+        }
+        return blankSprite;
     }
 
     private void Start()
@@ -146,49 +225,48 @@ public class ClearanceManager : MonoBehaviour
     /// <summary>
     /// Swaps the held paper's main texture and HUD slip sprite to reflect the highest
     /// signature collected so far, giving a clear visual progression:
-    /// blank → signed1 → signed2 → … → signed6.
+    /// signed0 (default) → signed1 → signed2 → … → signed6.
     /// </summary>
-    private void RefreshHeldPaperTexture()
+    public void RefreshHeldPaperTexture()
     {
-        int highest = -1;
-        foreach (int idx in _collectedSignatures)
-            if (idx > highest) highest = idx;
+        Texture targetTex = GetCurrentSlipTexture();
+        Sprite targetSprite = GetCurrentSlipSprite();
 
-        // 1. Update Held 3D viewmodel paper texture
-        if (heldPaperMaterial != null)
+        // 1. Update Held 3D viewmodel paper material
+        if (heldPaperMaterial != null && targetTex != null)
         {
-            Texture target = null;
-            if (highest < 0)
-                target = blankTexture;
-            else if (signedTextures != null && highest < signedTextures.Length)
-                target = signedTextures[highest];
-
-            if (target != null)
-                heldPaperMaterial.mainTexture = target;
-            else
-                Debug.LogWarning($"[ClearanceManager] No texture for signedTextures[{highest}].");
+            heldPaperMaterial.mainTexture = targetTex;
+            if (heldPaperMaterial.HasProperty("_BaseMap"))
+                heldPaperMaterial.SetTexture("_BaseMap", targetTex);
+            if (heldPaperMaterial.HasProperty("_MainTex"))
+                heldPaperMaterial.SetTexture("_MainTex", targetTex);
+            if (heldPaperMaterial.HasProperty("_BaseColor"))
+                heldPaperMaterial.SetColor("_BaseColor", Color.white);
+            if (heldPaperMaterial.HasProperty("_Color"))
+                heldPaperMaterial.SetColor("_Color", Color.white);
         }
 
         // 2. Update HUD on-screen clearance slip image
-        if (clearanceSlipUI != null)
+        if (clearanceSlipUI != null && targetSprite != null)
         {
-            Sprite targetSprite = null;
-            if (highest < 0)
-            {
-                if (blankSprite != null) targetSprite = blankSprite;
-                else if (blankTexture is Texture2D bTex) targetSprite = Sprite.Create(bTex, new Rect(0, 0, bTex.width, bTex.height), new Vector2(0.5f, 0.5f));
-            }
-            else if (signedSprites != null && highest < signedSprites.Length && signedSprites[highest] != null)
-            {
-                targetSprite = signedSprites[highest];
-            }
-            else if (signedTextures != null && highest < signedTextures.Length && signedTextures[highest] is Texture2D sTex)
-            {
-                targetSprite = Sprite.Create(sTex, new Rect(0, 0, sTex.width, sTex.height), new Vector2(0.5f, 0.5f));
-            }
+            clearanceSlipUI.sprite = targetSprite;
+        }
 
-            if (targetSprite != null)
-                clearanceSlipUI.sprite = targetSprite;
+        // 3. Update Blank_Paper InventoryItem icon & any active held viewmodel
+#if UNITY_EDITOR
+        var blankPaperItem = UnityEditor.AssetDatabase.LoadAssetAtPath<InventoryItem>("Assets/Items/Blank_Paper.asset");
+        if (blankPaperItem != null && targetSprite != null)
+        {
+            blankPaperItem.icon = targetSprite;
+        }
+#endif
+        if (InventoryEquipController.Instance != null)
+        {
+            InventoryEquipController.Instance.RefreshEquippedClearanceSlipTexture(targetTex);
+        }
+        if (InventoryManager.Instance != null)
+        {
+            InventoryManager.Instance.NotifyChanged();
         }
     }
 }

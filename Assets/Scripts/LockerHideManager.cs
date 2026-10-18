@@ -152,42 +152,32 @@ public class LockerHideManager : MonoBehaviour
             );
         }
 
-        // Dynamic terror heartbeat: subtle at first, increases with anxiety, surges when enemy stalks close
+        // Dynamic terror heartbeat: slow by default, ramps up in speed & volume ONLY when a blackout enemy is nearby
         if (_heartbeatSource != null && _heartbeatSource.isPlaying)
         {
-            float nearestEnemyDist = float.MaxValue;
-            if (TheProctorAI.ActiveProctor != null)
-            {
-                float d = Vector3.Distance(_playerCam.transform.position, TheProctorAI.ActiveProctor.transform.position);
-                if (d < nearestEnemyDist) nearestEnemyDist = d;
-            }
-            if (WeepingStudentAI.ActiveWeepingStudent != null)
-            {
-                float d = Vector3.Distance(_playerCam.transform.position, WeepingStudentAI.ActiveWeepingStudent.transform.position);
-                if (d < nearestEnemyDist) nearestEnemyDist = d;
-            }
-            if (SecurityGuardStalkerAI.ActiveStalker != null)
-            {
-                float d = Vector3.Distance(_playerCam.transform.position, SecurityGuardStalkerAI.ActiveStalker.transform.position);
-                if (d < nearestEnemyDist) nearestEnemyDist = d;
-            }
+            float nearestEnemyDist = GetNearestBlackoutEnemyDistance();
 
-            float anxietyNorm = (AnxietyManager.Instance != null && AnxietyManager.Instance.maxAnxiety > 0f)
-                ? Mathf.Clamp01(AnxietyManager.Instance.CurrentAnxiety / AnxietyManager.Instance.maxAnxiety)
+            // Slow, calm resting heartbeat inside the locker
+            float baseVol = 0.22f;
+            float basePitch = 0.52f;
+
+            // Enemy proximity surge (within 18 meters during blackout / active stalker)
+            float enemyProximity = (nearestEnemyDist < 18.0f)
+                ? Mathf.Clamp01(1.0f - (nearestEnemyDist / 18.0f))
                 : 0f;
 
-            // Base subtle volume (0.16f) scaling up to 0.55f with player anxiety
-            float baseVol = Mathf.Lerp(0.16f, 0.55f, anxietyNorm);
-            float basePitch = Mathf.Lerp(0.95f, 1.15f, anxietyNorm);
+            float targetVol = Mathf.Lerp(baseVol, 0.88f, enemyProximity);
+            float targetPitch = Mathf.Lerp(basePitch, 1.38f, enemyProximity);
 
-            // Stalking enemy proximity surge (within 16 meters)
-            float enemyProximity = (nearestEnemyDist < 16.0f) ? Mathf.Clamp01(1.0f - (nearestEnemyDist / 16.0f)) : 0f;
+            _heartbeatSource.pitch = Mathf.MoveTowards(_heartbeatSource.pitch, targetPitch, Time.deltaTime * 0.9f);
+            _heartbeatSource.volume = Mathf.MoveTowards(_heartbeatSource.volume, targetVol, Time.deltaTime * 0.9f);
+        }
 
-            float targetVol = Mathf.Clamp01(baseVol + enemyProximity * 0.55f);
-            float targetPitch = Mathf.Clamp(basePitch + enemyProximity * 0.35f, 0.95f, 1.48f);
-
-            _heartbeatSource.pitch = Mathf.MoveTowards(_heartbeatSource.pitch, targetPitch, Time.deltaTime * 0.8f);
-            _heartbeatSource.volume = Mathf.MoveTowards(_heartbeatSource.volume, targetVol, Time.deltaTime * 0.8f);
+        // Keep held items hidden while inside locker
+        if (FlashlightController.Instance != null && FlashlightController.Instance.heldFlashlightModel != null &&
+            FlashlightController.Instance.heldFlashlightModel.activeSelf)
+        {
+            FlashlightController.Instance.heldFlashlightModel.SetActive(false);
         }
 
         // Prevent exit on the same frame player entered (avoids consuming same 'E' key press)
@@ -198,6 +188,42 @@ public class LockerHideManager : MonoBehaviour
         {
             ExitLocker();
         }
+    }
+
+    private float GetNearestBlackoutEnemyDistance()
+    {
+        if (_playerCam == null) return float.MaxValue;
+        Vector3 playerPos = _playerCam.transform.position;
+        float nearestEnemyDist = float.MaxValue;
+
+        if (TheProctorAI.ActiveProctor != null && TheProctorAI.ActiveProctor.gameObject.activeInHierarchy)
+        {
+            float d = Vector3.Distance(playerPos, TheProctorAI.ActiveProctor.transform.position);
+            if (d < nearestEnemyDist) nearestEnemyDist = d;
+        }
+        if (WeepingStudentAI.ActiveWeepingStudent != null && WeepingStudentAI.ActiveWeepingStudent.gameObject.activeInHierarchy)
+        {
+            float d = Vector3.Distance(playerPos, WeepingStudentAI.ActiveWeepingStudent.transform.position);
+            if (d < nearestEnemyDist) nearestEnemyDist = d;
+        }
+        if (SecurityGuardStalkerAI.ActiveStalker != null && SecurityGuardStalkerAI.ActiveStalker.gameObject.activeInHierarchy)
+        {
+            float d = Vector3.Distance(playerPos, SecurityGuardStalkerAI.ActiveStalker.transform.position);
+            if (d < nearestEnemyDist) nearestEnemyDist = d;
+        }
+
+        bool isBlackout = BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive;
+        var proctors = FindObjectsByType<ProctorAI>();
+        for (int i = 0; i < proctors.Length; i++)
+        {
+            if (proctors[i] != null && proctors[i].gameObject.activeInHierarchy)
+            {
+                float d = Vector3.Distance(playerPos, proctors[i].transform.position);
+                if (d < nearestEnemyDist) nearestEnemyDist = d;
+            }
+        }
+
+        return nearestEnemyDist;
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -212,6 +238,22 @@ public class LockerHideManager : MonoBehaviour
         _enterFrame = Time.frameCount;
         _currentLocker = locker;
         _peekAnchor    = peekAnchor;
+        IsPlayerHidden = true;
+
+        // Hide any item held in hand while inside the locker
+        if (InventoryEquipController.Instance != null)
+        {
+            InventoryEquipController.Instance.SetLockerHiddenState(true);
+        }
+        if (FlashlightController.Instance != null)
+        {
+            if (FlashlightController.Instance.heldFlashlightModel != null)
+                FlashlightController.Instance.heldFlashlightModel.SetActive(false);
+            if (FlashlightController.Instance.flashlightLight != null)
+                FlashlightController.Instance.flashlightLight.enabled = false;
+            if (FlashlightController.Instance.flashlightSpillLight != null)
+                FlashlightController.Instance.flashlightSpillLight.enabled = false;
+        }
 
         // Save camera state
         if (_playerCam != null)
@@ -247,8 +289,6 @@ public class LockerHideManager : MonoBehaviour
             if (cc != null) cc.enabled = false;
         }
 
-        IsPlayerHidden = true;
-
         StartCoroutine(TransitionIn());
     }
 
@@ -268,26 +308,34 @@ public class LockerHideManager : MonoBehaviour
     {
         _isTransitioning = true;
 
-        // Start looping heartbeat sound
+        if (_overlayGroup != null)
+        {
+            _overlayGroup.transform.SetAsFirstSibling();
+            _overlayGroup.alpha = 1f; // Solid opaque immediately, never transparent
+        }
+
+        float nearestEnemyDist = GetNearestBlackoutEnemyDistance();
+        float enemyProximity = (nearestEnemyDist < 18.0f)
+            ? Mathf.Clamp01(1.0f - (nearestEnemyDist / 18.0f))
+            : 0f;
+        float targetEnterPitch = Mathf.Lerp(0.52f, 1.38f, enemyProximity);
+        float targetEnterVol = Mathf.Lerp(0.22f, 0.88f, enemyProximity);
+
+        // Start looping heartbeat sound at slow base speed (or faster if blackout enemy is nearby)
         if (_heartbeatSource != null && heartbeatAudio != null)
         {
-            _heartbeatSource.pitch = 1.0f;
+            _heartbeatSource.pitch = targetEnterPitch;
             _heartbeatSource.volume = 0f;
             _heartbeatSource.Play();
         }
 
-        float anxietyNorm = (AnxietyManager.Instance != null && AnxietyManager.Instance.maxAnxiety > 0f)
-            ? Mathf.Clamp01(AnxietyManager.Instance.CurrentAnxiety / AnxietyManager.Instance.maxAnxiety)
-            : 0f;
-        float targetEnterVol = Mathf.Lerp(0.16f, 0.55f, anxietyNorm);
-
-        // Fade overlay in and ramp heartbeat volume
+        // Move camera toward peek anchor and ramp heartbeat volume
         float t = 0f;
         while (t < 1f)
         {
             t += Time.deltaTime * cameraTransitionSpeed;
             if (_overlayGroup != null)
-                _overlayGroup.alpha = Mathf.Clamp01(t);
+                _overlayGroup.alpha = 1f;
 
             if (_heartbeatSource != null)
                 _heartbeatSource.volume = Mathf.Lerp(0f, targetEnterVol, t);
@@ -414,13 +462,20 @@ public class LockerHideManager : MonoBehaviour
         _peekAnchor    = null;
         _isTransitioning = false;
 
+        // Restore any item held in hand after exiting the locker
+        if (InventoryEquipController.Instance != null)
+        {
+            InventoryEquipController.Instance.SetLockerHiddenState(false);
+        }
+
         Debug.Log("[LockerHideManager] Player exited locker.");
     }
 
     // ── UI Overlay ───────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Builds the locker peek hole overlay UI with metal doors, ventilation slats, and exit prompt on HudCanvas.
+    /// Builds the locker peek hole overlay UI with solid opaque metal doors, ventilation slats, and exit prompt on HudCanvas.
+    /// Placed as the first sibling on HudCanvas so HUD elements (top-right/top-left ObjectiveHUD, hotbar, etc.) are never covered.
     /// </summary>
     private void BuildPeekOverlayUI()
     {
@@ -431,9 +486,17 @@ public class LockerHideManager : MonoBehaviour
             return;
         }
 
-        // Root group for easy alpha control
+        // Clean up any pre-existing LockerPeekOverlay so no old semi-transparent panels remain
+        Transform existingOverlay = hud.transform.Find("LockerPeekOverlay");
+        if (existingOverlay != null)
+        {
+            Destroy(existingOverlay.gameObject);
+        }
+
+        // Root group for visibility control — placed at sibling index 0 so all HUD elements render ABOVE it
         var overlayRoot = new GameObject("LockerPeekOverlay", typeof(RectTransform), typeof(CanvasGroup));
         overlayRoot.transform.SetParent(hud.transform, false);
+        overlayRoot.transform.SetAsFirstSibling();
         var rootRT = overlayRoot.GetComponent<RectTransform>();
         rootRT.anchorMin = Vector2.zero;
         rootRT.anchorMax = Vector2.one;
@@ -444,44 +507,48 @@ public class LockerHideManager : MonoBehaviour
         _overlayGroup.blocksRaycasts = false;
         _overlayGroup.interactable   = false;
 
-        // Wide, clear view of the hallway: 84% width and 64% height
+        // Wide, clear view of the hallway: 84% width and 72% height
         float slitLeft = 0.08f;
         float slitRight = 0.92f;
-        float slitBottom = blackPanelFraction; // 0.18f
-        float slitTop = 1f - blackPanelFraction; // 0.82f
+        float slitBottom = Mathf.Clamp(blackPanelFraction, 0.10f, 0.14f);
+        float slitTop = 1f - slitBottom;
 
-        // 1. Left locker door panel
+        Color solidLockerMetalOuter = new Color(0.035f, 0.038f, 0.045f, 1.0f);
+        Color solidLockerMetalFrame = new Color(0.028f, 0.030f, 0.036f, 1.0f);
+        Color solidLockerSlatTrim   = new Color(0.075f, 0.080f, 0.092f, 1.0f);
+
+        // 1. Left locker door panel (100% solid opaque)
         CreatePanel(overlayRoot.transform, "PeekDoorLeft",
             new Vector2(0f, 0f), new Vector2(slitLeft, 1f),
-            new Color(0.04f, 0.04f, 0.05f, 0.98f));
+            solidLockerMetalOuter);
 
-        // 2. Right locker door panel
+        // 2. Right locker door panel (100% solid opaque)
         CreatePanel(overlayRoot.transform, "PeekDoorRight",
             new Vector2(slitRight, 0f), new Vector2(1f, 1f),
-            new Color(0.04f, 0.04f, 0.05f, 0.98f));
+            solidLockerMetalOuter);
 
-        // 3. Top locker door panel
+        // 3. Top locker door panel (100% solid opaque)
         var topImg = CreatePanel(overlayRoot.transform, "PeekTop",
             new Vector2(slitLeft, slitTop), new Vector2(slitRight, 1f),
-            new Color(0.03f, 0.03f, 0.04f, 0.98f));
+            solidLockerMetalFrame);
         _topPanel = topImg.GetComponent<RectTransform>();
 
-        // 4. Bottom locker door panel
+        // 4. Bottom locker door panel (100% solid opaque)
         var botImg = CreatePanel(overlayRoot.transform, "PeekBottom",
             new Vector2(slitLeft, 0f), new Vector2(slitRight, slitBottom),
-            new Color(0.03f, 0.03f, 0.04f, 0.98f));
+            solidLockerMetalFrame);
         _bottomPanel = botImg.GetComponent<RectTransform>();
 
-        // Subtle top and bottom louver shadow trim (at outer edges of the slit frame only, never blocking corridor view)
+        // Solid top and bottom louver trim (100% solid opaque)
         CreatePanel(overlayRoot.transform, "LockerSlat_TopTrim",
             new Vector2(slitLeft, slitTop - 0.012f), new Vector2(slitRight, slitTop),
-            new Color(0.08f, 0.08f, 0.10f, 0.95f));
+            solidLockerSlatTrim);
 
         CreatePanel(overlayRoot.transform, "LockerSlat_BotTrim",
             new Vector2(slitLeft, slitBottom), new Vector2(slitRight, slitBottom + 0.012f),
-            new Color(0.08f, 0.08f, 0.10f, 0.95f));
+            solidLockerSlatTrim);
 
-        // 6. Exit Prompt Badge at bottom of screen
+        // 6. Exit Prompt Badge at bottom of screen (100% solid opaque badge)
         var promptGO = new GameObject("ExitHintBadge", typeof(RectTransform), typeof(Image), typeof(Outline));
         promptGO.transform.SetParent(overlayRoot.transform, false);
         var promptRT = promptGO.GetComponent<RectTransform>();
@@ -491,10 +558,10 @@ public class LockerHideManager : MonoBehaviour
         promptRT.sizeDelta = new Vector2(240f, 32f);
 
         var promptImg = promptGO.GetComponent<Image>();
-        promptImg.color = new Color(0.05f, 0.05f, 0.07f, 0.88f);
+        promptImg.color = new Color(0.05f, 0.05f, 0.07f, 1.0f);
 
         var promptOutline = promptGO.GetComponent<Outline>();
-        promptOutline.effectColor = new Color(0.6f, 0.2f, 0.2f, 0.6f);
+        promptOutline.effectColor = new Color(0.6f, 0.2f, 0.2f, 1.0f);
         promptOutline.effectDistance = new Vector2(1.5f, -1.5f);
 
         var textGO = new GameObject("ExitText", typeof(RectTransform), typeof(Text));
@@ -511,7 +578,7 @@ public class LockerHideManager : MonoBehaviour
         promptText.font = customFont != null ? customFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         promptText.fontSize = 14;
         promptText.alignment = TextAnchor.MiddleCenter;
-        promptText.color = new Color(0.95f, 0.92f, 0.88f, 0.95f);
+        promptText.color = new Color(0.95f, 0.92f, 0.88f, 1.0f);
     }
 
     private Image CreatePanel(Transform parent, string goName, Vector2 anchorMin, Vector2 anchorMax, Color color)
@@ -532,6 +599,11 @@ public class LockerHideManager : MonoBehaviour
     private void SetOverlayVisible(bool visible, bool instant = false)
     {
         if (_overlayGroup == null) return;
+        if (visible)
+        {
+            _overlayGroup.transform.SetAsFirstSibling();
+        }
         _overlayGroup.alpha = visible ? 1f : 0f;
+        _overlayGroup.gameObject.SetActive(visible);
     }
 }

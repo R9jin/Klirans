@@ -249,7 +249,9 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
                     ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
         txt.font = builtIn;
 
-        return go.GetComponent<Button>();
+        var btn = go.GetComponent<Button>();
+        btn.navigation = new Navigation { mode = Navigation.Mode.None };
+        return btn;
     }
 
     private Text CreateText(Transform parent, string goName,
@@ -285,8 +287,11 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
 
     private void Update()
     {
-        // Hotkey [V] to inspect currently selected item in bag
-        if (Input.GetKeyDown(KeyCode.V) && _selectedItem != null && !ItemInspectionViewer3D.IsOpen)
+        if (InventoryScreen.Instance == null || !InventoryScreen.Instance.IsOpen) return;
+        if (ItemInspectionViewer3D.IsOpen) return;
+
+        // Hotkey [V] (or rebound Inspect key) to inspect currently selected item in bag
+        if (GameSettingsManager.GetKeyDown(GameAction.InspectItem) && _selectedItem != null)
         {
             InspectSelectedItem();
         }
@@ -296,8 +301,10 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
 
     private void InspectSelectedItem()
     {
-        if (_selectedItem == null) return;
-        ItemInspectionModal.Inspect(_selectedItem);
+        if (_selectedItem == null || ItemInspectionViewer3D.IsOpen) return;
+        if (UnityEngine.EventSystems.EventSystem.current != null)
+            UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+        ItemInspectionViewer3D.Inspect(_selectedItem);
     }
 
     private void DropSelectedItem()
@@ -460,33 +467,57 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
             Instance.itemDescriptionText.fontStyle = FontStyle.Bold;
         }
 
-        // Action Buttons
+        // Action Buttons — Every item can be inspected in 3D ("Suriin [V]")
         bool isConsumable = (item.itemType == InventoryItem.ItemType.Consumable) || 
                             item.itemName.ToLower().Contains("sandwich") || 
                             item.itemName.ToLower().Contains("ham");
-        bool canInspect = item.isInspectable || !string.IsNullOrEmpty(item.inspectionText);
+        bool showUse = isConsumable && slot != null;
 
         if (Instance._useButton != null)
         {
-            Instance._useButton.gameObject.SetActive(isConsumable && slot != null);
+            Instance._useButton.gameObject.SetActive(showUse);
+            var rt = Instance._useButton.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0.03f, 0.02f);
+                rt.anchorMax = new Vector2(0.33f, 0.16f);
+            }
             if (Instance._useButtonText != null)
             {
-                Instance._useButtonText.text = item.itemName.ToLower().Contains("sandwich") ? "Eat Sandwich" : "Consume";
+                Instance._useButtonText.text = item.itemName.ToLower().Contains("sandwich") ? "Eat" : "Use";
             }
         }
 
         if (Instance._inspectButton != null)
         {
-            Instance._inspectButton.gameObject.SetActive(canInspect && !isConsumable);
+            Instance._inspectButton.gameObject.SetActive(true);
+            var rt = Instance._inspectButton.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = showUse ? new Vector2(0.35f, 0.02f) : new Vector2(0.04f, 0.02f);
+                rt.anchorMax = showUse ? new Vector2(0.65f, 0.16f) : new Vector2(0.48f, 0.16f);
+            }
+            var inspectTxt = Instance._inspectButton.GetComponentInChildren<Text>();
+            if (inspectTxt != null)
+            {
+                string keyStr = GameSettingsManager.FormatKeyName(GameSettingsManager.GetBinding(GameAction.InspectItem));
+                inspectTxt.text = $"Suriin [{keyStr}]";
+            }
         }
 
         if (Instance._dropButton != null)
         {
             Instance._dropButton.gameObject.SetActive(slot != null);
+            var rt = Instance._dropButton.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = showUse ? new Vector2(0.67f, 0.02f) : new Vector2(0.52f, 0.02f);
+                rt.anchorMax = showUse ? new Vector2(0.97f, 0.16f) : new Vector2(0.96f, 0.16f);
+            }
             Instance._dropButton.interactable = item.canBeDropped;
             if (Instance._dropButtonText != null)
             {
-                Instance._dropButtonText.text = item.canBeDropped ? "Drop Item" : "Quest Item";
+                Instance._dropButtonText.text = item.canBeDropped ? "Drop [G]" : "Quest Item";
             }
         }
     }

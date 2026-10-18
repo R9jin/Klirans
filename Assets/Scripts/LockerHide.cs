@@ -77,22 +77,10 @@ public class LockerHide : MonoBehaviour, IInteractable
 
     public bool HasRequiredKey()
     {
-        // 1. Check hotbar inventory
         if (InventoryManager.Instance != null)
         {
             if (requiredKey != null && InventoryManager.Instance.HasItem(requiredKey)) return true;
             foreach (var slot in InventoryManager.Instance.Slots)
-            {
-                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf("Locker Key", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                    return true;
-            }
-        }
-
-        // 2. Check storage bag
-        if (StorageManager.Instance != null)
-        {
-            if (requiredKey != null && StorageManager.Instance.HasItem(requiredKey)) return true;
-            foreach (var slot in StorageManager.Instance.Slots)
             {
                 if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf("Locker Key", System.StringComparison.OrdinalIgnoreCase) >= 0)
                     return true;
@@ -116,23 +104,6 @@ public class LockerHide : MonoBehaviour, IInteractable
                 if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf("Locker Key", System.StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     InventoryManager.Instance.RemoveItem(slot.item, 1);
-                    return;
-                }
-            }
-        }
-
-        if (StorageManager.Instance != null)
-        {
-            if (requiredKey != null && StorageManager.Instance.HasItem(requiredKey))
-            {
-                StorageManager.Instance.RemoveItem(requiredKey, 1);
-                return;
-            }
-            foreach (var slot in StorageManager.Instance.Slots)
-            {
-                if (!slot.IsEmpty && slot.item != null && slot.item.itemName.IndexOf("Locker Key", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    StorageManager.Instance.RemoveItem(slot.item, 1);
                     return;
                 }
             }
@@ -190,9 +161,10 @@ public class LockerHide : MonoBehaviour, IInteractable
                 if (storedRewardItem != null && !_hasRewardBeenClaimed)
                 {
                     _hasRewardBeenClaimed = true;
-                    bool added = false;
-                    if (InventoryManager.Instance != null) added = InventoryManager.Instance.AddItem(storedRewardItem, 1);
-                    if (!added && StorageManager.Instance != null) added = StorageManager.Instance.AddItem(storedRewardItem, 1);
+                    if (InventoryManager.Instance != null)
+                    {
+                        InventoryManager.Instance.AddItem(storedRewardItem, 1);
+                    }
 
                     // Open 3D inspection viewer for the newly discovered item!
                     ItemInspectionViewer3D.Inspect(storedRewardItem);

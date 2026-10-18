@@ -100,6 +100,8 @@ public class TheProctorManager : MonoBehaviour
 
     private void Update()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
+
         // Debug shortcut F7: Spawn Weeping Student immediately for playtesting Weeping Angel mechanics
         if (Input.GetKeyDown(KeyCode.F7))
         {
@@ -110,6 +112,7 @@ public class TheProctorManager : MonoBehaviour
     [ContextMenu("Spawn Weeping Student (Debug F7)")]
     public void SpawnWeepingStudentDebug()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
         var playerGO = GameObject.FindGameObjectWithTag("Player");
         if (playerGO == null) return;
 
