@@ -131,7 +131,7 @@ public class OpeningCutsceneDirector : MonoBehaviour
     private void Update()
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (Input.GetKeyDown(replayCutsceneKey) && !IsCutsceneActive)
+        if (GameModeManager.IsFreeRoamMode && Input.GetKeyDown(replayCutsceneKey) && !IsCutsceneActive)
         {
             PlayCutscene();
             return;
@@ -598,7 +598,7 @@ public class OpeningCutsceneDirector : MonoBehaviour
         _canvasGroup = _canvasGO.GetComponent<CanvasGroup>();
 
         Font horrorFont = LoadFont("Main Menu/watch people die", "Assets/Main Menu/watch people die.ttf");
-        Font typewriterFont = LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
+        Font typewriterFont = LoadFont("Fonts/Lucida_Typewriter_Bold", "Assets/Fonts/Lucida_Typewriter_Bold.ttf") ?? LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
 
         // 1. Black Backdrop
         var bgGO = new GameObject("BlackBackdrop", typeof(RectTransform), typeof(Image));

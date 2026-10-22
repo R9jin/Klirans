@@ -192,14 +192,27 @@ public class TheProctorAI : MonoBehaviour
         CreateClipboardProp();
     }
 
+    [HideInInspector]
+    public bool isDevSpawn = false;
+
     private void Start()
     {
+        if (GameModeManager.IsFreeRoamMode && !isDevSpawn)
+        {
+            Despawn();
+            return;
+        }
         currentState = ProctorState.Spawning;
         StartCoroutine(SpawnSequence());
     }
 
     private void Update()
     {
+        if (GameModeManager.IsFreeRoamMode && !isDevSpawn)
+        {
+            Despawn();
+            return;
+        }
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (currentState == ProctorState.Inactive || currentState == ProctorState.Despawning) return;
         if (currentState == ProctorState.Jumpscare) return;
@@ -593,6 +606,7 @@ public class TheProctorAI : MonoBehaviour
         // 1. CATCH CHECK: Can only catch if player is in hallway/stairs, NOT hidden, NOT in room, close distance and similar elevation
         if (!playerHidden && !playerInRoom && distToPlayer <= catchDistance && dy < 1.9f)
         {
+            if (DevDemoPanel.IsGodModeActive) return;
             TriggerCatchJumpscare();
             return;
         }
@@ -928,6 +942,8 @@ public class TheProctorAI : MonoBehaviour
     [ContextMenu("Test Catch Jumpscare")]
     public void TriggerCatchJumpscare()
     {
+        if (GameModeManager.IsFreeRoamMode) return;
+        if (DevDemoPanel.IsGodModeActive) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (_hasCaughtPlayer) return;
         _hasCaughtPlayer = true;

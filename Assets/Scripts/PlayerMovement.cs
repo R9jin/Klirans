@@ -79,12 +79,14 @@ public class PlayerMovement : MonoBehaviour
     public bool IsMoving => isMoving;
     public bool IsRunning => isRunning;
     public bool IsCrouching => isCrouching;
+    public CharacterController Controller => characterController;
 
     private Vector3 standingCameraPosition;
     private Vector3 crouchingCameraPosition;
 
     private float defaultCenterY;
     private float crouchCenterY;
+    private float _lastGroundedTime = 0f;
 
     void Start()
     {
@@ -125,15 +127,14 @@ public class PlayerMovement : MonoBehaviour
             vignetteImage.color = new Color(0f, 0f, 0f, 0f);
         }
 
-        if (footstepAudioSource != null && enableDiegeticFootsteps)
+        if (footstepAudioSource != null)
         {
             footstepAudioSource.volume = footstepVolume;
-            AudioReverbFilter reverb = footstepAudioSource.gameObject.GetComponent<AudioReverbFilter>();
-            if (reverb == null)
-            {
-                reverb = footstepAudioSource.gameObject.AddComponent<AudioReverbFilter>();
-            }
-            reverb.reverbPreset = footstepReverbPreset;
+            // Remove any reverb/echo filters to guarantee crisp, clean, single-body footsteps with zero doubling
+            var reverb = footstepAudioSource.gameObject.GetComponent<AudioReverbFilter>();
+            if (reverb != null) Destroy(reverb);
+            var echo = footstepAudioSource.gameObject.GetComponent<AudioEchoFilter>();
+            if (echo != null) Destroy(echo);
         }
 
         EnsureLobbyCollidersAndObstacles();
@@ -295,6 +296,11 @@ public class PlayerMovement : MonoBehaviour
             characterController.center = new Vector3(0f, defaultCenterY, 0f);
         }
 
+        if (DevDemoPanel.PlayerSpeedMultiplier > 0.05f)
+        {
+            currentSpeed *= DevDemoPanel.PlayerSpeedMultiplier;
+        }
+
         GameSettingsManager.GetMoveAxes(out float inputH, out float inputV);
         Vector3 targetPlanarVelocity = Vector3.zero;
         if (canMove)
@@ -331,10 +337,13 @@ public class PlayerMovement : MonoBehaviour
             Debug.LogWarning("[PlayerMovement] Player fell through ground! Reset to safety floor.");
         }
 
-        // Footstep Audio Logic
+        // Footstep Audio Logic (smooth grounded buffer so stair steps never stutter or double-trigger)
         if (footstepAudioSource != null)
         {
-            if (isMoving && characterController.isGrounded)
+            if (characterController.isGrounded) _lastGroundedTime = Time.time;
+            bool effectivelyGrounded = (Time.time - _lastGroundedTime) < 0.14f;
+
+            if (isMoving && effectivelyGrounded)
             {
                 if (!footstepAudioSource.isPlaying) footstepAudioSource.Play();
                 footstepAudioSource.pitch = isRunning ? 1.3f : (isCrouching ? 0.7f : 1f);
@@ -357,6 +366,12 @@ public class PlayerMovement : MonoBehaviour
     {
         if (staminaSystem == null) return;
 
+        if (DevDemoPanel.IsInfiniteStaminaActive)
+        {
+            staminaSystem.currentStamina = staminaSystem.maxStamina;
+            return;
+        }
+
         if (isRunning)
         {
             staminaSystem.Drain();
@@ -369,7 +384,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleCameraAndBreathing()
     {
-        if (playerCamera == null || PauseMenu.GameIsPaused || isJumpscareCameraOverride || LockerHideManager.IsPlayerHidden || !canMove) return;
+        if (playerCamera == null || PauseMenu.GameIsPaused || DevDemoPanel.IsOpen || isJumpscareCameraOverride || LockerHideManager.IsPlayerHidden || !canMove) return;
 
         Vector3 targetCameraPosition = isCrouching ? crouchingCameraPosition : standingCameraPosition;
         float targetFOV = normalFOV;

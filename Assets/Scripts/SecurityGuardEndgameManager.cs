@@ -94,13 +94,13 @@ public class SecurityGuardEndgameManager : MonoBehaviour
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
-
-        // Debug key to test endgame immediately
-        if (Input.GetKeyDown(debugTriggerKey) && !isEndgameActive)
+        // Debug key F9 to test endgame immediately: only allowed in Free Roam mode
+        if (GameModeManager.IsFreeRoamMode && Input.GetKeyDown(debugTriggerKey) && !isEndgameActive)
         {
-            Debug.Log("[SecurityGuardEndgameManager] Debug trigger F9 pressed — launching Endgame Stalker!");
+            Debug.Log("[SecurityGuardEndgameManager] Debug trigger F9 pressed — launching Endgame Stalker in Free Roam!");
+            DevDemoPanel.IsDevSpawning = true;
             TriggerEndgame();
+            DevDemoPanel.IsDevSpawning = false;
         }
     }
 
@@ -134,7 +134,7 @@ public class SecurityGuardEndgameManager : MonoBehaviour
     [ContextMenu("Trigger Endgame Stalker")]
     public void TriggerEndgame()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && !DevDemoPanel.IsDevSpawning) return;
         if (isEndgameActive) return;
 
         Debug.Log("[SecurityGuardEndgameManager] ENDGAME ACTIVATED! Security guard vacating lobby booth to hunt student!");
@@ -157,7 +157,7 @@ public class SecurityGuardEndgameManager : MonoBehaviour
     /// </summary>
     public void CompleteEndgameActivation()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && !DevDemoPanel.IsDevSpawning) return;
         isEndgameActive = true;
 
         // 1. Play initial chilling building-wide haunted whistle broadcast
@@ -234,6 +234,12 @@ public class SecurityGuardEndgameManager : MonoBehaviour
 
         if (_spawnedStalker != null)
         {
+            var stalkerAI = _spawnedStalker.GetComponent<SecurityGuardStalkerAI>();
+            if (stalkerAI != null)
+            {
+                if (DevDemoPanel.IsDevSpawning) stalkerAI.isDevSpawn = true;
+                stalkerAI.currentState = SecurityGuardStalkerAI.GuardState.Patrol;
+            }
             var agent = _spawnedStalker.GetComponent<UnityEngine.AI.NavMeshAgent>();
             if (agent != null) agent.Warp(stalkerSpawnPos);
         }

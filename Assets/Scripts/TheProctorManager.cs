@@ -100,10 +100,8 @@ public class TheProctorManager : MonoBehaviour
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
-
-        // Debug shortcut F7: Spawn Weeping Student immediately for playtesting Weeping Angel mechanics
-        if (Input.GetKeyDown(KeyCode.F7))
+        // Debug shortcut F7: only allowed in Free Roam mode
+        if (GameModeManager.IsFreeRoamMode && Input.GetKeyDown(KeyCode.F7))
         {
             SpawnWeepingStudentDebug();
         }
@@ -112,7 +110,7 @@ public class TheProctorManager : MonoBehaviour
     [ContextMenu("Spawn Weeping Student (Debug F7)")]
     public void SpawnWeepingStudentDebug()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (!GameModeManager.IsFreeRoamMode && !DevDemoPanel.IsDevSpawning) return;
         var playerGO = GameObject.FindGameObjectWithTag("Player");
         if (playerGO == null) return;
 
@@ -137,6 +135,7 @@ public class TheProctorManager : MonoBehaviour
             var weepingAI = studentGO.GetComponent<WeepingStudentAI>();
             if (weepingAI != null)
             {
+                weepingAI.isDevSpawn = true;
                 weepingAI.currentState = WeepingStudentAI.WeepingState.Stalking;
                 weepingAI.despawnOnBlackoutEnd = false; // Persistent for manual debug testing
                 weepingAI.assignedHallway = proctorAssignedHallway;
@@ -144,6 +143,47 @@ public class TheProctorManager : MonoBehaviour
                 ConfigureWeepingHallwayBoundaries(weepingAI, proctorAssignedFloor);
             }
             Debug.Log($"[TheProctorManager] 🚨 Debug F7: Spawned WEEPING STUDENT at {spawnPos}! Stare at her to freeze her; look away and she will rush!");
+        }
+    }
+
+    [ContextMenu("Spawn The Proctor (Debug)")]
+    public void SpawnProctorDebug()
+    {
+        if (!GameModeManager.IsFreeRoamMode && !DevDemoPanel.IsDevSpawning) return;
+        var playerGO = GameObject.FindGameObjectWithTag("Player");
+        if (playerGO == null) return;
+
+        Vector3 playerPos = playerGO.transform.position;
+        DetectPlayerHallway(playerPos);
+        Vector3 spawnPos = CalculateHallwaySpawnPosition(playerPos);
+
+        Vector3 toPlayer = playerPos - spawnPos;
+        toPlayer.y = 0f;
+        Quaternion spawnRot = toPlayer.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toPlayer) : Quaternion.identity;
+
+        TheProctorAI.DespawnActiveProctor();
+
+        GameObject proctorGO = null;
+        if (theProctorPrefab != null)
+        {
+            proctorGO = Instantiate(theProctorPrefab, spawnPos, spawnRot);
+        }
+        else
+        {
+            proctorGO = CreateFallbackProctor(spawnPos);
+        }
+
+        if (proctorGO != null)
+        {
+            var ai = proctorGO.GetComponent<TheProctorAI>();
+            if (ai != null)
+            {
+                ai.isDevSpawn = true;
+                ai.assignedHallway = proctorAssignedHallway;
+                ai.assignedFloor = proctorAssignedFloor;
+                ConfigureHallwayBoundaries(ai, proctorAssignedFloor);
+            }
+            Debug.Log($"[TheProctorManager] 🚨 Debug: Spawned THE PROCTOR at {spawnPos}!");
         }
     }
 
@@ -216,6 +256,26 @@ public class TheProctorManager : MonoBehaviour
         if (chosenEnemy == BlackoutEnemyType.Random)
         {
             chosenEnemy = (Random.value < 0.5f) ? BlackoutEnemyType.TheProctor : BlackoutEnemyType.WeepingStudent;
+        }
+
+        // DevDemoPanel enemy filter override
+        if (DevDemoPanel.CurrentEnemyFilter == DevDemoPanel.EnemyFilter.Peaceful)
+        {
+            Debug.Log("[TheProctorManager] Peaceful mode active - skipping enemy spawn during blackout.");
+            yield break;
+        }
+        else if (DevDemoPanel.CurrentEnemyFilter == DevDemoPanel.EnemyFilter.OnlyGuardStalker)
+        {
+            SecurityGuardEndgameManager.Instance?.TriggerEndgame();
+            yield break;
+        }
+        else if (DevDemoPanel.CurrentEnemyFilter == DevDemoPanel.EnemyFilter.OnlyProctor)
+        {
+            chosenEnemy = BlackoutEnemyType.TheProctor;
+        }
+        else if (DevDemoPanel.CurrentEnemyFilter == DevDemoPanel.EnemyFilter.OnlyWeeping)
+        {
+            chosenEnemy = BlackoutEnemyType.WeepingStudent;
         }
 
         // Fallback checks

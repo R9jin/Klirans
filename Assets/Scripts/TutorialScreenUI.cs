@@ -301,7 +301,7 @@ public class TutorialScreenUI : MonoBehaviour
     private void LoadAssets()
     {
         _horrorFont = LoadFont("Main Menu/watch people die", "Assets/Main Menu/watch people die.ttf");
-        _typewriterFont = LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
+        _typewriterFont = LoadFont("Fonts/Lucida_Typewriter_Bold", "Assets/Fonts/Lucida_Typewriter_Bold.ttf") ?? LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
 
         _paperBgSprite = LoadSprite("Assets/Textures/UI/Blank_paper.png");
         _cardPaperSprite = LoadSprite("Assets/Synty/ScrambledPaper_HUD.png");

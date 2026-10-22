@@ -16,7 +16,7 @@ MonoBehaviour:
   description: Microcassette tape mula sa guidance records. May label na 'SESSION
     #04 - ANXIETY & HALLUCINATIONS'. May nakasulat na safe code sa likod ng tape
     reel.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: d82b32f7b9cb82747b6a4ba3f1359f50, type: 3}
   itemType: 0
   itemPrefab: {fileID: 6358867751558790337, guid: 1e7bd28492679524fbae8e4e36cd1dc6, type: 3}
   isStackable: 0

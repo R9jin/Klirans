@@ -68,10 +68,10 @@ public class BlackoutManager : MonoBehaviour
     public float powerUpVolume = 0.80f;
 
     // ── Ambient Light ─────────────────────────────────────────────────────────
-    [Tooltip("Ambient color during blackout (dim eerie night hue).")]
-    public Color blackoutAmbientColor = new Color(0.015f, 0.018f, 0.025f, 1f);
-    [Tooltip("Ambient intensity during blackout.")]
-    public float blackoutAmbientIntensity = 0.5f;
+    [Tooltip("Ambient color during blackout (total pitch black).")]
+    public Color blackoutAmbientColor = Color.black;
+    [Tooltip("Ambient intensity during blackout (0 for pitch black).")]
+    public float blackoutAmbientIntensity = 0f;
 
     // ── Flashlight Tuning ─────────────────────────────────────────────────────
     [Header("Flashlight Tuning for Blackout Atmosphere")]
@@ -116,18 +116,15 @@ public class BlackoutManager : MonoBehaviour
     // Wandering student NPCs that are despawned during blackouts
     private List<GameObject> _cachedWanderingNPCs = new List<GameObject>();
 
-    // Names of lights to KEEP on during blackouts (emergency / player flashlight / main pipeline sun)
+    // Names of lights to KEEP on during blackouts (ONLY player flashlight - everything else shuts down!)
     private static readonly HashSet<string> _protectedLightNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "FlashlightLight",
-        "FlashlightSpillLight",
-        "StatusLED",
-        "ExitSign_RedLight",
-        "PaperGlintLight",
-        "ItemGlintLight",
-        "Outdoor_Gate_Illumination",
-        "Directional Light"
+        "FlashlightSpillLight"
     };
+
+    private Coroutine _voltageLoopCoroutine;
+    private float _currentGridBaseMultiplier = 0.28f;
 
     // ─────────────────────────────────────────────────────────────────────────
     private void Awake()
@@ -185,6 +182,9 @@ public class BlackoutManager : MonoBehaviour
         // Cache wandering student NPCs for blackout despawning
         CacheWanderingNPCs();
 
+        // Start campus brownout voltage & erratic flicker simulation
+        _voltageLoopCoroutine = StartCoroutine(CampusGridVoltageLoop());
+
         // Kick off the random blackout schedule
         if (!disableBlackouts && !GameModeManager.IsFreeRoamMode)
             _scheduleCoroutine = StartCoroutine(BlackoutSchedule());
@@ -192,12 +192,10 @@ public class BlackoutManager : MonoBehaviour
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
-
-        // Debug: instant blackout trigger
-        if (Input.GetKeyDown(debugTriggerKey) && !IsBlackoutActive)
+        // Debug F7 shortcut: instant blackout trigger (Dev mode capability only in Free Roam)
+        if (GameModeManager.IsFreeRoamMode && Input.GetKeyDown(debugTriggerKey) && !IsBlackoutActive)
         {
-            TriggerBlackout();
+            TriggerBlackout(forceDev: true);
         }
     }
 
@@ -206,11 +204,11 @@ public class BlackoutManager : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Immediately triggers a blackout (usable by other systems / enemy AI).
+    /// Immediately triggers a blackout (usable by other systems / enemy AI / dev mode).
     /// </summary>
-    public void TriggerBlackout()
+    public void TriggerBlackout(bool forceDev = false)
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && !forceDev) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (IsBlackoutActive) return;
         if (_blackoutCoroutine != null) StopCoroutine(_blackoutCoroutine);
@@ -295,11 +293,11 @@ public class BlackoutManager : MonoBehaviour
 
         // ── PHASE 1: Voltage stutter (2 frames) ──────────────────────────────
         // Flicker all lights down and back twice to simulate voltage drop
+        SetAllLightIntensityMultiplier(0.1f);
+        yield return null;
         SetAllLightIntensityMultiplier(0.3f);
         yield return null;
-        SetAllLightIntensityMultiplier(1.0f);
-        yield return null;
-        SetAllLightIntensityMultiplier(0.1f);
+        SetAllLightIntensityMultiplier(0.02f);
         yield return null;
 
         // ── PHASE 2: Power cut — play diegetic sound ──────────────────────────
@@ -312,24 +310,29 @@ public class BlackoutManager : MonoBehaviour
         // Lock all doors during blackout sequence
         DoorInteract.LockAllDoorsForBlackout();
 
-        // Kill all non-protected lights
+        // Kill ALL campus lights
         SetAllLightsEnabled(false);
 
-        // Keep directional Sun light enabled in URP pipeline but set intensity to 0 (true blackness)
+        // Extinguish main directional Sun light & outdoor courtyard lights
         if (_mainSunLight != null)
         {
             _mainSunLight.intensity = 0f;
+            _mainSunLight.enabled = false;
+        }
+        var outdoorSun = GameObject.Find("Outdoor_Gate_Illumination");
+        if (outdoorSun != null)
+        {
+            var l = outdoorSun.GetComponent<Light>();
+            if (l != null) { l.intensity = 0f; l.enabled = false; }
         }
 
-        // Drop ambient to dim eerie blackout level so the floor remains vaguely discernible
+        // True pitch-black environment — only player flashlight illuminates
         RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientLight = blackoutAmbientColor;
-        RenderSettings.ambientIntensity = blackoutAmbientIntensity;
+        RenderSettings.ambientLight = Color.black;
+        RenderSettings.ambientIntensity = 0f;
         RenderSettings.skybox = null;
 
         // ── PHASE 3: Darkness hold ────────────────────────────────────────────
-        // If TheProctorManager is active, it controls when RestorePower() is invoked (chase timer / catch).
-        // Otherwise, wait for duration as fallback.
         if (TheProctorManager.Instance == null)
         {
             float holdTime = Mathf.Max(1f, duration - 5f);
@@ -341,32 +344,40 @@ public class BlackoutManager : MonoBehaviour
     private IEnumerator PowerRestorationRoutine()
     {
         // ── PHASE 4: Power restoration wind-up ───────────────────────────────
-        // Play the reversed power-up sound as the building power charges back up
         if (powerUpClip != null)
             _audioSource.PlayOneShot(powerUpClip, powerUpVolume);
 
         // Dramatic flicker: lights stutter twice before coming fully back
         yield return new WaitForSeconds(1.5f);
-        // First flicker attempt
         SetAllLightsEnabled(true);
-        SetAllLightIntensityMultiplier(0.15f);
+        SetAllLightIntensityMultiplier(0.12f);
         yield return new WaitForSeconds(0.08f);
         SetAllLightsEnabled(false);
         yield return new WaitForSeconds(0.25f);
-        // Second flicker attempt
+
         SetAllLightsEnabled(true);
-        SetAllLightIntensityMultiplier(0.4f);
+        SetAllLightIntensityMultiplier(0.30f);
         yield return new WaitForSeconds(0.1f);
         SetAllLightsEnabled(false);
         yield return new WaitForSeconds(0.18f);
-        // Breaker slams shut — lights pop back at full intensity
+
+        // Breaker slams shut — restore lights based on grid state (brownout vs stabilized)
         SetAllLightsEnabled(true);
-        SetAllLightIntensityMultiplier(1.0f);
+        bool stabilized = CircuitBreakerPuzzle.Instance != null && CircuitBreakerPuzzle.Instance.isPowerRestored;
+        float finalMultiplier = stabilized ? 0.85f : 0.28f;
+        SetAllLightIntensityMultiplier(finalMultiplier);
 
         // Restore directional Sun intensity
         if (_mainSunLight != null)
         {
+            _mainSunLight.enabled = true;
             _mainSunLight.intensity = _originalSunIntensity;
+        }
+        var outdoorSun = GameObject.Find("Outdoor_Gate_Illumination");
+        if (outdoorSun != null)
+        {
+            var l = outdoorSun.GetComponent<Light>();
+            if (l != null) { l.enabled = true; l.intensity = 1.0f; }
         }
 
         // Restore ambient and skybox
@@ -387,6 +398,79 @@ public class BlackoutManager : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Grid Voltage & Brownout Simulation
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public void OnBreakerGridStabilized()
+    {
+        Debug.Log("[BlackoutManager] Grid stabilized by 15A Ceramic Fuse! Elevating campus lighting from brownout (28%) to stable (85%).");
+        _currentGridBaseMultiplier = 0.85f;
+        if (!IsBlackoutActive)
+        {
+            SetAllLightIntensityMultiplier(0.85f);
+        }
+    }
+
+    private IEnumerator CampusGridVoltageLoop()
+    {
+        while (true)
+        {
+            if (IsBlackoutActive)
+            {
+                yield return new WaitForSeconds(0.4f);
+                continue;
+            }
+
+            bool stabilized = CircuitBreakerPuzzle.Instance != null && CircuitBreakerPuzzle.Instance.isPowerRestored;
+            float targetMultiplier = stabilized ? 0.85f : 0.28f;
+            _currentGridBaseMultiplier = targetMultiplier;
+
+            if (!stabilized)
+            {
+                // Brownout state: lights are super low and aggressively blinking/flickering
+                float holdTime = UnityEngine.Random.Range(0.25f, 0.95f);
+                SetAllLightIntensityMultiplier(targetMultiplier);
+                yield return new WaitForSeconds(holdTime);
+
+                if (IsBlackoutActive) continue;
+
+                // Rapid erratic blink dip
+                float dipVal = UnityEngine.Random.Range(0.02f, 0.10f);
+                SetAllLightIntensityMultiplier(dipVal);
+                yield return new WaitForSeconds(UnityEngine.Random.Range(0.03f, 0.08f));
+
+                if (IsBlackoutActive) continue;
+
+                // 30% chance of erratic double-twitch
+                if (UnityEngine.Random.value < 0.30f)
+                {
+                    SetAllLightIntensityMultiplier(targetMultiplier * 0.6f);
+                    yield return new WaitForSeconds(0.03f);
+                    SetAllLightIntensityMultiplier(dipVal * 0.4f);
+                    yield return new WaitForSeconds(0.04f);
+                }
+
+                SetAllLightIntensityMultiplier(targetMultiplier);
+            }
+            else
+            {
+                // Stabilized state: lights are brightened just a bit, slow subtle breathing flicker
+                SetAllLightIntensityMultiplier(targetMultiplier);
+                float stableWait = UnityEngine.Random.Range(10.0f, 22.0f);
+                yield return new WaitForSeconds(stableWait);
+
+                if (IsBlackoutActive) continue;
+
+                // Rare gentle dip (slow breathing hum)
+                float dip = targetMultiplier * 0.78f;
+                SetAllLightIntensityMultiplier(dip);
+                yield return new WaitForSeconds(0.12f);
+                SetAllLightIntensityMultiplier(targetMultiplier);
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Light Helpers
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -397,8 +481,8 @@ public class BlackoutManager : MonoBehaviour
         foreach (var l in allLights)
         {
             if (l == null) continue;
-            // Skip protected lights (flashlight, status LEDs, exit signs, item glint lights, etc.)
-            if (_protectedLightNames.Contains(l.gameObject.name) || l.GetComponentInParent<ItemVisualHighlight>() != null) continue;
+            // Only protect player flashlight!
+            if (_protectedLightNames.Contains(l.gameObject.name)) continue;
             _cachedLights.Add(new LightState
             {
                 light = l,
@@ -415,7 +499,6 @@ public class BlackoutManager : MonoBehaviour
         {
             var ls = _cachedLights[i];
             if (ls.light == null) continue;
-            // Restore only lights that were originally enabled (don't turn on lights that were off before)
             if (enabled)
             {
                 if (ls.originalEnabled)
@@ -424,6 +507,7 @@ public class BlackoutManager : MonoBehaviour
             else
             {
                 ls.light.enabled = false;
+                ls.light.intensity = 0f;
             }
         }
     }

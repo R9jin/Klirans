@@ -193,6 +193,7 @@ public class RoomStaffAI : MonoBehaviour
 
     public void TriggerRunaway(Vector3 hallwayTarget)
     {
+        if (isRunawayActive) return;
         isRunawayActive = true;
         isReturningHome = false;
 
@@ -205,13 +206,58 @@ public class RoomStaffAI : MonoBehaviour
         // Auto-open nearby doors so runaway is completely unobstructed
         foreach (var door in FindObjectsByType<DoorInteract>(FindObjectsInactive.Exclude))
         {
-            if (Vector3.Distance(door.transform.position, transform.position) < 6.5f)
+            if (Vector3.Distance(door.transform.position, transform.position) < 8.5f)
             {
                 door.ForceOpen();
             }
         }
 
+        StopAllCoroutines();
+        StartCoroutine(RunawaySequenceRoutine(hallwayTarget));
+    }
+
+    private IEnumerator MoveToPoint(Vector3 target, float speed, float arriveDist = 0.35f)
+    {
+        float timeout = 4.5f;
+        while (timeout > 0f)
+        {
+            timeout -= Time.deltaTime;
+            Vector3 diff = target - transform.position;
+            diff.y = 0f;
+            if (diff.magnitude <= arriveDist) break;
+
+            Vector3 dir = diff.normalized;
+            if (dir.sqrMagnitude > 0.001f)
+            {
+                Quaternion look = Quaternion.LookRotation(dir);
+                transform.rotation = Quaternion.Slerp(transform.rotation, look, Time.deltaTime * 12f);
+            }
+            transform.position += dir * speed * Time.deltaTime;
+            UpdateAnimator(speed > 2.2f ? 2.0f : 1.0f, false);
+            yield return null;
+        }
+    }
+
+    private IEnumerator RunawaySequenceRoutine(Vector3 hallwayTarget)
+    {
+        // Panic screams
+        EnsurePanicAudioSource();
+        PlayPanicScream();
+        _nextPanicScreamTime = Time.time + 3.0f;
+
+        // Ensure NavAgent is disabled during door threshold transition
         _navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        if (_navAgent != null) _navAgent.enabled = false;
+
+        // Step 1: Move from desk to inner doorway threshold
+        Vector3 doorInner = new Vector3(-82.4f, 2.35f, 0.53f);
+        yield return StartCoroutine(MoveToPoint(doorInner, 2.8f));
+
+        // Step 2: Step through doorway into the hallway corridor
+        Vector3 doorOuter = new Vector3(-84.6f, 2.35f, 0.53f);
+        yield return StartCoroutine(MoveToPoint(doorOuter, 3.2f));
+
+        // Step 3: Now out in the main hallway, activate NavMeshAgent for smooth corridor navigation
         if (_navAgent == null)
         {
             _navAgent = gameObject.AddComponent<UnityEngine.AI.NavMeshAgent>();
@@ -226,14 +272,12 @@ public class RoomStaffAI : MonoBehaviour
         _navAgent.speed = 3.3f;
         _navAgent.stoppingDistance = 0.5f;
 
-        // Warp agent safely to nearest valid NavMesh location
-        if (UnityEngine.AI.NavMesh.SamplePosition(transform.position, out UnityEngine.AI.NavMeshHit startHit, 3.5f, UnityEngine.AI.NavMesh.AllAreas))
+        if (UnityEngine.AI.NavMesh.SamplePosition(transform.position, out UnityEngine.AI.NavMeshHit startHit, 3.0f, UnityEngine.AI.NavMesh.AllAreas))
         {
             _navAgent.Warp(startHit.position);
         }
 
-        UnityEngine.AI.NavMeshHit hit;
-        if (UnityEngine.AI.NavMesh.SamplePosition(hallwayTarget, out hit, 6.0f, UnityEngine.AI.NavMesh.AllAreas))
+        if (UnityEngine.AI.NavMesh.SamplePosition(hallwayTarget, out UnityEngine.AI.NavMeshHit hit, 6.0f, UnityEngine.AI.NavMesh.AllAreas))
         {
             _navAgent.SetDestination(hit.position);
         }
@@ -241,11 +285,6 @@ public class RoomStaffAI : MonoBehaviour
         {
             _navAgent.SetDestination(hallwayTarget);
         }
-
-        // Audio panic screams
-        EnsurePanicAudioSource();
-        PlayPanicScream();
-        _nextPanicScreamTime = Time.time + 3.2f;
 
         UpdateAnimator(2.0f, false);
     }
@@ -304,14 +343,20 @@ public class RoomStaffAI : MonoBehaviour
     {
         yield return new WaitForSeconds(0.6f);
 
+        Vector3 doorOuter = new Vector3(-84.6f, 2.35f, 0.53f);
+        Vector3 doorInner = new Vector3(-82.4f, 2.35f, 0.53f);
+
+        // Step 1: Walk to hallway door threshold using NavAgent
         if (_navAgent != null && _navAgent.isOnNavMesh)
         {
             _navAgent.isStopped = false;
-            _navAgent.speed = 1.5f;
-            _navAgent.SetDestination(_homePosition);
+            _navAgent.speed = 1.8f;
+            _navAgent.SetDestination(doorOuter);
 
-            while (_navAgent != null && _navAgent.enabled && Vector3.Distance(transform.position, _homePosition) > 0.8f)
+            float navTimeout = 8f;
+            while (_navAgent != null && _navAgent.enabled && Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z), new Vector3(doorOuter.x, 0, doorOuter.z)) > 0.8f && navTimeout > 0f)
             {
+                navTimeout -= Time.deltaTime;
                 UpdateAnimator(1.0f, false);
                 yield return null;
             }
@@ -319,6 +364,12 @@ public class RoomStaffAI : MonoBehaviour
             _navAgent.isStopped = true;
             _navAgent.enabled = false;
         }
+
+        // Step 2: Step through doorway into Room 104
+        yield return StartCoroutine(MoveToPoint(doorInner, 1.6f));
+
+        // Step 3: Walk back to home desk
+        yield return StartCoroutine(MoveToPoint(_homePosition, 1.5f, 0.2f));
 
         transform.position = _homePosition;
         transform.rotation = _homeRotation;

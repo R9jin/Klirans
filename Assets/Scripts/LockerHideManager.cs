@@ -574,7 +574,7 @@ public class LockerHideManager : MonoBehaviour
 
         var promptText = textGO.GetComponent<Text>();
         promptText.text = "[E] or [F] to Exit Locker";
-        var customFont = Resources.Load<Font>("Fonts/Typewriter_Bold");
+        var customFont = Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold") ?? Resources.Load<Font>("Fonts/Typewriter_Bold");
         promptText.font = customFont != null ? customFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         promptText.fontSize = 14;
         promptText.alignment = TextAnchor.MiddleCenter;

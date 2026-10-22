@@ -108,11 +108,14 @@ public class SecurityGuardStalkerAI : MonoBehaviour
     private bool _isTraversingLink = false;
     private List<Bounds> _cachedRoomBounds = new List<Bounds>();
 
+    [HideInInspector]
+    public bool isDevSpawn = false;
+
     private int _speedHash;
 
     private void Awake()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        if (GameModeManager.IsFreeRoamMode && !isDevSpawn && !DevDemoPanel.IsDevSpawning)
         {
             currentState = GuardState.Inactive;
             gameObject.SetActive(false);
@@ -145,12 +148,13 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void Start()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        if (GameModeManager.IsFreeRoamMode && !isDevSpawn && !DevDemoPanel.IsDevSpawning)
         {
             currentState = GuardState.Inactive;
             gameObject.SetActive(false);
             return;
         }
+        if (DevDemoPanel.IsDevSpawning) isDevSpawn = true;
 
         FindPlayerReferences();
         _nextWhistleTime = Time.time + Random.Range(4.0f, 9.0f); // First whistle soon after emergence
@@ -298,7 +302,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        if (GameModeManager.IsFreeRoamMode && !isDevSpawn)
         {
             currentState = GuardState.Inactive;
             gameObject.SetActive(false);
@@ -373,34 +377,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         }
 
         // 1. Line-of-Sight & Vision Cone Check
-        bool canSeePlayer = false;
-        if (!isPlayerHidden && sameFloor && distToPlayer <= visionMaxDistance)
-        {
-            Vector3 eyePos = _headBone != null ? _headBone.position : (transform.position + Vector3.up * 1.65f);
-            Vector3 toPlayer = _playerTransform.position + Vector3.up * 1.0f - eyePos;
-            Vector3 flatDir = toPlayer;
-            flatDir.y = 0;
-
-            float angle = Vector3.Angle(transform.forward, flatDir);
-            if (angle <= visionConeAngle * 0.5f)
-            {
-                // In vision cone — check obstacle occlusion
-                if (HasClearLineOfSight(eyePos, _playerTransform.position + Vector3.up * 1.4f) ||
-                    HasClearLineOfSight(eyePos, _playerTransform.position + Vector3.up * 0.8f))
-                {
-                    canSeePlayer = true;
-                }
-            }
-
-            // Proximity sense: can sense player right behind/near him within proximityAwarenessRadius
-            if (!canSeePlayer && distToPlayer <= proximityAwarenessRadius)
-            {
-                if (HasClearLineOfSight(eyePos, _playerTransform.position + Vector3.up * 1.0f))
-                {
-                    canSeePlayer = true;
-                }
-            }
-        }
+        bool canSeePlayer = CanSeePlayer();
 
         // 2. Acoustic / Hearing Check
         bool heardPlayerSound = false;
@@ -486,6 +463,42 @@ public class SecurityGuardStalkerAI : MonoBehaviour
                 currentState = GuardState.Investigating;
             }
         }
+    }
+
+    public bool CanSeePlayer()
+    {
+        if (_playerTransform == null) return false;
+        bool isPlayerHidden = LockerHideManager.IsPlayerHidden;
+        if (isPlayerHidden) return false;
+
+        float distToPlayer = Vector3.Distance(transform.position, _playerTransform.position);
+        bool sameFloor = Mathf.Abs(transform.position.y - _playerTransform.position.y) < 1.8f;
+        if (!sameFloor || distToPlayer > visionMaxDistance) return false;
+
+        Vector3 eyePos = _headBone != null ? _headBone.position : (transform.position + Vector3.up * 1.65f);
+        Vector3 toPlayer = _playerTransform.position + Vector3.up * 1.0f - eyePos;
+        Vector3 flatDir = toPlayer;
+        flatDir.y = 0;
+
+        float angle = Vector3.Angle(transform.forward, flatDir);
+        if (angle <= visionConeAngle * 0.5f)
+        {
+            if (HasClearLineOfSight(eyePos, _playerTransform.position + Vector3.up * 1.4f) ||
+                HasClearLineOfSight(eyePos, _playerTransform.position + Vector3.up * 0.8f))
+            {
+                return true;
+            }
+        }
+
+        if (distToPlayer <= proximityAwarenessRadius)
+        {
+            if (HasClearLineOfSight(eyePos, _playerTransform.position + Vector3.up * 1.0f))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool HasClearLineOfSight(Vector3 fromPos, Vector3 targetPos)
@@ -721,10 +734,17 @@ public class SecurityGuardStalkerAI : MonoBehaviour
 
     private void TriggerCatchSequence()
     {
+        if (DevDemoPanel.IsGodModeActive) return;
         if (GameModeManager.IsFreeRoamMode || OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
+        if (_hasCaughtPlayer) return;
         _hasCaughtPlayer = true;
         currentState = GuardState.Jumpscare;
 
+        StartCoroutine(GuardCatchRoutine());
+    }
+
+    private IEnumerator GuardCatchRoutine()
+    {
         if (_agent != null && _agent.isOnNavMesh)
         {
             _agent.isStopped = true;
@@ -739,9 +759,12 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         PlayWhistleBlast(1.0f);
 
         // Turn guard to look directly at player
-        Vector3 dir = (_playerTransform.position - transform.position).normalized;
-        dir.y = 0;
-        if (dir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(dir);
+        if (_playerTransform != null)
+        {
+            Vector3 dir = (_playerTransform.position - transform.position).normalized;
+            dir.y = 0;
+            if (dir.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(dir);
+        }
 
         // Trigger Jumpscare / Failure Sequence through NPCJumpscareManager using the Guard's own model
         SkinnedMeshRenderer guardSMR = GetComponentInChildren<SkinnedMeshRenderer>();
@@ -753,7 +776,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         var jumpscareMgr = NPCJumpscareManager.Instance ?? FindAnyObjectByType<NPCJumpscareManager>();
         if (jumpscareMgr != null)
         {
-            jumpscareMgr.TriggerJumpscare(guardSMR);
+            jumpscareMgr.TriggerJumpscare(guardSMR, isGuard: true);
         }
         else
         {
@@ -765,6 +788,61 @@ public class SecurityGuardStalkerAI : MonoBehaviour
             }
             Debug.Log("[SecurityGuardStalkerAI] Student apprehended by Security Guard!");
         }
+
+        // Wait for jumpscare screamer and recovery to finish
+        yield return new WaitForSeconds(2.6f);
+
+        // If player succumbed (Anxiety reached 100% -> Game Over), halt routine
+        if (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver)
+        {
+            yield break;
+        }
+
+        // Survival break-away: push player slightly backward (2.2m) away from guard
+        if (_playerTransform != null && _playerMovement != null && _playerMovement.Controller != null)
+        {
+            Vector3 shoveDir = (_playerTransform.position - transform.position).normalized;
+            shoveDir.y = 0f;
+            if (shoveDir.sqrMagnitude < 0.01f) shoveDir = -transform.forward;
+            _playerMovement.Controller.Move(shoveDir * 2.2f);
+        }
+
+        // Stern warning / catching breath cooldown (4.0s) giving the player time to run and break line of sight
+        float graceTimer = 4.0f;
+        while (graceTimer > 0f)
+        {
+            graceTimer -= Time.deltaTime;
+            if (_agent != null && _agent.isOnNavMesh)
+            {
+                _agent.isStopped = true;
+                _agent.velocity = Vector3.zero;
+            }
+            yield return null;
+        }
+
+        // Guard resumes pursuit or hunt
+        _hasCaughtPlayer = false;
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.isStopped = false;
+        }
+
+        bool isPlayerHidden = LockerHideManager.IsPlayerHidden;
+        if (_playerTransform != null && !isPlayerHidden && CanSeePlayer())
+        {
+            currentState = GuardState.Chasing;
+        }
+        else
+        {
+            currentState = GuardState.Investigating;
+            _investigateTargetPos = (_playerTransform != null) ? _playerTransform.position : transform.position;
+            if (_agent != null && _agent.isOnNavMesh)
+            {
+                _agent.SetDestination(_investigateTargetPos);
+            }
+        }
+
+        Debug.Log("[SecurityGuardStalkerAI] Guard catch cooldown ended; resuming hunt.");
     }
 
     /// <summary>
@@ -784,5 +862,25 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         }
 
         Debug.Log($"[SecurityGuardStalkerAI] Threat stats updated: Patrol={patrolSpeed:F1}, Chase={chaseSpeed:F1}, Vision={visionMaxDistance:F1}m, Whistle={whistleIntervalMin:F0}-{whistleIntervalMax:F0}s");
+    }
+
+    public void Despawn()
+    {
+        currentState = GuardState.Inactive;
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.isStopped = true;
+            _agent.enabled = false;
+        }
+        if (ActiveStalker == this) ActiveStalker = null;
+        Destroy(gameObject);
+    }
+
+    public static void DespawnActiveGuardStalker()
+    {
+        if (ActiveStalker != null)
+        {
+            ActiveStalker.Despawn();
+        }
     }
 }

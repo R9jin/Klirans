@@ -454,7 +454,7 @@ public class CircuitBreakerPuzzle : MonoBehaviour, IInteractable
             {
                 ObjectiveHUD.Instance.SetObjective(
                     "Hanapin ang 15A Ceramic Fuse",
-                    "Kailangan ng 15A Ceramic Cartridge Fuse para maibalik ang kuryente sa ComLab. Hanapin ito sa Lobby Security Counter (sa harap ng Security Guard) o sa desk sa hallway malapit sa Room 105."
+                    "Kailangan ng 15A Ceramic Cartridge Fuse para maibalik ang kuryente sa ComLab. Kumuha ng 15A Fuse sa 1F Lobby Security Counter (katabi ng Locker Key) o sa 2F Guidance Reading Shelf."
                 );
             }
         }
@@ -473,6 +473,16 @@ public class CircuitBreakerPuzzle : MonoBehaviour, IInteractable
 
         PlayAudio(powerHumAudio, 0.95f, 1.0f);
         isPowerRestored = true;
+
+        if (BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.OnBreakerGridStabilized();
+        }
+
+        if (PlayerThoughtVoice.Instance != null)
+        {
+            PlayerThoughtVoice.Instance.ShowThought("Ayan, medyo umayos ang kuryente. Lumakas ang ilaw at hindi na kumikislap nang sobra.");
+        }
 
         if (slotStatusLight != null)
         {

@@ -167,20 +167,21 @@ public class CampusThreatDirector : MonoBehaviour
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        // Debug F5 / F6 threat testing: only accessible in Free Roam dev mode
+        if (!GameModeManager.IsFreeRoamMode) return;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         if (Input.GetKeyDown(debugAdvanceThreatKey))
         {
             int next = Mathf.Clamp(_currentSignatures + 1, 0, 6);
             Debug.Log($"[CampusThreatDirector] Debug F6: Advancing threat level from {_currentSignatures} -> {next}");
-            SetThreatLevel(next, true);
+            SetThreatLevel(next, false);
         }
         else if (Input.GetKeyDown(debugDecreaseThreatKey))
         {
             int prev = Mathf.Clamp(_currentSignatures - 1, 0, 6);
             Debug.Log($"[CampusThreatDirector] Debug F5: Decreasing threat level from {_currentSignatures} -> {prev}");
-            SetThreatLevel(prev, true);
+            SetThreatLevel(prev, false);
         }
 #endif
     }

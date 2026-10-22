@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -212,6 +213,110 @@ public class CashierBalancePuzzle : MonoBehaviour
         if (backspaceButton != null) backspaceButton.onClick.AddListener(OnBackspaceClicked);
         if (submitButton != null) submitButton.onClick.AddListener(OnSubmitClicked);
         if (closeButton != null) closeButton.onClick.AddListener(ClosePuzzle);
+
+        EnsureTexturesAssigned();
+        EnsureLegibleTypography();
+    }
+
+    private void EnsureLegibleTypography()
+    {
+        Font boldFont = Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold");
+#if UNITY_EDITOR
+        if (boldFont == null)
+            boldFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Lucida_Typewriter_Bold.ttf");
+#endif
+        if (boldFont == null) boldFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+        if (totalDisplayText != null)
+        {
+            if (boldFont != null) totalDisplayText.font = boldFont;
+            totalDisplayText.fontSize = 24;
+            totalDisplayText.fontStyle = FontStyle.Bold;
+            totalDisplayText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            totalDisplayText.verticalOverflow = VerticalWrapMode.Overflow;
+        }
+
+        if (headerTitleText != null)
+        {
+            if (boldFont != null) headerTitleText.font = boldFont;
+            headerTitleText.fontStyle = FontStyle.Bold;
+            headerTitleText.color = new Color(0.08f, 0.08f, 0.08f, 1f);
+        }
+
+        if (studentIdText != null)
+        {
+            if (boldFont != null) studentIdText.font = boldFont;
+            studentIdText.fontStyle = FontStyle.Bold;
+            studentIdText.color = new Color(0.12f, 0.10f, 0.08f, 1f);
+        }
+
+        if (assessmentPeriodText != null)
+        {
+            if (boldFont != null) assessmentPeriodText.font = boldFont;
+            assessmentPeriodText.fontStyle = FontStyle.Bold;
+            assessmentPeriodText.color = new Color(0.12f, 0.10f, 0.08f, 1f);
+        }
+
+        if (feedbackText != null)
+        {
+            if (boldFont != null) feedbackText.font = boldFont;
+            feedbackText.fontStyle = FontStyle.Bold;
+            feedbackText.fontSize = 15;
+            feedbackText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        }
+    }
+
+    private void EnsureTexturesAssigned()
+    {
+        if (puzzlePanel != null)
+        {
+            var panelImg = puzzlePanel.GetComponent<Image>();
+            if (panelImg != null && panelImg.sprite == null)
+            {
+                panelImg.sprite = LoadSprite("Assets/PlayerAssets/CashierPaperSheet.png");
+                if (panelImg.sprite != null) panelImg.color = Color.white;
+            }
+        }
+
+        if (paidStampImage != null && paidStampImage.sprite == null)
+        {
+            paidStampImage.sprite = LoadSprite("Assets/PlayerAssets/PaidClearedStamp.png");
+            if (paidStampImage.sprite != null) paidStampImage.color = Color.white;
+        }
+    }
+
+    private Sprite LoadSprite(string relativePath)
+    {
+        Sprite spr = null;
+#if UNITY_EDITOR
+        spr = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(relativePath);
+        if (spr != null) return spr;
+
+        Texture2D texEd = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(relativePath);
+        if (texEd != null)
+        {
+            return Sprite.Create(texEd, new Rect(0, 0, texEd.width, texEd.height), new Vector2(0.5f, 0.5f));
+        }
+#endif
+        string fullPath = Path.Combine(Application.dataPath, "..", relativePath).Replace('\\', '/');
+        if (File.Exists(fullPath))
+        {
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(fullPath);
+                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (tex.LoadImage(bytes))
+                {
+                    tex.name = Path.GetFileNameWithoutExtension(relativePath);
+                    return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[CashierBalancePuzzle] Failed to load sprite from {fullPath}: {ex.Message}");
+            }
+        }
+        return spr;
     }
 
     private void Start()
@@ -379,19 +484,34 @@ public class CashierBalancePuzzle : MonoBehaviour
                     else if (t.name.ToLower().Contains("num") || t.name.ToLower().Contains("index")) indexText = t;
                 }
 
+                Font boldFont = Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold");
+#if UNITY_EDITOR
+                if (boldFont == null) boldFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Lucida_Typewriter_Bold.ttf");
+#endif
+                Color inkColor = new Color(0.06f, 0.06f, 0.06f, 1f);
+
                 if (indexText != null)
                 {
+                    if (boldFont != null) indexText.font = boldFont;
+                    indexText.fontStyle = FontStyle.Bold;
+                    indexText.color = inkColor;
                     indexText.text = $"{i + 1}.";
                 }
 
                 if (nameText != null)
                 {
+                    if (boldFont != null) nameText.font = boldFont;
+                    nameText.fontStyle = FontStyle.Bold;
+                    nameText.color = inkColor;
                     nameText.text = item.feeName;
                 }
 
                 if (amountText != null)
                 {
-                    amountText.text = $"₱ {item.amount:N2}";
+                    if (boldFont != null) amountText.font = boldFont;
+                    amountText.fontStyle = FontStyle.Bold;
+                    amountText.color = inkColor;
+                    amountText.text = $"PHP {item.amount:N2}";
                 }
             }
             else
@@ -450,22 +570,26 @@ public class CashierBalancePuzzle : MonoBehaviour
     {
         if (totalDisplayText != null)
         {
+            totalDisplayText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            totalDisplayText.verticalOverflow = VerticalWrapMode.Overflow;
+            totalDisplayText.fontStyle = FontStyle.Bold;
+
             if (string.IsNullOrEmpty(_currentInput))
             {
-                totalDisplayText.text = "₱  <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u> .00";
-                totalDisplayText.color = new Color(0.45f, 0.40f, 0.35f, 0.65f);
+                totalDisplayText.text = "PHP  0.00";
+                totalDisplayText.color = new Color(0.25f, 0.22f, 0.20f, 0.85f);
             }
             else
             {
                 if (int.TryParse(_currentInput, out int val))
                 {
-                    totalDisplayText.text = $"₱  <b>{val:N0}</b>.00";
+                    totalDisplayText.text = $"PHP  {val:N0}.00";
                 }
                 else
                 {
-                    totalDisplayText.text = $"₱  <b>{_currentInput}</b>.00";
+                    totalDisplayText.text = $"PHP  {_currentInput}.00";
                 }
-                totalDisplayText.color = new Color(0.12f, 0.10f, 0.08f, 1f);
+                totalDisplayText.color = new Color(0.04f, 0.04f, 0.04f, 1f);
             }
         }
     }

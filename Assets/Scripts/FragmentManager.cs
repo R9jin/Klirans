@@ -206,11 +206,26 @@ public class FragmentManager : MonoBehaviour
             if (addedToHotbar) return true;
         }
 
+        if (StorageManager.Instance != null && blankPaperRewardItem != null)
+        {
+            if (StorageManager.Instance.AddItem(blankPaperRewardItem, 1)) return true;
+        }
+
+        if (InventoryEquipController.Instance != null && blankPaperRewardItem != null)
+        {
+            InventoryEquipController.Instance.SpawnDroppedItemInWorld(blankPaperRewardItem, 1);
+            if (PlayerThoughtVoice.Instance != null)
+            {
+                PlayerThoughtVoice.Instance.ShowThought("Puno ang aking bag! Nalaglag ang nabuong clearance slip sa sahig sa aking harapan.");
+            }
+            return true;
+        }
+
         return false;
     }
 
-    /// <summary>
-    /// Displays a temporary UI status message on the player's screen.
+ /// <summary>
+ /// Displays a temporary UI status message on the player's screen.
     /// </summary>
     private void ShowNotification(string message)
     {
@@ -227,3 +242,4 @@ public class FragmentManager : MonoBehaviour
     /// </summary>
     public int GetCollectedCount() => collectedFragments.Count;
 }
+

@@ -304,7 +304,7 @@ public class GameSettingsManager : MonoBehaviour
         if (Input.GetKeyDown(k)) return true;
         if (action == GameAction.Crouch && k == KeyCode.LeftControl && Input.GetKeyDown(KeyCode.C)) return true;
         if (action == GameAction.DropItem && k == KeyCode.G && Input.GetKeyDown(KeyCode.Q)) return true;
-        if (action == GameAction.TutorialHelp && k == KeyCode.H && Input.GetKeyDown(KeyCode.F1)) return true;
+        if (action == GameAction.TutorialHelp && k == KeyCode.H && Input.GetKeyDown(KeyCode.H)) return true;
         return false;
     }
 
