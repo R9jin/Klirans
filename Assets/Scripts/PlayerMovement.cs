@@ -79,16 +79,34 @@ public class PlayerMovement : MonoBehaviour
     public bool IsMoving => isMoving;
     public bool IsRunning => isRunning;
     public bool IsCrouching => isCrouching;
+    public CharacterController Controller => characterController;
 
     private Vector3 standingCameraPosition;
     private Vector3 crouchingCameraPosition;
 
     private float defaultCenterY;
     private float crouchCenterY;
+    private float _lastGroundedTime = 0f;
+
+    private void Awake()
+    {
+        canMove = true;
+        isDialogueCameraOverride = false;
+        isJumpscareCameraOverride = false;
+        if (playerCamera == null)
+        {
+            playerCamera = GetComponentInChildren<Camera>();
+            if (playerCamera == null) playerCamera = Camera.main;
+        }
+    }
 
     void Start()
     {
         characterController = GetComponent<CharacterController>();
+
+        canMove = true;
+        isDialogueCameraOverride = false;
+        isJumpscareCameraOverride = false;
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -125,15 +143,14 @@ public class PlayerMovement : MonoBehaviour
             vignetteImage.color = new Color(0f, 0f, 0f, 0f);
         }
 
-        if (footstepAudioSource != null && enableDiegeticFootsteps)
+        if (footstepAudioSource != null)
         {
             footstepAudioSource.volume = footstepVolume;
-            AudioReverbFilter reverb = footstepAudioSource.gameObject.GetComponent<AudioReverbFilter>();
-            if (reverb == null)
-            {
-                reverb = footstepAudioSource.gameObject.AddComponent<AudioReverbFilter>();
-            }
-            reverb.reverbPreset = footstepReverbPreset;
+            // Remove any reverb/echo filters to guarantee crisp, clean, single-body footsteps with zero doubling
+            var reverb = footstepAudioSource.gameObject.GetComponent<AudioReverbFilter>();
+            if (reverb != null) Destroy(reverb);
+            var echo = footstepAudioSource.gameObject.GetComponent<AudioEchoFilter>();
+            if (echo != null) Destroy(echo);
         }
 
         EnsureLobbyCollidersAndObstacles();
@@ -158,17 +175,12 @@ public class PlayerMovement : MonoBehaviour
                 col.isTrigger = false;
             }
 
-            // 2. Ensure NavMeshObstacle with dynamic carving so NPCs and monsters can NEVER pass through it
+            // 2. Remove any accidental NavMeshObstacle on roundTable (table has scale 103x, which would carve a 280m void!)
             var obs = roundTable.GetComponent<UnityEngine.AI.NavMeshObstacle>();
-            if (obs == null)
+            if (obs != null)
             {
-                obs = roundTable.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+                Destroy(obs);
             }
-            obs.shape = UnityEngine.AI.NavMeshObstacleShape.Box;
-            obs.center = new Vector3(0f, 0.45f, 0f);
-            obs.size = new Vector3(2.7f, 1.20f, 2.7f);
-            obs.carving = true;
-            obs.carveOnlyStationary = false;
         }
 
         foreach (var name in new string[] { "CoffeeTable_GlassTop", "CoffeeTable_Frame", "CoffeeTable_Leg1", "CoffeeTable_Leg2", "CoffeeTable_Leg3", "CoffeeTable_Leg4" })
@@ -295,6 +307,11 @@ public class PlayerMovement : MonoBehaviour
             characterController.center = new Vector3(0f, defaultCenterY, 0f);
         }
 
+        if (DevDemoPanel.PlayerSpeedMultiplier > 0.05f)
+        {
+            currentSpeed *= DevDemoPanel.PlayerSpeedMultiplier;
+        }
+
         GameSettingsManager.GetMoveAxes(out float inputH, out float inputV);
         Vector3 targetPlanarVelocity = Vector3.zero;
         if (canMove)
@@ -331,10 +348,13 @@ public class PlayerMovement : MonoBehaviour
             Debug.LogWarning("[PlayerMovement] Player fell through ground! Reset to safety floor.");
         }
 
-        // Footstep Audio Logic
+        // Footstep Audio Logic (smooth grounded buffer so stair steps never stutter or double-trigger)
         if (footstepAudioSource != null)
         {
-            if (isMoving && characterController.isGrounded)
+            if (characterController.isGrounded) _lastGroundedTime = Time.time;
+            bool effectivelyGrounded = (Time.time - _lastGroundedTime) < 0.14f;
+
+            if (isMoving && effectivelyGrounded)
             {
                 if (!footstepAudioSource.isPlaying) footstepAudioSource.Play();
                 footstepAudioSource.pitch = isRunning ? 1.3f : (isCrouching ? 0.7f : 1f);
@@ -357,6 +377,12 @@ public class PlayerMovement : MonoBehaviour
     {
         if (staminaSystem == null) return;
 
+        if (DevDemoPanel.IsInfiniteStaminaActive)
+        {
+            staminaSystem.currentStamina = staminaSystem.maxStamina;
+            return;
+        }
+
         if (isRunning)
         {
             staminaSystem.Drain();
@@ -369,7 +395,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleCameraAndBreathing()
     {
-        if (playerCamera == null || PauseMenu.GameIsPaused || isJumpscareCameraOverride || LockerHideManager.IsPlayerHidden || !canMove) return;
+        if (playerCamera == null || PauseMenu.GameIsPaused || DevDemoPanel.IsOpen || isJumpscareCameraOverride || LockerHideManager.IsPlayerHidden || !canMove) return;
 
         Vector3 targetCameraPosition = isCrouching ? crouchingCameraPosition : standingCameraPosition;
         float targetFOV = normalFOV;
@@ -436,14 +462,25 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleMouseLook()
     {
+        // Re-lock cursor on left mouse click during normal gameplay if unlocked in editor
+        if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked && canMove && !PauseMenu.GameIsPaused && !PauseMenu.IsAnyModalOrPuzzleOpen)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
         if (!canMove || PauseMenu.GameIsPaused || isDialogueCameraOverride || isJumpscareCameraOverride) return;
 
         float sens = GameSettingsManager.Instance != null ? GameSettingsManager.Instance.MouseSensitivity : lookSpeed;
+        if (sens <= 0.05f) sens = 1.8f; // Safety clamp against corrupted zero sensitivity
         float invertSign = (GameSettingsManager.Instance != null && GameSettingsManager.Instance.InvertMouseY) ? 1f : -1f;
 
         rotationX += invertSign * Input.GetAxis("Mouse Y") * sens;
         rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);
-        playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0f, 0f);
+        if (playerCamera != null)
+        {
+            playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0f, 0f);
+        }
         
         transform.rotation *= Quaternion.Euler(0f, Input.GetAxis("Mouse X") * sens, 0f);
     }
@@ -457,6 +494,14 @@ public class PlayerMovement : MonoBehaviour
         if (playerCamera != null)
         {
             playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0f, 0f);
+        }
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (hit != null && hit.collider != null && NPCJumpscareManager.Instance != null)
+        {
+            NPCJumpscareManager.Instance.OnPlayerControllerHit(hit.collider.gameObject);
         }
     }
 }

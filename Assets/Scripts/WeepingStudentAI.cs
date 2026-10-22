@@ -1,949 +1,2328 @@
 using System;
+
 using System.Collections;
+
 using System.Collections.Generic;
+
 using UnityEngine;
+
 using UnityEngine.AI;
+
 using UnityEngine.UI;
 
+
+
 /// <summary>
+
 /// WeepingStudentAI — Arkham Knight / Weeping Angel / SCP-173 style student horror enemy.
+
 /// 
+
 /// Mechanics:
+
 /// - Spawns during campus blackouts as an alternative to The Proctor.
+
 /// - Quantum Lock / Freeze Mechanic:
+
 ///     * When observed by the player (illuminated by flashlight in camera view or close silhouette),
+
 ///       it instantly FREEZES completely solid like a terrifying stone statue in mid-pose.
+
 ///     * When the player looks away, turns around, or turns off the flashlight, it UNFREEZES
+
 ///       and charges rapidly toward the player with extreme speed!
+
 ///     * Turning back around instantly snaps it back to a dead halt, now dangerously closer!
+
 /// - Catch & Jumpscare:
+
 ///     * If it catches the player from behind or in the dark, it triggers a violent in-your-face
+
 ///       screamer jumpscare, drains stamina, and adds anxiety.
+
 ///     * After the scare and whiteout shock, the student remains in the SAME SPOT (does NOT respawn
+
 ///       at the spawn point / safe zone).
+
 /// - Confined strictly to the assigned hallway corridor of the player's floor.
+
 /// - Despawns immediately when blackout ends or power returns.
+
 /// </summary>
+
 [RequireComponent(typeof(NavMeshAgent))]
+
 public class WeepingStudentAI : MonoBehaviour
+
 {
+
     private static WeepingStudentAI _activeWeepingStudent;
+
     public static WeepingStudentAI ActiveWeepingStudent
+
     {
+
         get
+
         {
+
             if (_activeWeepingStudent == null)
+
                 _activeWeepingStudent = FindAnyObjectByType<WeepingStudentAI>();
+
             return _activeWeepingStudent;
+
         }
+
         private set => _activeWeepingStudent = value;
+
     }
+
+
 
     public enum WeepingState
+
     {
+
         Inactive,
+
         Spawning,
+
         Stalking,
+
         Jumpscare,
+
         Despawning
+
     }
+
+
 
     [Header("Current State")]
+
     public WeepingState currentState = WeepingState.Stalking;
 
+
+
     [Header("Movement & Agility")]
+
     [Tooltip("Terrifying pursuit speed when the player is NOT looking (blistering rush).")]
+
     public float chaseSpeed = 8.8f;
 
+
+
     [Tooltip("NavMesh agent acceleration (instant surge).")]
+
     public float acceleration = 36.0f;
 
+
+
     [Tooltip("Angular turning speed.")]
+
     public float angularSpeed = 540.0f;
 
+
+
     [Tooltip("Distance at which the Weeping Student catches the player and jumpscares.")]
+
     public float catchDistance = 1.40f;
 
+
+
     [Tooltip("NavMesh stopping distance.")]
+
     public float stoppingDistance = 0.5f;
 
+
+
+    [Header("FNAF Security Breach Endo Mechanics")]
+
+    [Tooltip("If true, entity uses FNAF Security Breach Endo mechanics: STRICTLY zero walking animation, discrete stop-motion teleport steps along NavMesh path, rigid statue poses.")]
+
+    public bool endoTeleportMode = true;
+
+
+
+    [Tooltip("Time interval between stop-motion teleport steps when unobserved.")]
+
+    public float teleportStepInterval = 0.28f;
+
+
+
     [Header("Observation / Weeping Angel Rules")]
+
     [Tooltip("If true, requires flashlight illumination during blackouts to freeze beyond silhouette radius. If false, freezes unconditionally whenever observed in camera view.")]
+
     public bool requireFlashlightToFreeze = false;
 
+
+
     [Tooltip("Close range (meters) where the dark silhouette is clearly visible even without flashlight, freezing the enemy.")]
+
     public float silhouetteRadius = 3.8f;
 
+
+
     [Tooltip("How frequently line of sight and camera visibility are tested (seconds).")]
+
     public float visionCheckInterval = 0.035f;
 
+
+
     [Tooltip("If true, automatically despawns when campus power is restored.")]
+
     public bool despawnOnBlackoutEnd = true;
 
+
+
     [Header("Assigned Hallway & Floor Limits")]
+
     public string assignedHallway = "Hallway_1F";
+
     public int assignedFloor = 1;
+
     public float hallwayMinZ = -16.0f;
+
     public float hallwayMaxZ = 30.0f;
+
     public float hallwayCenterX = -84.0f;
+
     public float hallwayHalfWidth = 2.4f;
 
+
+
     [Header("Audio Feedback")]
+
     [Tooltip("Enable or disable footstep sounds for the student.")]
+
     public bool enableFootsteps = false;
+
     public AudioClip footstepClip;
+
     public AudioClip alertStingClip;
+
     public AudioClip freezeStingClip;
+
     public AudioClip jumpscareScreamClip;
+
     public AudioClip staticHissClip;
+
     [Tooltip("Continuous 3D spatial weeping sound emitted by the entity. Attenuates realistically over distance so the player hears it getting closer and closer as it approaches.")]
+
     public AudioClip weepingSoundClip;
 
+
+
     [Header("Horror & Balancing")]
+
     [Tooltip("Amount of anxiety added to the AnxietyMeter on jumpscare.")]
+
     public float jumpscareAnxietyIncrease = 15f;
 
+
+
     [Tooltip("Stamina penalty when jumpscared.")]
+
     public float staminaDrain = 30f;
 
+
+
     // ── Internal Runtime ──────────────────────────────────────────────────────
+
     private NavMeshAgent _agent;
+
     private Animator _animator;
+
     private AudioSource _audioSource;
+
     private AudioSource _footstepAudio;
+
     private AudioSource _weepingAudio;
 
+
+
     private Transform _playerTransform;
+
     private PlayerMovement _playerMovement;
+
     private Camera _playerCam;
 
+
+
     private Transform _headBone;
+
     private Transform _spineBone;
 
+
+
+    private List<Transform> _cachedSampleBones = new List<Transform>();
+
+    private Renderer[] _cachedRenderers;
+
+    private NavMeshPath _endoNavPath;
+
+    private float _teleportStepTimer = 0f;
+
+
+
     private bool _isObserved = false;
+
     public bool IsObserved => _isObserved;
 
+
+
     private bool _wasObservedLastFrame = false;
-    private float _nextVisionCheckTime = 0f;
+
     private float _footstepTimer = 0f;
+
     private bool _hasCaughtPlayer = false;
 
+
+
     private Vector3 _lastSeenPlayerPos = Vector3.zero;
+
     private float _lostPlayerPatrolTimer = 0f;
+
     private Vector3 _lostPlayerWanderTarget;
 
+
+
     private int _speedHash;
+
     private List<Bounds> _cachedRoomBounds = new List<Bounds>();
 
+
+
     private void Awake()
+
     {
+
         if (GameModeManager.IsFreeRoamMode || (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive))
+
         {
+
             Destroy(gameObject);
+
             return;
+
         }
+
+
 
         if (ActiveWeepingStudent != null && ActiveWeepingStudent != this)
+
         {
+
             if (ActiveWeepingStudent.gameObject != null)
+
             {
+
                 Destroy(ActiveWeepingStudent.gameObject);
+
             }
+
         }
+
         ActiveWeepingStudent = this;
 
+
+
         _agent = GetComponent<NavMeshAgent>();
+
         _animator = GetComponentInChildren<Animator>();
+
         _speedHash = Animator.StringToHash("Speed");
 
-        // Dynamic threat scaling (FNAF-style progression based on clearance signatures)
-        if (CampusThreatDirector.Instance != null)
+        _endoNavPath = new NavMeshPath();
+
+
+
+        if (_animator != null && endoTeleportMode)
+
         {
-            CampusThreatDirector.Instance.ApplyStatsToWeeping(this);
+
+            _animator.speed = 0f;
+
         }
+
+
+
+        // Dynamic threat scaling (FNAF-style progression based on clearance signatures)
+
+        if (CampusThreatDirector.Instance != null)
+
+        {
+
+            CampusThreatDirector.Instance.ApplyStatsToWeeping(this);
+
+        }
+
+
 
         SetupAudioSources();
+
         LoadDefaultAudio();
+
         ConfigureNavMeshAgent();
+
         FindPlayerReferences();
+
         FindBones();
+
+        CacheSampleBonesAndRenderers();
+
         CacheRoomBounds();
+
         currentState = WeepingState.Stalking;
+
     }
 
+
+
+    [HideInInspector]
+
+    public bool isDevSpawn = false;
+
+
+
     private void Start()
+
     {
-        if (_agent != null && _agent.isOnNavMesh)
+
+        if (GameModeManager.IsFreeRoamMode && !isDevSpawn)
+
         {
-            _agent.enabled = true;
-            _agent.isStopped = false;
+
+            Despawn();
+
+            return;
+
         }
 
+
+
+        if (_agent != null && _agent.isOnNavMesh)
+
+        {
+
+            _agent.enabled = true;
+
+            _agent.isStopped = false;
+
+        }
+
+
+
         currentState = WeepingState.Stalking;
+
         Debug.Log($"[WeepingStudentAI] Spawned and stalking in {assignedHallway} at {transform.position}");
+
+
 
         StartWeepingAudio();
 
+
+
         // Play sudden ominous alert sting
+
         if (_audioSource != null && alertStingClip != null)
+
         {
+
             _audioSource.PlayOneShot(alertStingClip, 0.85f);
+
         }
+
     }
+
+
 
     private void StartWeepingAudio()
+
     {
+
         if (_weepingAudio == null) return;
+
         if (weepingSoundClip == null) LoadDefaultAudio();
 
+
+
         if (weepingSoundClip != null && !_weepingAudio.isPlaying)
+
         {
+
             _weepingAudio.clip = weepingSoundClip;
+
             _weepingAudio.Play();
+
         }
+
     }
 
-    private void Update()
-    {
-        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
-        if (currentState == WeepingState.Inactive || currentState == WeepingState.Despawning) return;
-        if (currentState == WeepingState.Jumpscare) return;
 
-        // Failsafe: if power is restored by external means, despawn if configured
-        if (despawnOnBlackoutEnd && BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive)
+
+    private void Update()
+
+    {
+
+        if (GameModeManager.IsFreeRoamMode && !isDevSpawn)
+
+        {
+
+            Despawn();
+
+            return;
+
+        }
+
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
+
+        if (currentState == WeepingState.Inactive || currentState == WeepingState.Despawning) return;
+
+        // Failsafe: if power is restored by external means, despawn immediately
+        if (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive && !isDevSpawn)
         {
             Despawn();
             return;
         }
 
+        if (currentState == WeepingState.Jumpscare) return;
+
+
+
         if (_playerTransform == null) FindPlayerReferences();
+
         if (_playerTransform == null) return;
 
+
+
         // Dynamically track and update current floor boundaries based on elevation
+
         int currentFloor = GetFloorFromY(transform.position.y);
+
         if (currentFloor != assignedFloor)
+
         {
+
             UpdateFloorBoundaries(currentFloor);
+
         }
 
-        // 1. Vision Check: Is the player looking at me?
-        if (Time.time >= _nextVisionCheckTime)
-        {
-            _nextVisionCheckTime = Time.time + visionCheckInterval;
-            UpdateObservedStatus();
-        }
+
+
+        // 1. Vision Check: Ultra-sensitive zero-latency check every single frame!
+
+        UpdateObservedStatus();
+
+
 
         // 2. Behavioral Update based on observation
+
         UpdateStalkingBehavior();
 
+
+
         // 3. Hallway boundary clamping
+
         ClampPositionToAssignedHallway();
+
     }
+
+
 
     private void SetupAudioSources()
+
     {
+
         _audioSource = gameObject.AddComponent<AudioSource>();
+
         _audioSource.spatialBlend = 1.0f;
+
         _audioSource.minDistance = 1.5f;
+
         _audioSource.maxDistance = 20.0f;
+
         _audioSource.playOnAwake = false;
 
+
+
         _footstepAudio = gameObject.AddComponent<AudioSource>();
+
         _footstepAudio.spatialBlend = 1.0f;
+
         _footstepAudio.minDistance = 1.0f;
+
         _footstepAudio.maxDistance = 12.0f;
+
         _footstepAudio.rolloffMode = AudioRolloffMode.Logarithmic;
+
         _footstepAudio.playOnAwake = false;
 
+
+
         // Dedicated 3D spatial audio source for the entity's continuous weeping sound
+
         _weepingAudio = gameObject.AddComponent<AudioSource>();
+
         _weepingAudio.spatialBlend = 1.0f; // 100% 3D spatial audio
+
         _weepingAudio.rolloffMode = AudioRolloffMode.Linear; // Linear attenuation for realistic, clear proximity sensing
+
         _weepingAudio.minDistance = 2.0f; // Full volume within 2 meters
+
         _weepingAudio.maxDistance = 28.0f; // Audible up to 28 meters down hallways
+
         _weepingAudio.loop = true;
+
         _weepingAudio.playOnAwake = false;
+
         _weepingAudio.volume = 0.90f;
+
         _weepingAudio.dopplerLevel = 0.1f;
+
     }
+
+
 
     private void LoadDefaultAudio()
+
     {
+
 #if UNITY_EDITOR
+
         if (alertStingClip == null)
+
             alertStingClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/encountering a proctor.mp3");
 
+
+
         if (jumpscareScreamClip == null)
+
             jumpscareScreamClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/you died (lobotomy sound).mp3");
 
+
+
         if (footstepClip == null)
+
             footstepClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/footsteps walking & running.mp3");
 
+
+
         if (staticHissClip == null)
+
             staticHissClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/vhs static.mp3");
 
+
+
         if (weepingSoundClip == null)
+
             weepingSoundClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/weepingStudentSoundEffect.mp3");
+
 #endif
+
         if (jumpscareScreamClip == null)
+
             jumpscareScreamClip = Resources.Load<AudioClip>("Sounds/you died (lobotomy sound)");
+
         if (alertStingClip == null)
+
             alertStingClip = Resources.Load<AudioClip>("Sounds/encountering a proctor");
+
         if (footstepClip == null)
+
             footstepClip = Resources.Load<AudioClip>("Sounds/footsteps walking & running");
+
         if (staticHissClip == null)
+
             staticHissClip = Resources.Load<AudioClip>("Sounds/vhs static");
+
         if (weepingSoundClip == null)
+
             weepingSoundClip = Resources.Load<AudioClip>("Sounds/weepingStudentSoundEffect");
+
     }
+
+
 
     private void ConfigureNavMeshAgent()
+
     {
+
         if (_agent == null) return;
+
         _agent.speed = chaseSpeed;
+
         _agent.acceleration = acceleration;
+
         _agent.angularSpeed = angularSpeed;
+
         _agent.stoppingDistance = stoppingDistance;
+
         _agent.radius = 0.40f;
+
         _agent.height = 1.80f;
+
         _agent.autoTraverseOffMeshLink = false;
+
     }
+
+
 
     private void FindPlayerReferences()
+
     {
+
         var playerGO = GameObject.FindGameObjectWithTag("Player");
+
         if (playerGO != null)
+
         {
+
             _playerTransform = playerGO.transform;
+
             _playerMovement = playerGO.GetComponent<PlayerMovement>();
+
             if (_playerMovement != null) _playerCam = _playerMovement.playerCamera;
+
         }
+
         if (_playerCam == null) _playerCam = Camera.main;
+
     }
+
+
 
     private void FindBones()
+
     {
+
         foreach (var t in GetComponentsInChildren<Transform>(true))
+
         {
+
             string lower = t.name.ToLower();
+
             if (lower.Contains("head") && _headBone == null) _headBone = t;
+
             else if ((lower.Contains("spine") || lower.Contains("chest")) && _spineBone == null) _spineBone = t;
+
         }
+
     }
 
 
-    // ── Vision / Observation Detection (Weeping Angel Rules) ─────────────────
+
+    private void CacheSampleBonesAndRenderers()
+
+    {
+
+        _cachedSampleBones.Clear();
+
+        foreach (var t in GetComponentsInChildren<Transform>(true))
+
+        {
+
+            string lower = t.name.ToLower();
+
+            if (lower.Contains("head") || lower.Contains("neck") || lower.Contains("jaw") ||
+
+                lower.Contains("spine") || lower.Contains("chest") || lower.Contains("pelvis") || lower.Contains("hips") ||
+
+                lower.Contains("shoulder") || lower.Contains("arm") || lower.Contains("hand") ||
+
+                lower.Contains("leg") || lower.Contains("thigh") || lower.Contains("knee") || lower.Contains("foot") || lower.Contains("toe"))
+
+            {
+
+                _cachedSampleBones.Add(t);
+
+            }
+
+        }
+
+        _cachedRenderers = GetComponentsInChildren<Renderer>(true);
+
+    }
+
+
+
+    // ── Vision / Observation Detection (FNAF SB Endo / Weeping Angel Rules) ─
+
+
 
     private void UpdateObservedStatus()
+
     {
+
         _wasObservedLastFrame = _isObserved;
+
         _isObserved = CheckIfPlayerIsLooking();
 
+
+
         // Sound cue on sudden freeze
+
         if (_isObserved && !_wasObservedLastFrame)
+
         {
+
             if (_audioSource != null && freezeStingClip != null)
+
             {
+
                 _audioSource.PlayOneShot(freezeStingClip, 0.45f);
+
             }
+
         }
+
     }
 
+
+
     /// <summary>
-    /// Returns true if the player has clear line of sight to the Weeping Student
-    /// and either illuminates it with the flashlight or sees its close silhouette.
+
+    /// Returns true if the player has clear line of sight to ANY pixel, skeletal joint,
+
+    /// or bounding box corner of the Weeping Student touching or nearing the camera viewport edge.
+
+    /// Checked every frame for zero-latency instantaneous freezing!
+
     /// </summary>
+
     public bool CheckIfPlayerIsLooking()
+
     {
+
         if (LockerHideManager.IsPlayerHidden)
+
         {
+
             // Player is safely hidden inside the locker peering through vent louvers.
-            // Entity does not freeze from peep slit, allowing it to pace and wander past.
+
             return false;
+
         }
+
+
 
         if (_playerCam == null || _playerTransform == null) return false;
 
+
+
         Vector3 eyePos = _playerCam.transform.position;
-        Vector3 headPos = (_headBone != null) ? _headBone.position : (transform.position + Vector3.up * 1.55f);
-        Vector3 chestPos = transform.position + Vector3.up * 1.0f;
 
-        // 1. Frustum Check: Is head or chest within camera viewport?
-        Vector3 vpHead = _playerCam.WorldToViewportPoint(headPos);
-        Vector3 vpChest = _playerCam.WorldToViewportPoint(chestPos);
 
-        bool inViewport = (vpHead.z > 0.1f && vpHead.x >= -0.05f && vpHead.x <= 1.05f && vpHead.y >= -0.05f && vpHead.y <= 1.05f) ||
-                          (vpChest.z > 0.1f && vpChest.x >= -0.05f && vpChest.x <= 1.05f && vpChest.y >= -0.05f && vpChest.y <= 1.05f);
 
-        if (!inViewport) return false;
+        // Gather candidate sample points:
 
-        // 2. Line of Sight Raycast Check (not blocked by walls or closed doors)
-        Vector3 toHead = headPos - eyePos;
-        float distToHead = toHead.magnitude;
-        bool headVisible = HasClearLineOfSight(eyePos, headPos);
-        bool chestVisible = HasClearLineOfSight(eyePos, chestPos);
+        // 1. Skeletal joints
 
-        if (!headVisible && !chestVisible) return false;
+        // 2. Bounding box corners of all Renderers
 
-        // 3. Darkness / Flashlight Visibility Rule:
-        bool isBlackout = (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive);
-        if (requireFlashlightToFreeze && isBlackout)
+        // 3. Fallback positions (head, chest, base)
+
+        List<Vector3> candidatePoints = new List<Vector3>(24);
+
+
+
+        if (_cachedSampleBones != null && _cachedSampleBones.Count > 0)
+
         {
-            // Close silhouette is visible in the dark (within silhouetteRadius)
-            if (distToHead <= silhouetteRadius)
+
+            for (int i = 0; i < _cachedSampleBones.Count; i++)
+
             {
-                return true;
+
+                if (_cachedSampleBones[i] != null) candidatePoints.Add(_cachedSampleBones[i].position);
+
             }
 
-            // In pitch darkness, requires flashlight beam illumination
-            bool isFlashlightOn = (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn);
-            if (!isFlashlightOn)
-            {
-                var fl = GameObject.Find("FlashlightLight");
-                if (fl != null)
-                {
-                    var l = fl.GetComponent<Light>();
-                    if (l != null && l.enabled && l.intensity > 0.05f) isFlashlightOn = true;
-                }
-            }
-
-            if (isFlashlightOn)
-            {
-                float angleToEnemy = Vector3.Angle(_playerCam.transform.forward, toHead);
-                float spotAngle = FlashlightController.Instance != null ? FlashlightController.Instance.outerSpotAngle : 68.0f; // synced to FlashlightController.outerSpotAngle
-                if (angleToEnemy <= (spotAngle * 0.5f + 14.0f) && distToHead <= 28.0f)
-                {
-                    return true; // Caught in the flashlight beam!
-                }
-            }
-
-            return false;
         }
 
-        // Pure Weeping Angel / SCP-173 rule:
-        // When in camera viewport and not blocked by walls or closed doors:
-        // Clear eye contact freezes the Weeping Student instantly!
-        return true;
+        else
+
+        {
+
+            candidatePoints.Add((_headBone != null) ? _headBone.position : (transform.position + Vector3.up * 1.55f));
+
+            candidatePoints.Add(transform.position + Vector3.up * 1.0f);
+
+            candidatePoints.Add(transform.position + Vector3.up * 0.25f);
+
+        }
+
+
+
+        // Add 8 AABB bounding box corners of the model to catch extremities (elbows, fingers, shoulders)
+
+        if (_cachedRenderers != null && _cachedRenderers.Length > 0)
+
+        {
+
+            for (int r = 0; r < _cachedRenderers.Length; r++)
+
+            {
+
+                var rend = _cachedRenderers[r];
+
+                if (rend != null && rend.enabled)
+
+                {
+
+                    Bounds b = rend.bounds;
+
+                    candidatePoints.Add(b.center);
+
+                    candidatePoints.Add(new Vector3(b.min.x, b.min.y, b.min.z));
+
+                    candidatePoints.Add(new Vector3(b.min.x, b.min.y, b.max.z));
+
+                    candidatePoints.Add(new Vector3(b.min.x, b.max.y, b.min.z));
+
+                    candidatePoints.Add(new Vector3(b.min.x, b.max.y, b.max.z));
+
+                    candidatePoints.Add(new Vector3(b.max.x, b.min.y, b.min.z));
+
+                    candidatePoints.Add(new Vector3(b.max.x, b.min.y, b.max.z));
+
+                    candidatePoints.Add(new Vector3(b.max.x, b.max.y, b.min.z));
+
+                    candidatePoints.Add(new Vector3(b.max.x, b.max.y, b.max.z));
+
+                }
+
+            }
+
+        }
+
+
+
+        bool isBlackout = (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive);
+
+        bool isFlashlightOn = (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn);
+
+        if (!isFlashlightOn)
+
+        {
+
+            var fl = GameObject.Find("FlashlightLight");
+
+            if (fl != null)
+
+            {
+
+                var l = fl.GetComponent<Light>();
+
+                if (l != null && l.enabled && l.intensity > 0.05f) isFlashlightOn = true;
+
+            }
+
+        }
+
+        float spotAngle = FlashlightController.Instance != null ? FlashlightController.Instance.outerSpotAngle : 68.0f;
+
+
+
+        // Viewport margin: [-0.06, 1.06] ensures that if even a pixel or polygon edge nears the screen border, it registers!
+
+        const float vpMin = -0.06f;
+
+        const float vpMax = 1.06f;
+
+
+
+        for (int i = 0; i < candidatePoints.Count; i++)
+
+        {
+
+            Vector3 pt = candidatePoints[i];
+
+            Vector3 vp = _playerCam.WorldToViewportPoint(pt);
+
+
+
+            if (vp.z > 0.05f && vp.x >= vpMin && vp.x <= vpMax && vp.y >= vpMin && vp.y <= vpMax)
+
+            {
+
+                // In viewport margin! Test raycast Line-of-Sight
+
+                if (HasClearLineOfSight(eyePos, pt))
+
+                {
+
+                    // If flashlight requirement is active during blackout:
+
+                    if (requireFlashlightToFreeze && isBlackout)
+
+                    {
+
+                        float dist = Vector3.Distance(eyePos, pt);
+
+                        if (dist <= silhouetteRadius) return true; // Close silhouette visible in dark!
+
+
+
+                        if (isFlashlightOn)
+
+                        {
+
+                            Vector3 dir = (pt - eyePos).normalized;
+
+                            float angle = Vector3.Angle(_playerCam.transform.forward, dir);
+
+                            if (angle <= (spotAngle * 0.5f + 16.0f) && dist <= 32.0f)
+
+                            {
+
+                                return true; // Lit by flashlight!
+
+                            }
+
+                        }
+
+                    }
+
+                    else
+
+                    {
+
+                        // Standard rule: clear line of sight freezes the entity instantly!
+
+                        return true;
+
+                    }
+
+                }
+
+            }
+
+        }
+
+
+
+        return false;
+
     }
+
+
 
     private bool HasClearLineOfSight(Vector3 eyePos, Vector3 targetPos)
+
     {
+
         Vector3 dir = targetPos - eyePos;
+
         float dist = dir.magnitude;
+
         if (dist <= 0.1f) return true;
 
+
+
         Ray ray = new Ray(eyePos, dir.normalized);
+
         if (Physics.Raycast(ray, out RaycastHit hit, dist - 0.15f, ~0, QueryTriggerInteraction.Ignore))
+
         {
+
             if (!hit.transform.IsChildOf(transform) && hit.transform != _playerTransform)
+
             {
+
                 // If it hit a thin baluster or fence post, don't count as complete wall occlusion
+
                 if (hit.collider != null && hit.collider.bounds.size.magnitude < 0.25f)
+
                 {
+
                     return true;
+
                 }
+
                 return false;
+
             }
+
         }
+
         return true;
+
     }
+
+
 
     // ── Stalking Movement & Catch Checking ───────────────────────────────────
 
+
+
     private void UpdateStalkingBehavior()
+
     {
+
         float distToPlayer = Vector3.Distance(transform.position, _playerTransform.position);
+
         float dy = Mathf.Abs(transform.position.y - _playerTransform.position.y);
 
+
+
         bool playerHidden = (LockerHideManager.IsPlayerHidden);
+
         bool playerInRoom = IsPositionInsideAnyRoom(_playerTransform.position);
 
+
+
         if (!playerHidden)
+
         {
+
             _lastSeenPlayerPos = _playerTransform.position;
+
         }
 
-        // Catch check: Weeping Angel ONLY catches the player when NOT observed!
-        // When observed, it is a frozen stone statue and cannot attack!
-        if (!_isObserved && !playerHidden && !playerInRoom && distToPlayer <= catchDistance && dy < 1.9f)
+
+
+        // Catch & Jumpscare check: Student Entity triggers violent jumpscare when very near the player!
+
+        // Triggers either when sneaking up unobserved (dist <= catchDistance) OR point-blank face contact (dist <= 1.35m)
+
+        bool isVeryNear = distToPlayer <= Mathf.Max(catchDistance, 1.35f);
+
+        if (!playerHidden && !playerInRoom && isVeryNear && dy < 1.9f)
+
         {
+
+            if (DevDemoPanel.IsGodModeActive)
+
+            {
+
+                // God Mode: halts right at catch threshold without triggering jumpscare!
+
+                return;
+
+            }
+
             TriggerCatchJumpscare();
+
             return;
+
         }
+
+
 
         if (_isObserved)
+
         {
+
             // ── FROZEN (Statue Mode) ─────────────────────────────────────────
+
             // Complete petrified stillness — cannot move an inch!
+
             if (_agent != null && _agent.isOnNavMesh)
+
             {
+
                 _agent.isStopped = true;
+
                 _agent.velocity = Vector3.zero;
+
             }
+
+
 
             if (_animator != null)
+
             {
+
                 _animator.speed = 0f; // Frozen in current animation frame
+
                 _animator.SetFloat(_speedHash, 0f);
+
             }
+
+
 
             if (_footstepAudio != null && _footstepAudio.isPlaying)
+
             {
+
                 _footstepAudio.Pause();
+
             }
+
         }
+
         else
+
         {
+
             if (playerHidden)
+
             {
+
                 // ── SEARCHING LOST STUDENT (Locker Hiding Mode) ───────────────
-                // Player ducked into a locker! Entity searches the corridor near where the student was last seen.
+
                 if (_agent != null && _agent.isOnNavMesh)
+
                 {
+
                     _agent.isStopped = false;
-                    _agent.speed = 2.4f; // Slower eerie pacing search speed
+
+                    _agent.speed = 2.4f;
+
+
 
                     _lostPlayerPatrolTimer -= Time.deltaTime;
+
                     if (_lostPlayerPatrolTimer <= 0f || _agent.remainingDistance < 0.6f)
+
                     {
+
                         _lostPlayerPatrolTimer = UnityEngine.Random.Range(2.5f, 5.0f);
+
                         float centerZ = (_lastSeenPlayerPos != Vector3.zero) ? _lastSeenPlayerPos.z : transform.position.z;
+
                         float offsetZ = UnityEngine.Random.Range(-4.5f, 4.5f);
+
                         float targetZ = Mathf.Clamp(centerZ + offsetZ, hallwayMinZ + 2f, hallwayMaxZ - 2f);
+
                         float targetX = hallwayCenterX + UnityEngine.Random.Range(-hallwayHalfWidth * 0.35f, hallwayHalfWidth * 0.35f);
+
                         Vector3 rawTarget = new Vector3(targetX, transform.position.y, targetZ);
+
                         NavMeshHit hit;
+
                         if (NavMesh.SamplePosition(rawTarget, out hit, 3.0f, NavMesh.AllAreas))
+
                         {
+
                             _lostPlayerWanderTarget = hit.position;
+
                             _agent.SetDestination(_lostPlayerWanderTarget);
+
                         }
+
                     }
+
                 }
+
+
 
                 if (_animator != null)
+
                 {
-                    _animator.speed = 1.0f;
-                    _animator.SetFloat(_speedHash, 1.0f); // Walking pace while searching
+
+                    _animator.speed = endoTeleportMode ? 0f : 1.0f;
+
+                    _animator.SetFloat(_speedHash, endoTeleportMode ? 0f : 1.0f);
+
                 }
 
+
+
                 UpdateFootstepAudio();
+
             }
+
             else
+
             {
-                // ── CHARGING (Weeping Angel Movement Mode) ───────────────────────
-                // Player is not looking! Aggressively surge toward player!
-                if (_agent != null && _agent.isOnNavMesh)
-                {
-                    _agent.isStopped = false;
-                    _agent.speed = chaseSpeed;
 
-                    Vector3 targetPos = GetHallwayTarget(_playerTransform.position);
-                    _agent.SetDestination(targetPos);
+                // ── CHARGING / ADVANCING (Unobserved Mode) ────────────────────
+
+                if (endoTeleportMode)
+
+                {
+
+                    // FNAF SECURITY BREACH ENDO MODE:
+
+                    // STRICTLY ZERO WALKING ANIMATION — DISCRETE STOP-MOTION TELEPORT STEPS!
+
+                    if (_agent != null && _agent.isOnNavMesh)
+
+                    {
+
+                        _agent.isStopped = true;
+
+                        _agent.velocity = Vector3.zero;
+
+                    }
+
+
+
+                    if (_animator != null)
+
+                    {
+
+                        _animator.speed = 0f;
+
+                        _animator.SetFloat(_speedHash, 0f);
+
+                    }
+
+
+
+                    // Smoothly rotate to face the player even while waiting for the next step jump
+
+                    Vector3 lookDir = _playerTransform.position - transform.position;
+
+                    lookDir.y = 0f;
+
+                    if (lookDir.sqrMagnitude > 0.01f)
+
+                    {
+
+                        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(lookDir), angularSpeed * Time.deltaTime);
+
+                    }
+
+
+
+                    _teleportStepTimer -= Time.deltaTime;
+
+                    if (_teleportStepTimer <= 0f)
+
+                    {
+
+                        _teleportStepTimer = Mathf.Max(0.08f, teleportStepInterval);
+
+                        PerformEndoStep();
+
+                    }
+
                 }
 
-                if (_animator != null)
+                else
+
                 {
-                    _animator.speed = 1.35f; // Rapid terrifying pursuit motion
-                    _animator.SetFloat(_speedHash, 2.0f); // Full running motion
+
+                    // Classic Smooth Running Mode (Fallback)
+
+                    if (_agent != null && _agent.isOnNavMesh)
+
+                    {
+
+                        _agent.isStopped = false;
+
+                        _agent.speed = chaseSpeed;
+
+
+
+                        Vector3 targetPos = GetHallwayTarget(_playerTransform.position);
+
+                        _agent.SetDestination(targetPos);
+
+                    }
+
+
+
+                    if (_animator != null)
+
+                    {
+
+                        _animator.speed = 1.35f;
+
+                        _animator.SetFloat(_speedHash, 2.0f);
+
+                    }
+
+
+
+                    UpdateFootstepAudio();
+
                 }
 
-                UpdateFootstepAudio();
             }
+
         }
+
+
 
         // Dynamically ensure 3D weeping audio is active and modulate volume/pitch
+
         if (_weepingAudio != null)
+
         {
+
             if (!_weepingAudio.isPlaying) StartWeepingAudio();
 
+
+
             // When moving/stalking unobserved, weeping intensifies in volume and pitch
+
             float targetVol = _isObserved ? 0.70f : 1.0f;
+
             float targetPitch = _isObserved ? 0.95f : 1.06f;
+
             _weepingAudio.volume = Mathf.MoveTowards(_weepingAudio.volume, targetVol, Time.deltaTime * 1.5f);
+
             _weepingAudio.pitch = Mathf.MoveTowards(_weepingAudio.pitch, targetPitch, Time.deltaTime * 1.5f);
+
         }
+
     }
+
+
+
+    private void PerformEndoStep()
+
+    {
+
+        if (_playerTransform == null) return;
+
+
+
+        Vector3 targetPos = GetHallwayTarget(_playerTransform.position);
+
+        if (_endoNavPath == null) _endoNavPath = new NavMeshPath();
+
+
+
+        if (NavMesh.CalculatePath(transform.position, targetPos, NavMesh.AllAreas, _endoNavPath) && _endoNavPath.corners.Length >= 2)
+
+        {
+
+            float stepDistance = chaseSpeed * teleportStepInterval;
+
+            Vector3 newPos = AdvanceAlongCorners(_endoNavPath.corners, stepDistance);
+
+
+
+            // Clamp to hallway boundaries
+
+            newPos.z = Mathf.Clamp(newPos.z, hallwayMinZ, hallwayMaxZ);
+
+            newPos.x = Mathf.Clamp(newPos.x, hallwayCenterX - hallwayHalfWidth, hallwayCenterX + hallwayHalfWidth);
+
+
+
+            NavMeshHit hit;
+
+            if (NavMesh.SamplePosition(newPos, out hit, 1.8f, NavMesh.AllAreas))
+
+            {
+
+                newPos = hit.position;
+
+            }
+
+
+
+            transform.position = newPos;
+
+            if (_agent != null && _agent.isOnNavMesh)
+
+            {
+
+                _agent.Warp(newPos);
+
+            }
+
+
+
+            // Snap facing along the path vector towards the player
+
+            Vector3 nextDir = (targetPos - newPos);
+
+            nextDir.y = 0f;
+
+            if (nextDir.sqrMagnitude > 0.01f)
+
+            {
+
+                transform.rotation = Quaternion.LookRotation(nextDir);
+
+            }
+
+
+
+            // Switch to a new uncanny, distorted mannequin statue pose
+
+            if (_animator != null)
+
+            {
+
+                _animator.speed = 0f;
+
+                float randomNormalizedTime = UnityEngine.Random.Range(0.05f, 0.95f);
+
+                _animator.Play(0, -1, randomNormalizedTime);
+
+                _animator.Update(0f);
+
+            }
+
+
+
+            PlayEndoStepSound();
+
+        }
+
+    }
+
+
+
+    private Vector3 AdvanceAlongCorners(Vector3[] corners, float distance)
+
+    {
+
+        if (corners == null || corners.Length == 0) return transform.position;
+
+        if (corners.Length == 1) return corners[0];
+
+
+
+        float accumulated = 0f;
+
+        for (int i = 0; i < corners.Length - 1; i++)
+
+        {
+
+            float segLen = Vector3.Distance(corners[i], corners[i + 1]);
+
+            if (accumulated + segLen >= distance)
+
+            {
+
+                float remaining = distance - accumulated;
+
+                float t = Mathf.Clamp01(remaining / Mathf.Max(0.001f, segLen));
+
+                return Vector3.Lerp(corners[i], corners[i + 1], t);
+
+            }
+
+            accumulated += segLen;
+
+        }
+
+
+
+        return corners[corners.Length - 1];
+
+    }
+
+
+
+    private void PlayEndoStepSound()
+
+    {
+
+        if (_footstepAudio != null && footstepClip != null)
+
+        {
+
+            _footstepAudio.pitch = UnityEngine.Random.Range(0.68f, 0.85f); // Heavy stone/metal mechanical thud
+
+            _footstepAudio.PlayOneShot(footstepClip, 0.85f);
+
+        }
+
+    }
+
+
 
     private void UpdateFootstepAudio()
+
     {
+
         if (!enableFootsteps || _footstepAudio == null || footstepClip == null) return;
 
+
+
         bool isMoving = (_agent != null && _agent.isOnNavMesh && !_agent.isStopped && _agent.velocity.magnitude > 0.2f);
+
         if (!isMoving) return;
 
+
+
         _footstepTimer -= Time.deltaTime;
+
         if (_footstepTimer <= 0f)
+
         {
+
             _footstepTimer = 0.22f; // Rapid stealth scurrying footsteps
+
             _footstepAudio.pitch = UnityEngine.Random.Range(1.10f, 1.35f);
+
             _footstepAudio.PlayOneShot(footstepClip, 0.70f);
+
         }
+
     }
+
+
 
     public void UpdateFloorBoundaries(int floor)
+
     {
+
         assignedFloor = floor;
+
         hallwayCenterX = -84.0f;
+
         switch (floor)
+
         {
+
             case 1:
+
                 assignedHallway = "Hallway_1F";
+
                 hallwayMinZ = -22.0f;
+
                 hallwayMaxZ = 55.0f;
+
                 hallwayHalfWidth = 3.6f;
+
                 break;
+
             case 2:
+
                 assignedHallway = "Hallway_2F";
+
                 hallwayMinZ = -18.0f;
+
                 hallwayMaxZ = 51.0f;
+
                 hallwayHalfWidth = 2.8f;
+
                 break;
+
             case 3:
+
                 assignedHallway = "Hallway_3F";
+
                 hallwayMinZ = -18.0f;
+
                 hallwayMaxZ = 51.0f;
+
                 hallwayHalfWidth = 2.8f;
+
                 break;
+
         }
+
     }
+
+
 
     public bool IsInStairZone(Vector3 pos)
+
     {
+
         // Covers all 3 staircase enclosures (MainStairs, RightStairs, LeftStairs) across all floors
+
         if (pos.x < -94.0f || pos.x > -83.0f) return false;
 
+
+
         if (pos.z >= 11.0f && pos.z <= 22.0f) return true;  // MainStairs
+
         if (pos.z >= 45.0f && pos.z <= 54.0f) return true;  // RightStairs
+
         if (pos.z >= -21.0f && pos.z <= -12.0f) return true; // LeftStairs
 
+
+
         return false;
+
     }
+
+
 
     private Vector3 GetHallwayTarget(Vector3 desiredPos)
+
     {
+
         if (IsInStairZone(desiredPos)) return desiredPos;
 
+
+
         int targetFloor = GetFloorFromY(desiredPos.y);
+
         float minZ = -18.0f;
+
         float maxZ = 51.0f;
+
         float halfW = 2.8f;
 
+
+
         if (targetFloor == 1) { minZ = -22.0f; maxZ = 55.0f; halfW = 3.6f; }
+
         else if (targetFloor == 2) { minZ = -18.0f; maxZ = 51.0f; halfW = 2.8f; }
+
         else if (targetFloor == 3) { minZ = -18.0f; maxZ = 51.0f; halfW = 2.8f; }
 
+
+
         float clampedX = Mathf.Clamp(desiredPos.x, hallwayCenterX - halfW, hallwayCenterX + halfW);
+
         float clampedZ = Mathf.Clamp(desiredPos.z, minZ, maxZ);
+
         return new Vector3(clampedX, desiredPos.y, clampedZ);
+
     }
+
+
 
     private void ClampPositionToAssignedHallway()
+
     {
+
         // Skip corridor clamping while in any of the stairwells
+
         if (IsInStairZone(transform.position)) return;
 
+
+
         Vector3 pos = transform.position;
+
         float clampedX = Mathf.Clamp(pos.x, hallwayCenterX - hallwayHalfWidth, hallwayCenterX + hallwayHalfWidth);
+
         float clampedZ = Mathf.Clamp(pos.z, hallwayMinZ, hallwayMaxZ);
 
+
+
         if (Mathf.Abs(pos.x - clampedX) > 0.05f || Mathf.Abs(pos.z - clampedZ) > 0.05f)
+
         {
+
             pos.x = clampedX;
+
             pos.z = clampedZ;
+
             transform.position = pos;
+
             if (_agent != null && _agent.isOnNavMesh) _agent.Warp(pos);
+
         }
+
     }
 
+
+
     private int GetFloorFromY(float y)
+
     {
+
         if (y < 5.5f) return 1;
+
         if (y < 11.5f) return 2;
+
         return 3;
+
     }
+
+
 
     // ── Catch & Jumpscare Sequence ────────────────────────────────────────────
 
+
+
     [ContextMenu("Test Catch Jumpscare")]
+
     public void TriggerCatchJumpscare()
+
     {
+
+        if (DevDemoPanel.IsGodModeActive) return;
+
+        if (GameModeManager.IsFreeRoamMode) return;
+
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
+
         if (_hasCaughtPlayer) return;
+
         _hasCaughtPlayer = true;
+
         currentState = WeepingState.Jumpscare;
 
+
+
         StartCoroutine(CatchJumpscareSequence());
+
     }
 
+
+
     private IEnumerator CatchJumpscareSequence()
+
     {
+
         Debug.Log("[WeepingStudentAI] PLAYER CAUGHT! Initiating Jumpscare Sequence.");
 
+
+
         // 1. Freeze Agent immediately
+
         if (_agent != null && _agent.isOnNavMesh)
+
         {
+
             _agent.isStopped = true;
+
             _agent.velocity = Vector3.zero;
+
             _agent.enabled = false;
+
         }
 
+
+
         // 2. Freeze player movement and lock camera facing Weeping Student's face
+
         if (_playerMovement != null)
+
         {
+
             _playerMovement.SetControlsEnabled(false);
+
             _playerMovement.isJumpscareCameraOverride = true;
+
         }
+
+
 
         if (_playerCam == null) _playerCam = Camera.main;
 
+
+
         Vector3 camPos = _playerCam.transform.position;
+
         Vector3 camBaseLocalPos = _playerCam.transform.localPosition;
+
         float startFOV = _playerCam.fieldOfView;
+
         float jumpscareFOV = 40.0f;
 
+
+
         // Turn Weeping Student face directly toward camera squarely
+
         Vector3 camFwd = _playerCam.transform.forward;
+
         camFwd.y = 0f;
+
         if (camFwd.sqrMagnitude < 0.001f) camFwd = Vector3.forward;
+
         camFwd.Normalize();
 
+
+
         Vector3 faceDir = -camFwd; // Face directly back at player camera
+
         transform.rotation = Quaternion.LookRotation(faceDir);
 
+
+
         // Compute face offset relative to root (face center is 0.08m below head bone top)
+
         Vector3 faceOffset = (_headBone != null) ? (_headBone.position - Vector3.up * 0.08f - transform.position) : new Vector3(0f, 1.55f * 0.90f, 0f);
 
+
+
         // Desired face position in world space:
+
         // Positioned 0.55m in front of camera, elevated +0.04m above camera eye-level
+
         // Frames face center at exact viewport center (0.50, 0.50), top of skull at y=0.97
+
         Vector3 desiredFacePos = camPos + camFwd * 0.55f + Vector3.up * 0.04f;
 
+
+
         Vector3 targetPos = desiredFacePos - faceOffset;
+
         Vector3 initialPos = transform.position;
 
+
+
         // 3. Audio Horror Screamer
+
         if (_weepingAudio != null && _weepingAudio.isPlaying)
+
         {
+
             _weepingAudio.Stop();
+
         }
+
+
 
         if (_audioSource != null)
+
         {
+
             if (jumpscareScreamClip == null) LoadDefaultAudio();
+
             if (jumpscareScreamClip != null)
+
             {
+
                 _audioSource.spatialBlend = 0f;
+
                 _audioSource.volume = 1.0f;
+
                 _audioSource.PlayOneShot(jumpscareScreamClip, 1.0f);
+
             }
+
         }
+
+
 
         // 4. Initial In-Your-Face Snap-Slam into Camera
+
         float elapsed = 0f;
+
         float initialLungeDuration = 0.50f;
 
+
+
         while (elapsed < initialLungeDuration)
+
         {
+
             elapsed += Time.deltaTime;
+
             float t = elapsed / initialLungeDuration;
+
             float ease = Mathf.Pow(t, 0.35f);
 
+
+
             transform.position = Vector3.Lerp(initialPos, targetPos, ease);
+
             _playerCam.fieldOfView = Mathf.Lerp(startFOV, jumpscareFOV, ease);
 
+
+
             Vector3 currentFacePos = (_headBone != null) ? (_headBone.position - Vector3.up * 0.08f) : (transform.position + faceOffset);
+
             Vector3 lookDir = currentFacePos - _playerCam.transform.position;
+
             if (lookDir.sqrMagnitude > 0.0001f)
+
             {
+
                 _playerCam.transform.rotation = Quaternion.LookRotation(lookDir);
+
             }
 
+
+
             float shakeX = UnityEngine.Random.Range(-0.025f, 0.025f);
+
             float shakeY = UnityEngine.Random.Range(-0.025f, 0.025f);
+
             _playerCam.transform.localPosition = camBaseLocalPos + new Vector3(shakeX, shakeY, 0f);
 
+
+
             yield return null;
+
         }
+
+
 
         // 5. Add Anxiety and drain stamina
+
         if (AnxietyManager.Instance != null)
+
         {
+
             AnxietyManager.Instance.AddAnxiety(jumpscareAnxietyIncrease);
+
             Debug.Log($"[WeepingStudentAI] Added +{jumpscareAnxietyIncrease} anxiety on Weeping Student catch!");
+
         }
+
+
 
         var stamina = FindAnyObjectByType<StaminaSystem>();
+
         if (stamina != null)
+
         {
+
             stamina.currentStamina = Mathf.Max(5f, stamina.currentStamina - staminaDrain);
+
         }
 
+
+
         // Shudder in place for 0.7s
+
         float shudderTime = 0f;
+
         while (shudderTime < 0.70f)
+
         {
+
             shudderTime += Time.deltaTime;
+
             float shakeX = UnityEngine.Random.Range(-0.020f, 0.020f);
+
             float shakeY = UnityEngine.Random.Range(-0.020f, 0.020f);
+
             _playerCam.transform.localPosition = camBaseLocalPos + new Vector3(shakeX, shakeY, 0f);
+
             yield return null;
+
         }
+
+
 
         if (_playerCam != null) _playerCam.transform.localPosition = camBaseLocalPos;
 
-        // 6. Whiteout Flash Overlay (Student remains in same spot!)
-        yield return StartCoroutine(WhiteoutRoutine());
 
-        // 7. Complete Encounter & Despawn
-        TheProctorManager.Instance?.OnProctorCompletedEncounter();
+
+        // Push player backward by 2.4 meters so player has breathing room
+        if (_playerTransform != null && _playerMovement != null && _playerMovement.Controller != null)
+        {
+            Vector3 pushBackDir = -faceDir;
+            pushBackDir.y = 0;
+            _playerMovement.Controller.Move(pushBackDir.normalized * 2.4f);
+        }
+
+        // 6. Entity vanishes behind whiteout flash & restores power immediately!
+        if (TheProctorManager.Instance != null)
+        {
+            TheProctorManager.Instance.TriggerJumpscareWhiteout(staticHissClip, _playerCam, _playerMovement);
+            TheProctorManager.Instance.OnProctorCompletedEncounter();
+        }
+        else if (BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.RestorePower();
+        }
+
         Despawn();
+
     }
 
-    private IEnumerator WhiteoutRoutine()
+
+
+    private void SetRenderersEnabled(bool enabled)
     {
+        if (_cachedRenderers == null || _cachedRenderers.Length == 0)
+            _cachedRenderers = GetComponentsInChildren<Renderer>(true);
+        for (int r = 0; r < _cachedRenderers.Length; r++)
+        {
+            if (_cachedRenderers[r] != null) _cachedRenderers[r].enabled = enabled;
+        }
+    }
+
+    private IEnumerator CatchGraceCooldownRoutine(float duration)
+
+    {
+
+        yield return new WaitForSeconds(duration);
+
+        _hasCaughtPlayer = false;
+
+    }
+
+
+
+    private IEnumerator WhiteoutRoutine()
+
+    {
+
         var hud = GameObject.Find("HudCanvas");
+
         Image whiteoutImg = null;
+
         GameObject whiteoutGO = null;
 
+
+
         if (hud != null)
+
         {
+
             whiteoutGO = new GameObject("WhiteoutOverlay", typeof(RectTransform), typeof(Image));
+
             whiteoutGO.transform.SetParent(hud.transform, false);
+
             var rt = whiteoutGO.GetComponent<RectTransform>();
+
             rt.anchorMin = Vector2.zero;
+
             rt.anchorMax = Vector2.one;
+
             rt.offsetMin = Vector2.zero;
+
             rt.offsetMax = Vector2.zero;
 
+
+
             whiteoutImg = whiteoutGO.GetComponent<Image>();
+
             whiteoutImg.color = new Color(1f, 1f, 1f, 1f);
+
             whiteoutImg.raycastTarget = false;
+
         }
+
+
 
         if (_audioSource != null && staticHissClip != null)
+
         {
+
             _audioSource.PlayOneShot(staticHissClip, 0.7f);
+
         }
 
+
+
+        // Instantly vanish the Weeping Student behind the solid whiteout flash!
+        SetRenderersEnabled(false);
+        if (_weepingAudio != null) _weepingAudio.Stop();
+        if (_footstepAudio != null) _footstepAudio.Stop();
+
         // Hold solid white for 0.35s during shock
+
         yield return new WaitForSeconds(0.35f);
+
+
 
         // NOTE: Student remains in the same spot, does NOT teleport back to spawn point!
 
+
+
         float fadeElapsed = 0f;
+
         float fadeDuration = 1.0f;
+
         float currentFOV = (_playerCam != null) ? _playerCam.fieldOfView : 40f;
+
         float normalFOV = (_playerMovement != null) ? _playerMovement.normalFOV : 60f;
 
+
+
         while (fadeElapsed < fadeDuration)
+
         {
+
             fadeElapsed += Time.deltaTime;
+
             float t = fadeElapsed / fadeDuration;
+
             float alpha = Mathf.Clamp01(1f - t);
+
             if (whiteoutImg != null)
+
             {
+
                 whiteoutImg.color = new Color(1f, 1f, 1f, alpha);
+
             }
+
             if (_playerCam != null)
+
             {
+
                 _playerCam.fieldOfView = Mathf.Lerp(currentFOV, normalFOV, t);
+
             }
+
             yield return null;
+
         }
+
+
 
         if (whiteoutGO != null) Destroy(whiteoutGO);
 
+
+
         if (_playerMovement != null)
+
         {
+
             _playerMovement.isJumpscareCameraOverride = false;
+
             if (_playerCam != null)
+
             {
+
                 _playerCam.fieldOfView = normalFOV;
+
                 _playerMovement.SyncPitch(_playerCam.transform.localEulerAngles.x);
+
             }
+
             _playerMovement.SetControlsEnabled(true);
+
         }
+
     }
+
+
 
     // ── Room & Hallway Filtering ─────────────────────────────────────────────
 
+
+
     private void CacheRoomBounds()
+
     {
+
         _cachedRoomBounds.Clear();
+
         var roomsRoot = GameObject.Find("Rooms");
+
         if (roomsRoot == null) return;
 
+
+
         for (int f = 0; f < roomsRoot.transform.childCount; f++)
+
         {
+
             var floor = roomsRoot.transform.GetChild(f);
+
             for (int r = 0; r < floor.transform.childCount; r++)
+
             {
+
                 var room = floor.transform.GetChild(r);
+
                 var cols = room.GetComponentsInChildren<Collider>(true);
+
                 bool first = true;
+
                 Bounds b = new Bounds();
+
                 foreach (var c in cols)
+
                 {
+
                     if (c.isTrigger) continue;
+
                     if (first) { b = c.bounds; first = false; }
+
                     else b.Encapsulate(c.bounds);
+
                 }
+
                 if (!first)
+
                 {
+
                     b.Expand(new Vector3(-0.15f, 0f, -0.15f));
+
                     _cachedRoomBounds.Add(b);
+
                 }
+
             }
+
         }
+
     }
 
+
+
     private bool IsPositionInsideAnyRoom(Vector3 pos)
+
     {
+
         if (_cachedRoomBounds != null && _cachedRoomBounds.Count > 0)
+
         {
+
             foreach (var b in _cachedRoomBounds)
+
             {
+
                 if (b.Contains(pos)) return true;
+
             }
+
         }
+
         return false;
+
     }
+
+
 
     // ── Despawn ───────────────────────────────────────────────────────────────
 
+
+
     /// <summary>
+
     /// Updates pursuit agility and silhouette freeze radius based on current campus threat level.
+
     /// </summary>
+
     public void ApplyThreatStats(float newChaseSpeed, float newSilhouetteRadius)
+
     {
+
         chaseSpeed = newChaseSpeed;
+
         silhouetteRadius = newSilhouetteRadius;
 
+
+
         if (_agent != null && _agent.isOnNavMesh && !_isObserved)
+
         {
+
             _agent.speed = chaseSpeed;
+
         }
+
+
 
         Debug.Log($"[WeepingStudentAI] Threat stats updated: Chase={chaseSpeed:F1}m/s, SilhouetteRadius={silhouetteRadius:F1}m");
+
     }
 
+
+
     public void Despawn()
+
     {
+
         currentState = WeepingState.Despawning;
 
+
+
         if (_weepingAudio != null && _weepingAudio.isPlaying)
+
         {
+
             _weepingAudio.Stop();
+
         }
+
+
 
         if (_agent != null && _agent.isOnNavMesh)
+
         {
+
             _agent.isStopped = true;
+
             _agent.enabled = false;
+
         }
 
+
+
         if (ActiveWeepingStudent == this) ActiveWeepingStudent = null;
+
+        SetRenderersEnabled(false);
+        gameObject.SetActive(false);
 
         Debug.Log("[WeepingStudentAI] Despawned.");
         Destroy(gameObject);
@@ -955,10 +2334,25 @@ public class WeepingStudentAI : MonoBehaviour
         {
             ActiveWeepingStudent.Despawn();
         }
+        var all = UnityEngine.Object.FindObjectsByType<WeepingStudentAI>(UnityEngine.FindObjectsInactive.Include);
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i] != null && all[i].gameObject != null)
+            {
+                all[i].Despawn();
+            }
+        }
     }
 
+
+
     private void OnDestroy()
+
     {
+
         if (ActiveWeepingStudent == this) ActiveWeepingStudent = null;
+
     }
+
 }
+

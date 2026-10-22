@@ -311,11 +311,8 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
     {
         if (_selectedSlot == null || _selectedSlot.IsEmpty || _selectedSlot.item == null) return;
 
-        if (!_selectedSlot.item.canBeDropped)
-        {
-            Debug.Log($"[StorageMenu] Cannot drop {_selectedSlot.item.itemName} (quest item).");
-            return;
-        }
+// All items can be dropped
+
 
         InventoryItem itemToDrop = _selectedSlot.item;
         _selectedSlot.quantity -= 1;
@@ -514,10 +511,10 @@ public class StorageMenu : MonoBehaviour, ISlotOwner
                 rt.anchorMin = showUse ? new Vector2(0.67f, 0.02f) : new Vector2(0.52f, 0.02f);
                 rt.anchorMax = showUse ? new Vector2(0.97f, 0.16f) : new Vector2(0.96f, 0.16f);
             }
-            Instance._dropButton.interactable = item.canBeDropped;
+            Instance._dropButton.interactable = true;
             if (Instance._dropButtonText != null)
             {
-                Instance._dropButtonText.text = item.canBeDropped ? "Drop [G]" : "Quest Item";
+                Instance._dropButtonText.text = "Drop [G]";
             }
         }
     }

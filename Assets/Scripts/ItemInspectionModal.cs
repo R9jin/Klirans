@@ -199,8 +199,12 @@ public class ItemInspectionModal : MonoBehaviour
         }
 
         // Load authentic typewriter font and horror heading font
-        Font typewriterFont = Resources.Load<Font>("Fonts/Typewriter_Bold");
-        if (typewriterFont == null) typewriterFont = Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold");
+        Font typewriterFont = Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold");
+#if UNITY_EDITOR
+        if (typewriterFont == null)
+            typewriterFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Lucida_Typewriter_Bold.ttf");
+#endif
+        if (typewriterFont == null) typewriterFont = Resources.Load<Font>("Fonts/Typewriter_Bold");
 #if UNITY_EDITOR
         if (typewriterFont == null)
             typewriterFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Typewriter_Bold.ttf");

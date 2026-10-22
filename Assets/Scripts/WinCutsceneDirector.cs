@@ -111,6 +111,38 @@ public class WinCutsceneDirector : MonoBehaviour
         SetUIVisible(false);
     }
 
+    private void Start()
+    {
+        EnsureGateBarrier();
+    }
+
+    private void EnsureGateBarrier()
+    {
+        if (_securityGateTransform == null)
+        {
+            var gateGO = GameObject.Find("06_Security_Grille_Gate");
+            if (gateGO != null)
+            {
+                _securityGateTransform = gateGO.transform;
+                _securityGateClosedPos = _securityGateTransform.position;
+            }
+        }
+
+        if (_securityGateTransform != null)
+        {
+            // Ensure the exit gate has a solid barrier collider so the player cannot slip through without winning!
+            var col = _securityGateTransform.GetComponent<BoxCollider>();
+            if (col == null)
+            {
+                col = _securityGateTransform.gameObject.AddComponent<BoxCollider>();
+                col.size = new Vector3(2.8f, 3.2f, 0.4f);
+                col.center = new Vector3(0f, 1.6f, 0f);
+            }
+            col.isTrigger = false;
+            col.enabled = true;
+        }
+    }
+
     private void OnDestroy()
     {
         if (Instance == this) Instance = null;
@@ -119,12 +151,31 @@ public class WinCutsceneDirector : MonoBehaviour
     private void Update()
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (Input.GetKeyDown(debugTriggerKey) && !IsCutsceneActive)
+        if (GameModeManager.IsFreeRoamMode && Input.GetKeyDown(debugTriggerKey) && !IsCutsceneActive)
         {
             PlayWinCutscene();
             return;
         }
 #endif
+
+        // Proximity trigger: If clearance slip is officially submitted or gate is unlocked,
+        // reaching the lobby main entrance gate triggers the win escape sequence!
+        if (!IsCutsceneActive && (DevDemoPanel.IsGateUnlocked || (ClearanceManager.Instance != null && ClearanceManager.Instance.IsSlipSubmitted)))
+        {
+            if (_playerMovement == null) FindPlayerReferences();
+            if (_playerMovement != null)
+            {
+                Vector3 p = _playerMovement.transform.position;
+                Vector3 gateTarget = new Vector3(-75.48f, 2.35f, 14.43f);
+                float distToGate = Vector3.Distance(new Vector3(p.x, 0, p.z), new Vector3(gateTarget.x, 0, gateTarget.z));
+                float dy = Mathf.Abs(p.y - gateTarget.y);
+                if (distToGate < 3.2f && dy < 2.5f)
+                {
+                    PlayWinCutscene();
+                    return;
+                }
+            }
+        }
 
         if (!IsCutsceneActive || _hasSkipped) return;
 
@@ -344,14 +395,15 @@ public class WinCutsceneDirector : MonoBehaviour
 
     private IEnumerator CutsceneSequence()
     {
-        // ── BEAT 1: Gate Unlocking & Creaking Open ───────────────────────────
-        Vector3 lobbyStartPos = new Vector3(-77.8f, 2.35f, 16.50f);
-        Vector3 outdoorSidewalkPos = new Vector3(-71.8f, 2.35f, 16.50f);
+        // ── BEAT 1: Right-Side Exit Gate Unlocking & Creaking Open ───────────
+        // Pass cleanly along the right side corridor (Z = 14.43), completely avoiding the security guard table (Z = 16.50)
+        Vector3 lobbyStartPos = new Vector3(-79.5f, 2.35f, 14.43f);
+        Vector3 outdoorSidewalkPos = new Vector3(-70.2f, 2.35f, 14.43f);
 
         if (_playerMovement != null)
         {
             _playerMovement.transform.position = lobbyStartPos;
-            // Face East (+X, Yaw = 90°) directly toward the Main Exit Gate and street
+            // Face East (+X, Yaw = 90°) directly toward the Right Exit Gate and street
             _playerMovement.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
         }
         if (_playerCamera != null)
@@ -365,25 +417,54 @@ public class WinCutsceneDirector : MonoBehaviour
             _sfxSource.PlayOneShot(gateOpenClip, 0.95f);
         }
 
-        ShowSubtitle("ESTUDYANTE (IKAW)", "Bukas na ang mga trangka ng Main Gate! Kumpleto na ang clearance ko—heto na ang pagkakataon ko!", "PNC MAIN GATE // 11:58 PM");
+        ShowSubtitle("ESTUDYANTE (IKAW)", "Bukas na ang mga trangka ng Main Gate sa kanan! Kumpleto na ang clearance ko—heto na ang pagkakataon ko!", "PNC RIGHT EXIT GATE // 11:58 PM");
 
-        // Slide the iron security grille gate open smoothly
+        // Locate right exit gate and disable any blocking solid colliders
+        Transform rightGateTransform = null;
+        var rightGateGO = GameObject.Find("RightEntrance_BarredGate");
+        if (rightGateGO != null)
+        {
+            rightGateTransform = rightGateGO.transform;
+        }
+        else if (_securityGateTransform != null)
+        {
+            rightGateTransform = _securityGateTransform;
+        }
+
+        var solidBlocker = GameObject.Find("LobbyExit_SolidGateBlocker");
+        if (solidBlocker != null)
+        {
+            var bCol = solidBlocker.GetComponent<Collider>();
+            if (bCol != null) bCol.enabled = false;
+        }
+
+        if (rightGateTransform != null)
+        {
+            foreach (var col in rightGateTransform.GetComponentsInChildren<Collider>(true))
+            {
+                col.enabled = false;
+            }
+        }
+
+        Vector3 rightGateClosedPos = rightGateTransform != null ? rightGateTransform.position : Vector3.zero;
+        Vector3 rightGateOpenPos = rightGateClosedPos + new Vector3(0f, 0f, -2.5f);
+
+        // Slide the iron right gate open smoothly
         float gateOpenDuration = 2.4f;
         float gateElapsed = 0f;
-        Vector3 gateOpenPos = _securityGateClosedPos + new Vector3(0f, 0f, 2.35f);
         while (gateElapsed < gateOpenDuration)
         {
             gateElapsed += Time.unscaledDeltaTime;
             float t = Mathf.SmoothStep(0f, 1f, gateElapsed / gateOpenDuration);
-            if (_securityGateTransform != null)
-                _securityGateTransform.position = Vector3.Lerp(_securityGateClosedPos, gateOpenPos, t);
+            if (rightGateTransform != null)
+                rightGateTransform.position = Vector3.Lerp(rightGateClosedPos, rightGateOpenPos, t);
             yield return null;
         }
 
         yield return new WaitForSeconds(0.4f);
 
-        // ── BEAT 2: Frantic Sprint Out Through the Threshold ─────────────────
-        ShowSubtitle("ESTUDYANTE (IKAW)", "TAKBO! LABAS NA SA CAMPUS BAGO MAG-HATINGGABI!", "PAGTAKAS // MAIN EXIT");
+        // ── BEAT 2: Frantic Sprint Out Through the Right Gate Threshold ───────
+        ShowSubtitle("ESTUDYANTE (IKAW)", "TAKBO! LABAS NA SA CAMPUS BAGO MAG-HATINGGABI!", "PAGTAKAS // RIGHT EXIT GATE");
 
         if (_voiceSource != null && gaspingClip != null)
         {
@@ -428,10 +509,10 @@ public class WinCutsceneDirector : MonoBehaviour
             _sfxSource.pitch = 1.0f;
         }
 
-        // Slam the security grille gate shut behind the student!
-        if (_securityGateTransform != null)
+        // Slam the right gate shut behind the student!
+        if (rightGateTransform != null)
         {
-            _securityGateTransform.position = _securityGateClosedPos;
+            rightGateTransform.position = rightGateClosedPos;
         }
         if (_sfxSource != null && gateSlamClip != null)
         {
@@ -697,7 +778,7 @@ public class WinCutsceneDirector : MonoBehaviour
         _canvasGroup = _canvasGO.GetComponent<CanvasGroup>();
 
         Font horrorFont = LoadFont("Main Menu/watch people die", "Assets/Main Menu/watch people die.ttf");
-        Font typewriterFont = LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
+        Font typewriterFont = LoadFont("Fonts/Lucida_Typewriter_Bold", "Assets/Fonts/Lucida_Typewriter_Bold.ttf") ?? LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
 
         // 1. Dim/Black Backdrop
         var bgGO = new GameObject("BlackBackdrop", typeof(RectTransform), typeof(Image));
@@ -889,9 +970,10 @@ public class WinCutsceneDirector : MonoBehaviour
         srt.sizeDelta = Vector2.zero;
         _clearanceStampsText = stampsGO.GetComponent<Text>();
         _clearanceStampsText.font = typewriterFont;
-        _clearanceStampsText.fontSize = 14;
+        _clearanceStampsText.fontSize = 17;
+        _clearanceStampsText.fontStyle = FontStyle.Bold;
         _clearanceStampsText.lineSpacing = 1.28f;
-        _clearanceStampsText.color = new Color(0.08f, 0.06f, 0.05f, 0.98f);
+        _clearanceStampsText.color = new Color(0.04f, 0.04f, 0.04f, 1f);
         _clearanceStampsText.text =
             "[X] LIBRARY & ARCHIVES    — SIGNED (Rm 308)\n" +
             "[X] GUIDANCE OFFICE       — SIGNED (Rm 207)\n" +
@@ -909,7 +991,7 @@ public class WinCutsceneDirector : MonoBehaviour
         stmpRT.sizeDelta = Vector2.zero;
         _clearanceStatusStampText = stampGO.GetComponent<Text>();
         _clearanceStatusStampText.font = typewriterFont;
-        _clearanceStatusStampText.fontSize = 14;
+        _clearanceStatusStampText.fontSize = 17;
         _clearanceStatusStampText.fontStyle = FontStyle.Bold;
         _clearanceStatusStampText.color = new Color(0.62f, 0.06f, 0.06f, 1f);
         _clearanceStatusStampText.alignment = TextAnchor.MiddleLeft;
@@ -1031,9 +1113,10 @@ public class WinCutsceneDirector : MonoBehaviour
         strt.sizeDelta = Vector2.zero;
         _victoryStatsText = statsTextGO.GetComponent<Text>();
         _victoryStatsText.font = typewriterFont;
-        _victoryStatsText.fontSize = 14;
+        _victoryStatsText.fontSize = 17;
+        _victoryStatsText.fontStyle = FontStyle.Bold;
         _victoryStatsText.lineSpacing = 1.35f;
-        _victoryStatsText.color = new Color(0.08f, 0.06f, 0.05f, 0.98f);
+        _victoryStatsText.color = new Color(0.04f, 0.04f, 0.04f, 1f);
         _victoryStatsText.alignment = TextAnchor.MiddleLeft;
         _victoryStatsText.text =
             "• CLEARANCE SIGNATURES: 6 / 6 KUMPLETO\n" +

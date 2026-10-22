@@ -116,6 +116,15 @@ public class PauseMenu : MonoBehaviour
         // Don't allow pausing during dialogue, jumpscare, vendor, minigame, puzzles, or while reading an inspected note/document
         if (IsAnyModalOrPuzzleOpen) return;
 
+        if (DevDemoPanel.IsOpen)
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                DevDemoPanel.ClosePanel();
+            }
+            return;
+        }
+
         if (Input.GetKeyDown(KeyCode.Escape))
             TogglePause();
     }
@@ -288,6 +297,10 @@ public class PauseMenu : MonoBehaviour
         vlg.padding              = new RectOffset(0, 0, 0, 0);
 
         MakeMenuButton(btnPanel.transform, "Resume",            () => Resume());
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            MakeMenuButton(btnPanel.transform, "Dev / Demo Panel",  () => { Resume(); DevDemoPanel.OpenPanel(); });
+        }
         MakeMenuButton(btnPanel.transform, "Tutorial / Help",   () => TutorialScreenUI.OpenTutorial(0, () => { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }));
         MakeMenuButton(btnPanel.transform, "Settings",          () => GameSettingsManager.OpenSettingsModal(() => { SyncSlidersFromPrefs(); Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }));
         MakeMenuButton(btnPanel.transform, "Main Menu",         () => LoadMenu());

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -221,6 +222,76 @@ public class RegistrarDocumentSortPuzzle : MonoBehaviour
             _docCardInitialPos = documentCardTransform.anchoredPosition;
             SetupDragHandlers();
         }
+
+        EnsureTexturesAssigned();
+    }
+
+    private void EnsureTexturesAssigned()
+    {
+        if (documentCardTransform != null)
+        {
+            var cardImg = documentCardTransform.GetComponent<Image>();
+            if (cardImg != null && cardImg.sprite == null)
+            {
+                cardImg.sprite = LoadSprite("Assets/PlayerAssets/StudentGradeSheet.png");
+                if (cardImg.sprite != null) cardImg.color = Color.white;
+            }
+        }
+
+        if (archivedStampImage != null && archivedStampImage.sprite == null)
+        {
+            archivedStampImage.sprite = LoadSprite("Assets/PlayerAssets/ArchivedStamp.png");
+            if (archivedStampImage.sprite != null) archivedStampImage.color = Color.white;
+        }
+
+        if (trayUIList != null)
+        {
+            Sprite traySprite = LoadSprite("Assets/PlayerAssets/ArchivalTray_Normal.png");
+            if (traySprite != null)
+            {
+                foreach (var tray in trayUIList)
+                {
+                    if (tray != null && tray.trayBackground != null && tray.trayBackground.sprite == null)
+                    {
+                        tray.trayBackground.sprite = traySprite;
+                    }
+                }
+            }
+        }
+    }
+
+    private Sprite LoadSprite(string relativePath)
+    {
+        Sprite spr = null;
+#if UNITY_EDITOR
+        spr = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(relativePath);
+        if (spr != null) return spr;
+
+        Texture2D texEd = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(relativePath);
+        if (texEd != null)
+        {
+            return Sprite.Create(texEd, new Rect(0, 0, texEd.width, texEd.height), new Vector2(0.5f, 0.5f));
+        }
+#endif
+        string fullPath = Path.Combine(Application.dataPath, "..", relativePath).Replace('\\', '/');
+        if (File.Exists(fullPath))
+        {
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(fullPath);
+                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (tex.LoadImage(bytes))
+                {
+                    tex.name = Path.GetFileNameWithoutExtension(relativePath);
+                    return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[RegistrarDocumentSortPuzzle] Failed to load sprite from {fullPath}: {ex.Message}");
+            }
+        }
+        return spr;
     }
 
     private void Start()

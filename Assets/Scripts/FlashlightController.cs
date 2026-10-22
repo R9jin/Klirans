@@ -238,8 +238,8 @@ public class FlashlightController : MonoBehaviour
         return false;
     }
 
-    public static readonly Vector3 OffhandPosition = new Vector3(-0.26f, -0.22f, 0.42f);
-    public static readonly Quaternion OffhandRotation = Quaternion.Euler(-2.5f, 186f, 3.5f);
+    public static readonly Vector3 OffhandPosition = new Vector3(-0.30f, -0.27f, 0.28f);
+    public static readonly Quaternion OffhandRotation = Quaternion.Euler(-1.5f, 185f, 4.0f);
 
     private void Update()
     {

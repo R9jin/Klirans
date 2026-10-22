@@ -340,7 +340,7 @@ public class ItemInspectionViewer3D : MonoBehaviour
         _canvasGroup = canvasGO.AddComponent<CanvasGroup>();
 
         // Fonts
-        Font typewriterFont = LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
+        Font typewriterFont = LoadFont("Fonts/Lucida_Typewriter_Bold", "Assets/Fonts/Lucida_Typewriter_Bold.ttf") ?? LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
         Font horrorFont = LoadFont("Fonts/watch people die", "Assets/Main Menu/watch people die.ttf") ?? typewriterFont;
 
         // 1. Fullscreen Backdrop Image (Dark Tint)

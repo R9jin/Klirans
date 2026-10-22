@@ -131,7 +131,7 @@ public class OpeningCutsceneDirector : MonoBehaviour
     private void Update()
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (Input.GetKeyDown(replayCutsceneKey) && !IsCutsceneActive)
+        if (GameModeManager.IsFreeRoamMode && Input.GetKeyDown(replayCutsceneKey) && !IsCutsceneActive)
         {
             PlayCutscene();
             return;
@@ -215,27 +215,22 @@ public class OpeningCutsceneDirector : MonoBehaviour
         if (_sfxSource != null) _sfxSource.Stop();
 
         ConcludeCutscene();
-        StartCoroutine(FastSkipTransition());
-    }
-
-    private IEnumerator FastSkipTransition()
-    {
-        float fade = 0.30f;
-        Color c = _blackBackdrop != null ? _blackBackdrop.color : Color.black;
-        while (fade > 0f)
-        {
-            fade -= Time.unscaledDeltaTime;
-            c.a = Mathf.Clamp01(fade / 0.30f);
-            if (_blackBackdrop != null) _blackBackdrop.color = c;
-            yield return null;
-        }
-
-        SetUIVisible(false);
     }
 
     private void ConcludeCutscene()
     {
         IsCutsceneActive = false;
+
+        FindPlayerReferences();
+
+        // Immediately dismiss all cutscene UI artifacts so nothing lingers on screen
+        HideSubtitles();
+        if (_timeCardBox != null) _timeCardBox.SetActive(false);
+        if (_clearanceSlipPreviewBox != null) _clearanceSlipPreviewBox.SetActive(false);
+        if (_skipPromptRoot != null) _skipPromptRoot.SetActive(false);
+        SetLetterboxVisible(false);
+        SetEyelidsOpenAmount(1.0f);
+        SetUIVisible(false);
 
         if (_playerCamera != null)
         {
@@ -246,14 +241,22 @@ public class OpeningCutsceneDirector : MonoBehaviour
         if (_playerMovement != null)
         {
             _playerMovement.isDialogueCameraOverride = false;
+            _playerMovement.isJumpscareCameraOverride = false;
             _playerMovement.SyncPitch(0f);
             _playerMovement.SetControlsEnabled(true);
         }
 
         HideGameplayHUD(false);
 
+        Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+
+        // Apply a grace period so wandering NPCs don't jumpscare the player the instant they wake up
+        if (NPCJumpscareManager.Instance != null)
+        {
+            NPCJumpscareManager.Instance.ApplyGraceCooldown(15f);
+        }
 
         if (_sfxSource != null && objectiveChimeClip != null)
         {
@@ -598,7 +601,7 @@ public class OpeningCutsceneDirector : MonoBehaviour
         _canvasGroup = _canvasGO.GetComponent<CanvasGroup>();
 
         Font horrorFont = LoadFont("Main Menu/watch people die", "Assets/Main Menu/watch people die.ttf");
-        Font typewriterFont = LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
+        Font typewriterFont = LoadFont("Fonts/Lucida_Typewriter_Bold", "Assets/Fonts/Lucida_Typewriter_Bold.ttf") ?? LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
 
         // 1. Black Backdrop
         var bgGO = new GameObject("BlackBackdrop", typeof(RectTransform), typeof(Image));

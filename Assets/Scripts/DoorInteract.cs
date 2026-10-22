@@ -81,18 +81,26 @@ public class DoorInteract : MonoBehaviour, IInteractable
         }
     }
 
+    private void EnsureRotationsInitialized()
+    {
+        if (targetRotation.w == 0f && targetRotation.x == 0f && targetRotation.y == 0f && targetRotation.z == 0f)
+        {
+            closedRotation = transform.localRotation;
+            openRotation = closedRotation * Quaternion.AngleAxis(openAngle, rotationAxis);
+            targetRotation = closedRotation;
+        }
+    }
+
     private void Start()
     {
         TrySubscribeBlackout();
 
-        closedRotation = transform.localRotation;
-        openRotation = closedRotation * Quaternion.AngleAxis(openAngle, rotationAxis);
-        targetRotation = closedRotation;
+        EnsureRotationsInitialized();
 
         string dName = gameObject.name.ToLowerInvariant();
-        if (dName.Contains("105") || dName.Contains("comlab"))
+        if (dName.Contains("105") || dName.Contains("106") || dName.Contains("comlab"))
         {
-            // Room 105 ComLab is locked by department custodian, pickable with the lockpin from the lobby
+            // Room 105 / ComLab 1 (106) is locked by department custodian, pickable with the lockpin from the lobby
             isLocked = true;
         }
 
@@ -127,8 +135,26 @@ public class DoorInteract : MonoBehaviour, IInteractable
             return;
         }
 
+        EnsureRotationsInitialized();
+
         if (isLocked)
         {
+            // If player has a lockpin (either specific required item or generic lockpin/lockpick in inventory),
+            // allow picking the mechanical lock cylinder directly even during electrical blackout!
+            bool hasPin = LockpickingMinigame.HasLockpin(requiredLockpinItem);
+            if (hasPin)
+            {
+                if (LockpickingMinigame.Instance != null)
+                {
+                    LockpickingMinigame.Instance.StartLockpicking(this);
+                }
+                else
+                {
+                    Debug.LogWarning("[DoorInteract] Door is locked, but LockpickingMinigame instance was not found!");
+                }
+                return;
+            }
+
             if (isBlackoutLocked)
             {
                 // Play locked handle jiggle rattling sound
@@ -138,33 +164,31 @@ public class DoorInteract : MonoBehaviour, IInteractable
                     audioSource.pitch = 1.35f;
                     audioSource.PlayOneShot(closeSound, 0.45f);
                 }
-                return;
-            }
-
-            bool hasPin = LockpickingMinigame.HasLockpin(requiredLockpinItem);
-            if (!hasPin)
-            {
-                // Play locked handle jiggle rattling sound
-                if (audioSource == null) audioSource = GetComponent<AudioSource>();
-                if (audioSource != null && closeSound != null)
-                {
-                    audioSource.pitch = 1.30f;
-                    audioSource.PlayOneShot(closeSound, 0.50f);
-                }
                 if (ObjectiveHUD.Instance != null)
                 {
-                    ObjectiveHUD.Instance.SetObjective("Kailangan ng Lockpin", "Naka-lock ang Room 105 ComLab. Kumuha ng Lockpin sa Lobby table para buksan ang kandado.");
+                    ObjectiveHUD.Instance.SetObjective("Emergency Lockdown", "Naka-lockdown ang pinto dahil sa blackout. Gamitin ang Lockpin para buksan ang mechanical lock.");
                 }
                 return;
             }
 
-            if (LockpickingMinigame.Instance != null)
+            // Play locked handle jiggle rattling sound
+            if (audioSource == null) audioSource = GetComponent<AudioSource>();
+            if (audioSource != null && closeSound != null)
             {
-                LockpickingMinigame.Instance.StartLockpicking(this);
+                audioSource.pitch = 1.30f;
+                audioSource.PlayOneShot(closeSound, 0.50f);
             }
-            else
+            if (ObjectiveHUD.Instance != null)
             {
-                Debug.LogWarning("[DoorInteract] Door is locked, but LockpickingMinigame instance was not found!");
+                bool isComLab = gameObject.name.ToLowerInvariant().Contains("105") || gameObject.name.ToLowerInvariant().Contains("106") || gameObject.name.ToLowerInvariant().Contains("comlab");
+                if (isComLab)
+                {
+                    ObjectiveHUD.Instance.SetObjective("Kailangan ng Lockpin mula kay Dean", "Naka-lock ang ComLab. Kausapin si CCS Dean sa Room 202 (2nd Floor) upang makuha ang Lockpin.");
+                }
+                else
+                {
+                    ObjectiveHUD.Instance.SetObjective("Naka-lock ang Pinto", "Kailangan ng Lockpin para mabuksan ang pintong ito.");
+                }
             }
             return;
         }
@@ -301,6 +325,8 @@ public class DoorInteract : MonoBehaviour, IInteractable
     /// </summary>
     public string GetPrompt()
     {
+        EnsureRotationsInitialized();
+
         if (Quaternion.Angle(transform.localRotation, targetRotation) > 0.1f)
         {
             return "";
@@ -308,13 +334,19 @@ public class DoorInteract : MonoBehaviour, IInteractable
 
         if (isLocked)
         {
-            if (isBlackoutLocked)
+            bool hasPin = LockpickingMinigame.HasLockpin(requiredLockpinItem);
+            if (hasPin)
             {
-                return "[Locked — Emergency Lockdown Active]";
+                return "Press [E] to Pick Lock";
             }
 
-            bool hasPin = LockpickingMinigame.HasLockpin(requiredLockpinItem);
-            return hasPin ? "Press [E] to Pick Lock" : "Locked (Requires Lockpin from Lobby Table)";
+            if (isBlackoutLocked)
+            {
+                return "[Locked — Emergency Lockdown Active (Requires Lockpin)]";
+            }
+
+            bool isComLab = gameObject.name.ToLowerInvariant().Contains("105") || gameObject.name.ToLowerInvariant().Contains("106") || gameObject.name.ToLowerInvariant().Contains("comlab");
+            return isComLab ? "Locked (Requires Lockpin from CCS Dean in Room 202)" : "Locked (Requires Lockpin)";
         }
 
         return isOpen ? "Press E to Close" : "Press E to Open";

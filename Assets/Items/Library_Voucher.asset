@@ -22,7 +22,7 @@ MonoBehaviour:
   maxStack: 1
   anxietyChange: 0
   staminaChange: 0
-  canBeDropped: 0
+  canBeDropped: 1
   isInspectable: 1
   inspectionTitle: Official Library Clearance Voucher
   inspectionText: '========================================

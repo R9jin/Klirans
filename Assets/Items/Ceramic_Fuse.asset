@@ -16,7 +16,7 @@ MonoBehaviour:
   description: Mabigat na ceramic fuse na may brass caps. Ginagamit sa distribution
     breaker panel ng 2nd floor para ibalik ang kuryente sa computer lab at faculty
     offices.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: dd0e5f7ea0141734ca5c0bd55b526b6d, type: 3}
   itemType: 1
   itemPrefab: {fileID: 5935539037544500797, guid: f2f332b34c173e5408ce3dc7e6b07c33, type: 3}
   isStackable: 1

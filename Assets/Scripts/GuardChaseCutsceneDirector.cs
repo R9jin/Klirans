@@ -143,16 +143,17 @@ public class GuardChaseCutsceneDirector : MonoBehaviour
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
-
+        // Debug trigger F6: only in Free Roam dev mode
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (Input.GetKeyDown(debugTriggerKey) && !IsCutsceneActive)
+        if (GameModeManager.IsFreeRoamMode && Input.GetKeyDown(debugTriggerKey) && !IsCutsceneActive)
         {
-            Debug.Log("[GuardChaseCutsceneDirector] Debug trigger F6 pressed — launching Guard Chase Cutscene!");
+            Debug.Log("[GuardChaseCutsceneDirector] Debug trigger F6 pressed in Free Roam — launching Guard Chase Cutscene!");
             PlayChaseCutscene();
             return;
         }
 #endif
+
+        if (GameModeManager.IsFreeRoamMode) return;
 
         if (!IsCutsceneActive || _hasSkipped) return;
 
@@ -943,7 +944,7 @@ public class GuardChaseCutsceneDirector : MonoBehaviour
         _canvasGroup = _canvasGO.GetComponent<CanvasGroup>();
 
         Font horrorFont = LoadFont("Main Menu/watch people die", "Assets/Main Menu/watch people die.ttf");
-        Font typewriterFont = LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
+        Font typewriterFont = LoadFont("Fonts/Lucida_Typewriter_Bold", "Assets/Fonts/Lucida_Typewriter_Bold.ttf") ?? LoadFont("Fonts/Typewriter_Bold", "Assets/Fonts/Typewriter_Bold.ttf");
 
         // 1. Black Backdrop & Glitch Flash Overlay
         var bgGO = new GameObject("BlackBackdrop", typeof(RectTransform), typeof(Image));

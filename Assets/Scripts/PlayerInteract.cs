@@ -24,9 +24,9 @@ public class PlayerInteract : MonoBehaviour
 
     private void Start()
     {
-        // Ensure comfortable reach across tables/desks
-        if (interactRange < 2.45f || interactRange > 2.8f) interactRange = 2.55f;
-        if (interactRadius < 0.16f || interactRadius > 0.25f) interactRadius = 0.18f;
+        // Ensure comfortable reach across tables/desks and wide forgiving pickup radius
+        if (interactRange < 2.75f) interactRange = 2.85f;
+        if (interactRadius < 0.28f) interactRadius = 0.30f;
 
         // Find the camera attached to the player or one of its children.
         playerCamera = GetComponentInChildren<Camera>();
@@ -44,7 +44,7 @@ public class PlayerInteract : MonoBehaviour
         {
             promptText.gameObject.SetActive(false);
 
-            Font typewriter = Resources.Load<Font>("Fonts/Typewriter_Bold") ?? Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold");
+            Font typewriter = Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold") ?? Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold") ?? Resources.Load<Font>("Fonts/Typewriter_Bold");
 #if UNITY_EDITOR
             if (typewriter == null)
                 typewriter = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Typewriter_Bold.ttf");
@@ -145,10 +145,14 @@ public class PlayerInteract : MonoBehaviour
                         continue;
                     }
                 }
+                else if (isDoor)
+                {
+                    // Doors directly within player reach are immediately interactable; never reject due to door frame or wall trims
+                }
                 else
                 {
                     // Line of sight check for items & props: do not allow interacting through solid walls,
-                    // but never let a table/desk/counter surface block an item, or door frame block a door!
+                    // but never let a table/desk/counter surface block an item!
                     Vector3 targetPos = h.collider.bounds.center + Vector3.up * 0.05f;
                     Vector3 rayDir = targetPos - ray.origin;
                     float rayDist = rayDir.magnitude;
@@ -164,9 +168,8 @@ public class PlayerInteract : MonoBehaviour
                             bool isTableOrSurface = hitName.Contains("table") || hitName.Contains("desk") || hitName.Contains("counter") ||
                                                     hitName.Contains("shelf") || hitName.Contains("blocker") || hitName.Contains("chair");
                             bool isPickupTarget = (interactable is PickupItem) || (interactable is CoinPickup) || (interactable is FragmentPickup) || (interactable is PaperReamPickup);
-                            bool isDoorPart = isDoor && (hitName.Contains("door") || hitName.Contains("frame") || hitName.Contains("jamb") || hitName.Contains("lintel"));
 
-                            if (!(isTableOrSurface && isPickupTarget) && !isDoorPart)
+                            if (!(isTableOrSurface && isPickupTarget))
                             {
                                 continue;
                             }
@@ -180,11 +183,12 @@ public class PlayerInteract : MonoBehaviour
             }
         }
 
-        // Forgiving view-cone assist for ClearanceNPCs so looking anywhere near the staff member,
-        // their desk, laptop, or service counter window effortlessly shows the interaction prompt!
+        // Forgiving wide view-cone assist for all Staff NPCs (ClearanceNPCs, Security Guard, Vendor)
+        // so looking anywhere near the staff member, their desk, laptop, service counter, or window
+        // effortlessly and reliably triggers the interaction prompt!
         if (closestInteractable == null)
         {
-            closestInteractable = FindClearanceNPCInViewCone(ray);
+            closestInteractable = FindStaffNPCInViewCone(ray);
         }
 
         if (closestInteractable != null)
@@ -259,38 +263,86 @@ public class PlayerInteract : MonoBehaviour
         return false;
     }
 
-    private IInteractable FindClearanceNPCInViewCone(Ray ray)
+    private IInteractable FindStaffNPCInViewCone(Ray ray)
     {
-        var npcs = FindObjectsByType<ClearanceNPC>();
-        ClearanceNPC bestNpc = null;
+        IInteractable bestNpc = null;
         float bestScore = float.MaxValue;
+        Vector3 camOrigin = (playerCamera != null) ? playerCamera.transform.position : ray.origin;
 
+        // 1. Check all ClearanceNPCs (Registrar, Cashier, Principal, Guidance, Clinic, Library)
+        var npcs = FindObjectsByType<ClearanceNPC>();
         for (int i = 0; i < npcs.Length; i++)
         {
             ClearanceNPC npc = npcs[i];
             if (npc == null || !npc.gameObject.activeInHierarchy) continue;
 
-            float distToPlayer = Vector3.Distance(transform.position, npc.transform.position);
-            if (distToPlayer > Mathf.Min(npc.interactionRange, 3.85f)) continue;
+            float allowedRange = Mathf.Max(npc.interactionRange, 4.25f);
+            var staffAI = npc.GetComponent<RoomStaffAI>();
+            if (staffAI != null && staffAI.isRunawayActive) allowedRange = 5.50f;
 
-            // Check chest/desk level (y + 1.0m) and head level (y + 1.5m)
+            float distToPlayer = Vector3.Distance(transform.position, npc.transform.position);
+            if (distToPlayer > allowedRange) continue;
+
             Vector3 chestPos = npc.transform.position + Vector3.up * 1.05f;
             Vector3 headPos  = npc.transform.position + Vector3.up * 1.50f;
 
-            float angleChest = Vector3.Angle(ray.direction, chestPos - ray.origin);
-            float angleHead  = Vector3.Angle(ray.direction, headPos - ray.origin);
+            float angleChest = Vector3.Angle(ray.direction, chestPos - camOrigin);
+            float angleHead  = Vector3.Angle(ray.direction, headPos - camOrigin);
             float minAngle   = Mathf.Min(angleChest, angleHead);
 
-            // Generous 30-degree cone when close to the NPC/counter
-            if (minAngle <= 30f)
+            // Generous 48-degree cone when standing anywhere in front of the counter/desk
+            if (minAngle <= 48f)
             {
-                if (!IsBlockedBySolidRoomWall(ray.origin, headPos, npc.transform.root))
+                if (!IsBlockedBySolidRoomWall(camOrigin, headPos, npc.transform.root))
                 {
-                    float score = minAngle + distToPlayer * 2.5f;
+                    float score = minAngle + distToPlayer * 2.0f;
                     if (score < bestScore)
                     {
                         bestScore = score;
                         bestNpc = npc;
+                    }
+                }
+            }
+        }
+
+        // 2. Check Security Guard (Main Lobby Booth)
+        var guard = FindAnyObjectByType<SecurityGuardInteract>();
+        if (guard != null && guard.gameObject.activeInHierarchy)
+        {
+            float dist = Vector3.Distance(transform.position, guard.transform.position);
+            float allowedRange = Mathf.Max(guard.interactionRange, 4.25f);
+            if (dist <= allowedRange)
+            {
+                Vector3 headPos = guard.transform.position + Vector3.up * 1.45f;
+                float angle = Vector3.Angle(ray.direction, headPos - camOrigin);
+                if (angle <= 48f && !IsBlockedBySolidRoomWall(camOrigin, headPos, guard.transform.root))
+                {
+                    float score = angle + dist * 2.0f;
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        bestNpc = guard;
+                    }
+                }
+            }
+        }
+
+        // 3. Check Ham & Cheese Vendor
+        var vendor = FindAnyObjectByType<HamAndCheeseVendor>();
+        if (vendor != null && vendor.gameObject.activeInHierarchy)
+        {
+            float dist = Vector3.Distance(transform.position, vendor.transform.position);
+            if (dist <= 4.25f)
+            {
+                Vector3 headPos = vendor.transform.position + Vector3.up * 1.45f;
+                float angle = Vector3.Angle(ray.direction, headPos - camOrigin);
+                if (angle <= 48f && !IsBlockedBySolidRoomWall(camOrigin, headPos, vendor.transform.root))
+                {
+                    float score = angle + dist * 2.0f;
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        bestNpc = vendor;
                     }
                 }
             }

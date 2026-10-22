@@ -172,7 +172,7 @@ public class LoadingScreen : MonoBehaviour
             loadingLabel = labelGo.AddComponent<Text>();
 
             // Font — load Typewriter_Bold; fall back to LegacyRuntime
-            var font = Resources.Load<Font>("Fonts/Typewriter_Bold");
+            var font = Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold") ?? Resources.Load<Font>("Fonts/Typewriter_Bold");
 #if UNITY_EDITOR
             if (font == null)
                 font = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Typewriter_Bold.ttf");

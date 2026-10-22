@@ -20,6 +20,9 @@ public static class Item3DModelFactory
     private const string MaterialDir = "Assets/Materials/ItemMaterials";
     private const string PuzzlePrefabDir = "Assets/Prefabs/PuzzleModels";
 
+#if UNITY_EDITOR
+    [MenuItem("KLIRANS/Generate All 3D Item Models")]
+#endif
     public static void GenerateAllModels()
     {
 #if UNITY_EDITOR
@@ -833,7 +836,8 @@ public static class Item3DModelFactory
         GameObject root = new GameObject("Model_BlankPaper");
         var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
-        var slipTex = CreateClearanceSlipTexture();
+        Texture2D slipTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/PlayerAssets/signed0.png");
+        if (slipTex == null) slipTex = CreateClearanceSlipTexture();
         var slipMat = new Material(shader) { name = "Item_ClearanceSlip_Mat", mainTexture = slipTex };
 
         var sheet = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -1200,7 +1204,8 @@ public static class Item3DModelFactory
         GameObject root = new GameObject("Model_StudentHandbook");
         var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
-        var coverTex = CreateStudentHandbookTexture();
+        Texture2D coverTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/ItemInspectTextures/Tex_StudentHandbook.png");
+        if (coverTex == null) coverTex = CreateStudentHandbookTexture();
         var bookMat = new Material(shader) { name = "Item_StudentHandbook_Mat", mainTexture = coverTex };
 
         var ribbonMat = new Material(shader) { name = "Item_RibbonBookmark_Mat" };
@@ -1265,68 +1270,109 @@ public static class Item3DModelFactory
         return tex;
     }
 
-    // ── 14. Improvised Lockpin ────────────────────────────────────────────────
+    // ── 14. Professional Spring-Steel Lockpick & Tension Wrench Toolset ─────────
     private static void GenerateLockpinModel()
     {
         GameObject root = new GameObject("Model_Lockpin");
         var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
         var steelMat = new Material(shader) { name = "Item_SpringSteel_Mat" };
-        steelMat.color = new Color(0.22f, 0.24f, 0.26f, 1f);
+        steelMat.color = new Color(0.72f, 0.75f, 0.78f, 1f); // Machined silver spring steel
         if (steelMat.HasProperty("_Metallic")) steelMat.SetFloat("_Metallic", 0.95f);
-        if (steelMat.HasProperty("_Smoothness")) steelMat.SetFloat("_Smoothness", 0.75f);
+        if (steelMat.HasProperty("_Smoothness")) steelMat.SetFloat("_Smoothness", 0.82f);
 
-        var rubberTipMat = new Material(shader) { name = "Item_RubberTip_Mat" };
-        rubberTipMat.color = new Color(0.06f, 0.06f, 0.08f, 1f);
+        var handleMat = new Material(shader) { name = "Item_KnurledGrip_Mat" };
+        handleMat.color = new Color(0.12f, 0.13f, 0.15f, 1f); // Dark textured polymer grip
+        if (handleMat.HasProperty("_Smoothness")) handleMat.SetFloat("_Smoothness", 0.28f);
 
-        // 1. Curved Bobby Pin U-Bend
-        var uBendMesh = CreateTorusMesh(mainRadius: 0.012f, tubeRadius: 0.0022f, radialSegments: 20, tubeSegments: 12);
-        var uBendGO = new GameObject("UBendLoop", typeof(MeshFilter), typeof(MeshRenderer));
-        uBendGO.transform.SetParent(root.transform, false);
-        uBendGO.transform.localPosition = new Vector3(0f, 0.08f, 0f);
-        uBendGO.GetComponent<MeshFilter>().sharedMesh = uBendMesh;
-        uBendGO.GetComponent<MeshRenderer>().sharedMaterial = steelMat;
+        var chromeMat = new Material(shader) { name = "Item_ChromeFerrule_Mat" };
+        chromeMat.color = new Color(0.92f, 0.94f, 0.96f, 1f);
+        if (chromeMat.HasProperty("_Metallic")) chromeMat.SetFloat("_Metallic", 0.98f);
+        if (chromeMat.HasProperty("_Smoothness")) chromeMat.SetFloat("_Smoothness", 0.92f);
 
-        // 2. Straight Leg
-        var straightLeg = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        straightLeg.name = "StraightLeg";
-        straightLeg.transform.SetParent(root.transform, false);
-        straightLeg.transform.localPosition = new Vector3(-0.012f, 0f, 0f);
-        straightLeg.transform.localScale = new Vector3(0.0044f, 0.08f, 0.0044f);
-        straightLeg.GetComponent<MeshRenderer>().sharedMaterial = steelMat;
-        CleanCollider(straightLeg);
+        // ================= TOOL 1: HOOK LOCKPICK =================
+        var pickGO = new GameObject("Lockpick_Tool");
+        pickGO.transform.SetParent(root.transform, false);
+        pickGO.transform.localPosition = new Vector3(-0.015f, 0f, 0f);
 
-        // 3. Wavy Corrugated Leg (4 ridges)
-        for (int i = 0; i < 4; i++)
+        // 1. Grip Handle (Molded ergonomic handle)
+        var handleMesh = CreateChamferedBoxMesh(w: 0.014f, h: 0.082f, d: 0.0055f, bevel: 0.0016f);
+        var handle = new GameObject("RubberHandle", typeof(MeshFilter), typeof(MeshRenderer));
+        handle.transform.SetParent(pickGO.transform, false);
+        handle.transform.localPosition = new Vector3(0f, -0.045f, 0f);
+        handle.GetComponent<MeshFilter>().sharedMesh = handleMesh;
+        handle.GetComponent<MeshRenderer>().sharedMaterial = handleMat;
+
+        // Grip Ribs / Texture ridges
+        for (int r = 0; r < 5; r++)
         {
-            var wave = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            wave.name = $"Wave_{i}";
-            wave.transform.SetParent(root.transform, false);
-            wave.transform.localPosition = new Vector3(0.012f + ((i % 2 == 0) ? 0.004f : -0.004f), 0.045f - i * 0.025f, 0f);
-            wave.transform.localRotation = Quaternion.Euler(0f, 0f, ((i % 2 == 0) ? 25f : -25f));
-            wave.transform.localScale = new Vector3(0.0044f, 0.018f, 0.0044f);
-            wave.GetComponent<MeshRenderer>().sharedMaterial = steelMat;
-            CleanCollider(wave);
+            var rib = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            rib.name = $"GripRib_{r}";
+            rib.transform.SetParent(handle.transform, false);
+            rib.transform.localPosition = new Vector3(0f, -0.026f + r * 0.013f, 0f);
+            rib.transform.localScale = new Vector3(0.0146f, 0.0022f, 0.0062f);
+            rib.GetComponent<MeshRenderer>().sharedMaterial = handleMat;
+            CleanCollider(rib);
         }
 
-        // 4. Rubber Dip-Coat Ball Tips
-        for (int i = -1; i <= 1; i += 2)
-        {
-            var tip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            tip.name = $"RubberTip_{i}";
-            tip.transform.SetParent(root.transform, false);
-            tip.transform.localPosition = new Vector3(i * 0.012f, -0.08f, 0f);
-            tip.transform.localScale = new Vector3(0.008f, 0.008f, 0.008f);
-            tip.GetComponent<MeshRenderer>().sharedMaterial = rubberTipMat;
-            CleanCollider(tip);
-        }
+        // 2. Chrome Ferrule Collar
+        var ferrule = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        ferrule.name = "ChromeFerrule";
+        ferrule.transform.SetParent(pickGO.transform, false);
+        ferrule.transform.localPosition = new Vector3(0f, 0.001f, 0f);
+        ferrule.transform.localScale = new Vector3(0.008f, 0.006f, 0.008f);
+        ferrule.GetComponent<MeshRenderer>().sharedMaterial = chromeMat;
+        CleanCollider(ferrule);
 
-        var clue = root.AddComponent<InspectableClueMarker>();
-        clue.clueID = "LockpinInfo";
-        clue.clueTitle = "Improbisadong Lockpin";
-        clue.clueDescription = "Baluktot na bobby pin na may corrugated ridges. Pwedeng gamitin pangbukas ng mga lumang drawers at emergency tool boxes.";
-        clue.revealDirection = Vector3.right;
-        clue.detectionAngle = 55.0f;
+        // 3. Spring Steel Pick Shank
+        var shank = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        shank.name = "PickShank";
+        shank.transform.SetParent(pickGO.transform, false);
+        shank.transform.localPosition = new Vector3(0f, 0.046f, 0f);
+        shank.transform.localScale = new Vector3(0.0032f, 0.084f, 0.0014f);
+        shank.GetComponent<MeshRenderer>().sharedMaterial = steelMat;
+        CleanCollider(shank);
+
+        // 4. Hook Tip
+        var hookTip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        hookTip.name = "HookTip";
+        hookTip.transform.SetParent(pickGO.transform, false);
+        hookTip.transform.localPosition = new Vector3(0.0035f, 0.090f, 0f);
+        hookTip.transform.localRotation = Quaternion.Euler(0f, 0f, -38f);
+        hookTip.transform.localScale = new Vector3(0.0028f, 0.014f, 0.0014f);
+        hookTip.GetComponent<MeshRenderer>().sharedMaterial = steelMat;
+        CleanCollider(hookTip);
+
+        // ================= TOOL 2: L-SHAPED TENSION WRENCH =================
+        var wrenchGO = new GameObject("Tension_Wrench");
+        wrenchGO.transform.SetParent(root.transform, false);
+        wrenchGO.transform.localPosition = new Vector3(0.018f, -0.010f, 0f);
+
+        // Long Torque Handle Arm
+        var wrenchHandle = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wrenchHandle.name = "TorqueArm";
+        wrenchHandle.transform.SetParent(wrenchGO.transform, false);
+        wrenchHandle.transform.localPosition = new Vector3(0f, -0.025f, 0f);
+        wrenchHandle.transform.localScale = new Vector3(0.0042f, 0.095f, 0.0016f);
+        wrenchHandle.GetComponent<MeshRenderer>().sharedMaterial = steelMat;
+        CleanCollider(wrenchHandle);
+
+        // 90-degree Insertion Blade Tip
+        var wrenchTip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wrenchTip.name = "KeywayInsertionBlade";
+        wrenchTip.transform.SetParent(wrenchGO.transform, false);
+        wrenchTip.transform.localPosition = new Vector3(0.012f, 0.024f, 0f);
+        wrenchTip.transform.localScale = new Vector3(0.024f, 0.0042f, 0.0016f);
+        wrenchTip.GetComponent<MeshRenderer>().sharedMaterial = steelMat;
+        CleanCollider(wrenchTip);
+
+        // Clue 1: Hook pick tip
+        var clue1 = root.AddComponent<InspectableClueMarker>();
+        clue1.clueID = "LockpickHook";
+        clue1.clueTitle = "Precision Hook Pick & Wrench";
+        clue1.clueDescription = "Propesyonal na spring-steel lockpick at tension wrench. Ginagamit pang-angat ng tumbler pins hanggang sa shear line habang pinipihit ang cylinder plug.";
+        clue1.revealDirection = Vector3.forward;
+        clue1.detectionAngle = 55.0f;
 
         SaveAsPrefab(root, $"{PrefabDir}/Model_Lockpin.prefab");
     }
@@ -1713,7 +1759,8 @@ public static class Item3DModelFactory
         labelFront.transform.localPosition = new Vector3(0f, 0.015f, -0.019f);
         labelFront.transform.localScale = new Vector3(0.26f, 0.12f, 1f);
 
-        Texture2D tapeTexFront = CreateTapeTexture(isSideB: false);
+        Texture2D tapeTexFront = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/ItemInspectTextures/Tex_CassetteTape_A.png");
+        if (tapeTexFront == null) tapeTexFront = CreateTapeTexture(isSideB: false);
         Material matA = new Material(litShader) { mainTexture = tapeTexFront };
         labelFront.GetComponent<MeshRenderer>().sharedMaterial = matA;
         CleanCollider(labelFront);
@@ -1726,7 +1773,8 @@ public static class Item3DModelFactory
         labelBack.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         labelBack.transform.localScale = new Vector3(0.26f, 0.12f, 1f);
 
-        Texture2D tapeTexBack = CreateTapeTexture(isSideB: true);
+        Texture2D tapeTexBack = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Textures/ItemInspectTextures/Tex_CassetteTape_B.png");
+        if (tapeTexBack == null) tapeTexBack = CreateTapeTexture(isSideB: true);
         Material matB = new Material(litShader) { mainTexture = tapeTexBack };
         labelBack.GetComponent<MeshRenderer>().sharedMaterial = matB;
         CleanCollider(labelBack);

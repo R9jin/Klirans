@@ -15,7 +15,7 @@ MonoBehaviour:
   itemName: Philippine 1-Peso Coin
   description: Makintab na 1-piso Pilipino coin (BSP serye). Pwedeng ihulog sa vintage
     vending machine sa cafeteria o emergency hallway payphone.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 4bf21004a8c33b2478f2420d39a611d2, type: 3}
   itemType: 2
   itemPrefab: {fileID: 8597829875680171168, guid: ee1ad51829b333c4ea3a7c976c79779e, type: 3}
   isStackable: 1

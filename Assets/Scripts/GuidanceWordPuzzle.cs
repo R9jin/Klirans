@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -139,6 +140,55 @@ public class GuidanceWordPuzzle : MonoBehaviour
         if (submitButton != null) submitButton.onClick.AddListener(OnSubmitClicked);
         if (clearButton != null) clearButton.onClick.AddListener(OnClearClicked);
         if (closeButton != null) closeButton.onClick.AddListener(ClosePuzzle);
+
+        EnsureTexturesAssigned();
+    }
+
+    private void EnsureTexturesAssigned()
+    {
+        if (puzzlePanel != null)
+        {
+            var panelImg = puzzlePanel.GetComponent<Image>();
+            if (panelImg != null && panelImg.sprite == null)
+            {
+                panelImg.sprite = LoadSprite("Assets/PlayerAssets/GuidancePaperSheet.png");
+                if (panelImg.sprite != null) panelImg.color = Color.white;
+            }
+        }
+    }
+
+    private Sprite LoadSprite(string relativePath)
+    {
+        Sprite spr = null;
+#if UNITY_EDITOR
+        spr = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(relativePath);
+        if (spr != null) return spr;
+
+        Texture2D texEd = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(relativePath);
+        if (texEd != null)
+        {
+            return Sprite.Create(texEd, new Rect(0, 0, texEd.width, texEd.height), new Vector2(0.5f, 0.5f));
+        }
+#endif
+        string fullPath = Path.Combine(Application.dataPath, "..", relativePath).Replace('\\', '/');
+        if (File.Exists(fullPath))
+        {
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(fullPath);
+                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (tex.LoadImage(bytes))
+                {
+                    tex.name = Path.GetFileNameWithoutExtension(relativePath);
+                    return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[GuidanceWordPuzzle] Failed to load sprite from {fullPath}: {ex.Message}");
+            }
+        }
+        return spr;
     }
 
     private void Start()

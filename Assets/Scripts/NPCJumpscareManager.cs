@@ -19,7 +19,16 @@ using UnityEngine.UI;
 /// </summary>
 public class NPCJumpscareManager : MonoBehaviour
 {
-    public static NPCJumpscareManager Instance { get; private set; }
+    private static NPCJumpscareManager _instance;
+    public static NPCJumpscareManager Instance
+    {
+        get
+        {
+            if (_instance == null) _instance = FindAnyObjectByType<NPCJumpscareManager>();
+            return _instance;
+        }
+        private set { _instance = value; }
+    }
 
     [System.Serializable]
     public class WanderingNPCData
@@ -33,8 +42,8 @@ public class NPCJumpscareManager : MonoBehaviour
     }
 
     [Header("Touch & Block Punishment Settings")]
-    [Tooltip("Distance threshold (meters, horizontal XZ) where the player is touching or blocking a walking student.")]
-    public float touchDistanceThreshold = 1.30f;
+    [Tooltip("Distance threshold (meters, horizontal XZ) where the player is touching or blocking a walking student (body collision: ~1.05m).")]
+    public float touchDistanceThreshold = 1.05f;
 
     [Range(0f, 1f)]
     [Tooltip("Probability of being jumpscared when physically touching or blocking a walking student (near 50/50).")]
@@ -47,6 +56,8 @@ public class NPCJumpscareManager : MonoBehaviour
     public float touchRerollCooldown = 5.0f;
 
     [Header("Flashlight Blinding Punishment")]
+    [Tooltip("If true, shining flashlight directly into a student's eyes causes a jumpscare.")]
+    public bool enableFlashlightBlinding = false;
     [Tooltip("Distance threshold for blinding a student with the flashlight.")]
     public float flashlightInFaceRadius = 3.5f;
 
@@ -84,12 +95,14 @@ public class NPCJumpscareManager : MonoBehaviour
     public AudioClip proctorStingClip;
     public AudioClip staticHissClip;
     public AudioClip gaspBreathClip;
+    public AudioClip heartbeatClip;
 
     // ── Internal References ──────────────────────────────────────────────────
     private Camera _playerCam;
     private PlayerMovement _playerMovement;
     private StaminaSystem _staminaSystem;
     private AudioSource _audioSource;
+    private AudioSource _heartbeatSource;
 
     // ── Jumpscare 3D Rig parented to Camera ──────────────────────────────────
     private GameObject _scareRig;
@@ -102,6 +115,7 @@ public class NPCJumpscareManager : MonoBehaviour
     private float _cooldownUntil = 0f;
     private float _touchRerollCooldownUntil = 0f;
     private bool _isScaring = false;
+    private bool _isGuardForced = false;
 
     // ── Wandering Student sources ────────────────────────────────────────────
     private readonly string[] _wanderingStudentNames = new string[]
@@ -151,10 +165,32 @@ public class NPCJumpscareManager : MonoBehaviour
         _audioSource.spatialBlend = 0f; // 2D in-your-face sound
         _audioSource.volume = jumpscareVolume;
 
+        var hbGO = new GameObject("JumpscareHeartbeatSource");
+        hbGO.transform.SetParent(transform, false);
+        _heartbeatSource = hbGO.AddComponent<AudioSource>();
+        _heartbeatSource.playOnAwake = false;
+        _heartbeatSource.spatialBlend = 0f;
+        _heartbeatSource.loop = true;
+        _heartbeatSource.volume = 0f;
+
         LoadDefaultAudio();
         CacheWanderingNPCs();
         CacheRoomBounds();
         BuildScareRig();
+
+        // Initial grace period on scene load so player is never jumpscared the instant the game starts
+        _cooldownUntil = Time.time + 15f;
+        _touchRerollCooldownUntil = Time.time + 15f;
+    }
+
+    /// <summary>
+    /// Grants a grace period during which walking student jumpscares cannot trigger (e.g. after cutscenes or puzzles).
+    /// </summary>
+    public void ApplyGraceCooldown(float duration = 15f)
+    {
+        _cooldownUntil = Mathf.Max(_cooldownUntil, Time.time + duration);
+        _touchRerollCooldownUntil = Mathf.Max(_touchRerollCooldownUntil, Time.time + duration);
+        _flashlightAimTimer = 0f;
     }
 
     private void LoadDefaultAudio()
@@ -171,6 +207,9 @@ public class NPCJumpscareManager : MonoBehaviour
 
         if (gaspBreathClip == null)
             gaspBreathClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/man gasping for air.mp3");
+
+        if (heartbeatClip == null)
+            heartbeatClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/fast heart beat.mp3");
 #endif
         // Runtime fallback for standalone builds
         if (scareStingClip == null)
@@ -181,6 +220,29 @@ public class NPCJumpscareManager : MonoBehaviour
             staticHissClip = Resources.Load<AudioClip>("Sounds/vhs static");
         if (gaspBreathClip == null)
             gaspBreathClip = Resources.Load<AudioClip>("Sounds/man gasping for air");
+        if (heartbeatClip == null)
+            heartbeatClip = Resources.Load<AudioClip>("Sounds/fast heart beat");
+    }
+
+    private Texture2D LoadTexture(string path)
+    {
+#if UNITY_EDITOR
+        var tex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        if (tex != null) return tex;
+#endif
+        string fullPath = System.IO.Path.Combine(Application.dataPath, "..", path).Replace('\\', '/');
+        string targetPath = System.IO.File.Exists(fullPath) ? fullPath : (System.IO.File.Exists(path) ? path : null);
+        if (targetPath != null)
+        {
+            try
+            {
+                byte[] bytes = System.IO.File.ReadAllBytes(targetPath);
+                Texture2D t = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (t.LoadImage(bytes)) return t;
+            }
+            catch {}
+        }
+        return null;
     }
 
     /// <summary>
@@ -282,6 +344,13 @@ public class NPCJumpscareManager : MonoBehaviour
             for (int r = 0; r < floor.transform.childCount; r++)
             {
                 var room = floor.transform.GetChild(r);
+                string rName = room.name.ToLower();
+                if (rName.Contains("locker") || rName.Contains("hallway") || rName.Contains("corridor") ||
+                    rName.Contains("lobby") || rName.Contains("stair") || rName.Contains("circulation"))
+                {
+                    continue;
+                }
+
                 var cols = room.GetComponentsInChildren<Collider>(true);
                 bool first = true;
                 Bounds b = new Bounds();
@@ -294,6 +363,10 @@ public class NPCJumpscareManager : MonoBehaviour
                 }
                 if (!first)
                 {
+                    if ((b.size.z > 18f && b.size.x < 5f) || (b.size.x > 18f && b.size.z < 5f))
+                    {
+                        continue;
+                    }
                     b.Expand(new Vector3(-0.15f, 0f, -0.15f));
                     _cachedRoomBounds.Add(b);
                 }
@@ -345,16 +418,16 @@ public class NPCJumpscareManager : MonoBehaviour
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
-        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
-
-        // Debug trigger for testing: press F8 to test jumpscare immediately
-        if (Input.GetKeyDown(KeyCode.F8))
+        // Debug F8 jumpscare test: only accessible in Free Roam dev mode
+        if (GameModeManager.IsFreeRoamMode && Input.GetKeyDown(KeyCode.F8))
         {
-            Debug.Log("[NPCJumpscareManager] Manual F8 jumpscare triggered!");
+            Debug.Log("[NPCJumpscareManager] Manual F8 jumpscare test triggered in Free Roam!");
             TriggerJumpscare();
             return;
         }
+
+        if (GameModeManager.IsFreeRoamMode) return;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
 
         if (_isScaring) return;
 
@@ -364,13 +437,19 @@ public class NPCJumpscareManager : MonoBehaviour
             var (touchNPC, distXZ) = GetTouchedNPC(touchDistanceThreshold);
             if (touchNPC != null)
             {
-                HandleTouchOrBlock(touchNPC, $"Continuous Proximity/Block (distXZ={distXZ:F2}m)");
-                return;
+                // Only trigger if NPC is actively walking into player or player is running into them (never when standing peacefully)
+                bool npcWalking = touchNPC.proctorAI != null && !touchNPC.proctorAI.IsIdling;
+                bool playerRunning = _playerMovement != null && _playerMovement.IsRunning;
+                if (npcWalking || playerRunning)
+                {
+                    HandleTouchOrBlock(touchNPC, $"Continuous Proximity/Block (distXZ={distXZ:F2}m)");
+                    return;
+                }
             }
         }
 
-        // ── 2. FLASHLIGHT BLINDING PUNISHMENT ────────────────────────────────────
-        if (Time.time >= _cooldownUntil && CanTriggerScare())
+        // ── 2. FLASHLIGHT BLINDING PUNISHMENT (Disabled by default to prevent false scares) ───
+        if (enableFlashlightBlinding && Time.time >= _cooldownUntil && CanTriggerScare())
         {
             if (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn)
             {
@@ -398,20 +477,53 @@ public class NPCJumpscareManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Direct PhysX collision callback: called when CharacterController hits a collider while moving.
-    /// Guarantees that walking into / pushing against the NPC triggers the touch check.
+    /// Invoked by PlayerMovement when the CharacterController collides with any object in the world.
     /// </summary>
-    private void OnControllerColliderHit(ControllerColliderHit hit)
+    public void OnPlayerControllerHit(GameObject hitGO)
     {
         if (GameModeManager.IsFreeRoamMode) return;
         if (_isScaring) return;
-        if (Time.time < _cooldownUntil || Time.time < _touchRerollCooldownUntil) return;
+        if (Time.time < _cooldownUntil) return;
         if (!CanTriggerScare()) return;
 
-        var npc = FindMatchingNPC(hit.collider.gameObject);
+        var npc = FindMatchingNPC(hitGO);
         if (npc != null)
         {
-            HandleTouchOrBlock(npc, "Physical Collision (OnControllerColliderHit)");
+            if (npc.proctorAI != null && !npc.proctorAI.IsTalking)
+            {
+                npc.proctorAI.TriggerImmediateBumpScare();
+            }
+            else
+            {
+                HandleTouchOrBlock(npc, "Physical Collision (OnPlayerControllerHit)");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Directly triggers a jumpscare using the horrifying face of the specified NPC.
+    /// </summary>
+    public void TriggerSpecificNPCJumpscare(GameObject npcGO)
+    {
+        if (GameModeManager.IsFreeRoamMode) return;
+        if (_isScaring) return;
+        if (!CanTriggerScare()) return;
+
+        var npc = FindMatchingNPC(npcGO);
+        if (npc != null)
+        {
+            _proximityChosenSMR = npc.smr;
+            _cooldownUntil = Time.time + jumpscareGlobalCooldown;
+            _touchRerollCooldownUntil = Time.time + jumpscareGlobalCooldown;
+            TriggerJumpscare();
+        }
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (hit != null && hit.collider != null)
+        {
+            OnPlayerControllerHit(hit.collider.gameObject);
         }
     }
 
@@ -427,10 +539,17 @@ public class NPCJumpscareManager : MonoBehaviour
         if (Time.time < _cooldownUntil || Time.time < _touchRerollCooldownUntil) return;
         if (!CanTriggerScare()) return;
 
-        float roll = Random.value;
-        bool shouldScare = (roll < touchScareChance);
+        float effectiveChance = touchScareChance;
+        if (_playerMovement != null)
+        {
+            if (_playerMovement.IsRunning) effectiveChance = Mathf.Min(0.85f, touchScareChance + 0.25f);
+            else if (_playerMovement.IsCrouching) effectiveChance = Mathf.Max(0.15f, touchScareChance - 0.30f);
+        }
 
-        Debug.Log($"[NPCJumpscareManager] Player touched/blocked {npc.name} ({source}). 50/50 Roll: {roll:F2} < {touchScareChance:F2} => {(shouldScare ? "JUMPSCARE!" : "SAFE (reroll cooldown)")}");
+        float roll = Random.value;
+        bool shouldScare = (roll < effectiveChance);
+
+        Debug.Log($"[NPCJumpscareManager] Player touched/blocked {npc.name} ({source}). Roll: {roll:F2} < {effectiveChance:F2} => {(shouldScare ? "JUMPSCARE!" : "SAFE (reroll cooldown)")}");
 
         if (shouldScare)
         {
@@ -563,6 +682,7 @@ public class NPCJumpscareManager : MonoBehaviour
     /// </summary>
     public bool CanTriggerScare()
     {
+        if (DevDemoPanel.IsGodModeActive) return false;
         if (GameModeManager.IsFreeRoamMode) return false;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return false;
         if (PauseMenu.GameIsPaused) return false;
@@ -617,14 +737,16 @@ public class NPCJumpscareManager : MonoBehaviour
     }
 
     [ContextMenu("Trigger Jumpscare Now")]
-    public void TriggerJumpscare(SkinnedMeshRenderer customSMR = null)
+    public void TriggerJumpscare(SkinnedMeshRenderer customSMR = null, bool isGuard = false)
     {
+        if (DevDemoPanel.IsGodModeActive) return;
         if (GameModeManager.IsFreeRoamMode) return;
         if (_isScaring || _scareRig == null) return;
         if (customSMR != null)
         {
             _proximityChosenSMR = customSMR;
         }
+        _isGuardForced = isGuard;
         StartCoroutine(FortniteStyleJumpscareSequence());
     }
 
@@ -641,8 +763,13 @@ public class NPCJumpscareManager : MonoBehaviour
         SkinnedMeshRenderer chosenSMR = _proximityChosenSMR;
         _proximityChosenSMR = null;
 
-        bool isGuardCatch = (chosenSMR != null && (chosenSMR.name.ToLower().Contains("guard") || chosenSMR.transform.root.name.ToLower().Contains("guard"))) ||
+        bool isGuardCatch = _isGuardForced ||
+                            (chosenSMR != null && (chosenSMR.name.ToLower().Contains("guard") ||
+                                                   chosenSMR.transform.root.name.ToLower().Contains("guard") ||
+                                                   chosenSMR.GetComponentInParent<SecurityGuardStalkerAI>() != null ||
+                                                   chosenSMR.GetComponentInParent<SecurityGuardInteract>() != null)) ||
                             (SecurityGuardStalkerAI.ActiveStalker != null && SecurityGuardStalkerAI.ActiveStalker.currentState == SecurityGuardStalkerAI.GuardState.Jumpscare);
+        _isGuardForced = false;
 
         // If the Security Guard stalker is actively catching the student, ALWAYS use the Security Guard model, NEVER fall back to a random student!
         if (isGuardCatch)
@@ -651,8 +778,20 @@ public class NPCJumpscareManager : MonoBehaviour
                 chosenSMR = SecurityGuardStalkerAI.ActiveStalker.GetComponentInChildren<SkinnedMeshRenderer>();
             if (chosenSMR == null)
             {
-                var boothGuard = FindAnyObjectByType<SecurityGuardInteract>(FindObjectsInactive.Include);
+                var boothGuard = GameObject.Find("Security_Guard_NPC") ?? FindAnyObjectByType<SecurityGuardInteract>(FindObjectsInactive.Include)?.gameObject;
                 if (boothGuard != null) chosenSMR = boothGuard.GetComponentInChildren<SkinnedMeshRenderer>(true);
+            }
+            if (chosenSMR == null)
+            {
+                var allSMRs = FindObjectsByType<SkinnedMeshRenderer>(FindObjectsInactive.Include);
+                foreach (var s in allSMRs)
+                {
+                    if (s.name.ToLower().Contains("guard") || s.transform.root.name.ToLower().Contains("guard") || (s.sharedMaterial != null && s.sharedMaterial.name.ToLower().Contains("guard")))
+                    {
+                        chosenSMR = s;
+                        break;
+                    }
+                }
             }
         }
         else if (chosenSMR == null)
@@ -792,14 +931,17 @@ public class NPCJumpscareManager : MonoBehaviour
         _scareMeshFilter.sharedMesh = _activeBakedMesh;
         if (_unlitMaterial != null)
         {
-            Texture charTex = chosenSMR.sharedMaterial != null ? chosenSMR.sharedMaterial.mainTexture : null;
-            if (charTex == null && chosenSMR.sharedMaterial != null && chosenSMR.sharedMaterial.HasProperty("_BaseMap"))
-                charTex = chosenSMR.sharedMaterial.GetTexture("_BaseMap");
-            if (charTex == null && isGuardCatch)
+            Texture charTex = null;
+            if (isGuardCatch)
             {
-#if UNITY_EDITOR
-                charTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/NPC Assets/Texture/guard.png");
-#endif
+                charTex = LoadTexture("Assets/NPC Assets/Animations/Texture/guard.png")
+                       ?? LoadTexture("Assets/NPC Assets/Texture/guard.png");
+            }
+            if (charTex == null && chosenSMR.sharedMaterial != null)
+            {
+                charTex = chosenSMR.sharedMaterial.mainTexture;
+                if (charTex == null && chosenSMR.sharedMaterial.HasProperty("_BaseMap"))
+                    charTex = chosenSMR.sharedMaterial.GetTexture("_BaseMap");
             }
             if (charTex != null)
                 _unlitMaterial.mainTexture = charTex;
@@ -831,68 +973,174 @@ public class NPCJumpscareManager : MonoBehaviour
             _staminaSystem.currentStamina = Mathf.Max(5f, _staminaSystem.currentStamina - staminaDrain);
         }
 
-        // 6. Activate rig and horror vignette
+        // 6. Camera Shock Dynamics & Controls Lock
+        float startFOV = (_playerCam != null) ? _playerCam.fieldOfView : 60f;
+        float jumpscareFOV = 40.0f; // Close-up vertigo focal punch
+        Vector3 camBaseLocalPos = (_playerCam != null) ? _playerCam.transform.localPosition : Vector3.zero;
+        Quaternion camBaseLocalRot = (_playerCam != null) ? _playerCam.transform.localRotation : Quaternion.identity;
+
+        if (_playerMovement != null)
+        {
+            _playerMovement.isJumpscareCameraOverride = true;
+            _playerMovement.SetControlsEnabled(false);
+        }
+
+        // Activate rig and horror vignette
         _scareRig.SetActive(true);
         if (_flashOverlay != null) _flashOverlay.gameObject.SetActive(true);
 
-        float elapsed = 0f;
-        float baseScale = faceScale;
-
-        // 7. Screamer Loop:
-        // Lunging head elevated slightly higher and staring straight into camera lens with violent tremors
-        float basePitch = 0.0f; // Upright direct eye contact with camera lens
-
-        while (elapsed < scareDuration)
+        try
         {
-            elapsed += Time.deltaTime;
-            float t = elapsed / scareDuration;
+            float elapsed = 0f;
+            float baseScale = faceScale;
 
-            // Fast slam towards camera lens
-            float lungeCurve = Mathf.Pow(Mathf.Sin(t * Mathf.PI * 0.5f), 0.6f);
-            float lungeZ = Mathf.Lerp(startDistance, closestDistance, lungeCurve);
+            // 7. Screamer Loop:
+            // Lunging head elevated slightly higher and staring straight into camera lens with violent tremors
+            float basePitch = 0.0f; // Upright direct eye contact with camera lens
 
-            // Violent high-frequency jitter (centered around headHeightOffset, no sideways tilt)
-            float intensity = 1.0f - (t * 0.30f);
-            float jitterX = Random.Range(-0.016f, 0.016f) * intensity;
-            float jitterY = Random.Range(-0.016f, 0.016f) * intensity;
-            float jitterZ = Random.Range(-0.008f, 0.008f) * intensity;
-
-            float pitchJitter = Random.Range(-2.5f, 2.5f) * intensity;
-            float yawJitter = Random.Range(-2.5f, 2.5f) * intensity;
-            float rollJitter = Random.Range(-2.5f, 2.5f) * intensity;
-
-            float scalePulse = baseScale * (1.0f + Random.Range(-0.035f, 0.035f) * intensity);
-
-            _scareRig.transform.localScale = Vector3.one * scalePulse;
-            _scareRig.transform.localPosition = new Vector3(jitterX, headHeightOffset + jitterY, lungeZ + jitterZ);
-            _scareRig.transform.localRotation = Quaternion.Euler(basePitch + pitchJitter, 180f + yawJitter, rollJitter);
-
-            if (_flashOverlay != null)
+            while (elapsed < scareDuration)
             {
-                float flashAlpha = Mathf.Lerp(0.25f, 0f, t);
-                _flashOverlay.color = new Color(0.65f, 0.04f, 0.04f, flashAlpha);
+                elapsed += Time.unscaledDeltaTime;
+                float t = (scareDuration > 0f) ? Mathf.Clamp01(elapsed / scareDuration) : 1f;
+
+                // Fast slam towards camera lens
+                float sinVal = Mathf.Max(0f, Mathf.Sin(t * Mathf.PI * 0.5f));
+                float lungeCurve = Mathf.Pow(sinVal, 0.6f);
+                float lungeZ = Mathf.Lerp(startDistance, closestDistance, lungeCurve);
+                if (float.IsNaN(lungeZ)) lungeZ = closestDistance;
+
+                // Vertigo FOV punch (first 0.28s snaps down to 40 FOV, then holds)
+                if (_playerCam != null)
+                {
+                    float fovProgress = Mathf.Clamp01(elapsed / 0.28f);
+                    _playerCam.fieldOfView = Mathf.Lerp(startFOV, jumpscareFOV, Mathf.Pow(fovProgress, 0.4f));
+                }
+
+                // Violent high-frequency jitter (centered around headHeightOffset, no sideways tilt)
+                float intensity = 1.0f - (t * 0.30f);
+                float jitterX = Random.Range(-0.018f, 0.018f) * intensity;
+                float jitterY = Random.Range(-0.018f, 0.018f) * intensity;
+                float jitterZ = Random.Range(-0.010f, 0.010f) * intensity;
+
+                float pitchJitter = Random.Range(-3.0f, 3.0f) * intensity;
+                float yawJitter = Random.Range(-3.0f, 3.0f) * intensity;
+                float rollJitter = Random.Range(-3.0f, 3.0f) * intensity;
+
+                float scalePulse = baseScale * (1.0f + Random.Range(-0.04f, 0.04f) * intensity);
+
+                _scareRig.transform.localScale = Vector3.one * scalePulse;
+                _scareRig.transform.localPosition = new Vector3(jitterX, headHeightOffset + jitterY, lungeZ + jitterZ);
+                _scareRig.transform.localRotation = Quaternion.Euler(basePitch + pitchJitter, 180f + yawJitter, rollJitter);
+
+                // Camera involuntary recoil & tremors
+                if (_playerCam != null)
+                {
+                    float camRecoilY = Mathf.Sin(t * Mathf.PI) * 0.035f;
+                    float camRecoilZ = -Mathf.Sin(t * Mathf.PI * 0.5f) * 0.05f; // Pulls back in shock
+                    float camShakeX = Random.Range(-0.022f, 0.022f) * intensity;
+                    float camShakeY = Random.Range(-0.022f, 0.022f) * intensity;
+                    _playerCam.transform.localPosition = camBaseLocalPos + new Vector3(camShakeX, camRecoilY + camShakeY, camRecoilZ);
+
+                    float recoilPitch = -Mathf.Sin(t * Mathf.PI) * 4.0f; // Jolt back
+                    float recoilRoll = Random.Range(-1.5f, 1.5f) * intensity;
+                    _playerCam.transform.localRotation = camBaseLocalRot * Quaternion.Euler(recoilPitch, 0f, recoilRoll);
+                }
+
+                if (_flashOverlay != null)
+                {
+                    float flashAlpha = Mathf.Lerp(0.60f, 0.05f, t) + Random.Range(-0.05f, 0.05f);
+                    _flashOverlay.color = new Color(0.72f, 0.03f, 0.03f, Mathf.Clamp01(flashAlpha));
+                }
+
+                yield return null;
             }
 
-            yield return null;
+            // Clean up 3D rig
+            _scareRig.SetActive(false);
+
+            if (_activeBakedMesh != null)
+            {
+                Destroy(_activeBakedMesh);
+                _activeBakedMesh = null;
+            }
+
+            // Post-scare audio: static hiss, gasping for breath, and adrenaline heartbeat
+            if (_audioSource != null)
+            {
+                if (staticHissClip != null) _audioSource.PlayOneShot(staticHissClip, jumpscareVolume * 0.65f);
+                if (gaspBreathClip != null) _audioSource.PlayOneShot(gaspBreathClip, jumpscareVolume * 0.95f);
+            }
+
+            // Start post-scare heart thumping
+            if (_heartbeatSource != null && heartbeatClip != null)
+            {
+                _heartbeatSource.clip = heartbeatClip;
+                _heartbeatSource.volume = 0.85f;
+                _heartbeatSource.pitch = 1.35f;
+                _heartbeatSource.Play();
+            }
+
+            // 8. Smooth Recovery Phase (FOV restoration, heartbeat deceleration, calm reset)
+            float recoveryElapsed = 0f;
+            float recoveryDuration = 1.6f;
+
+            while (recoveryElapsed < recoveryDuration)
+            {
+                recoveryElapsed += Time.unscaledDeltaTime;
+                float rt = recoveryElapsed / recoveryDuration;
+
+                if (_playerCam != null)
+                {
+                    _playerCam.fieldOfView = Mathf.Lerp(jumpscareFOV, startFOV, Mathf.SmoothStep(0f, 1f, rt));
+
+                    float trem = (1f - rt) * 0.007f;
+                    _playerCam.transform.localPosition = Vector3.Lerp(_playerCam.transform.localPosition, camBaseLocalPos, Time.unscaledDeltaTime * 8f)
+                                                        + new Vector3(Random.Range(-trem, trem), Random.Range(-trem, trem), 0f);
+                    _playerCam.transform.localRotation = Quaternion.Slerp(_playerCam.transform.localRotation, camBaseLocalRot, Time.unscaledDeltaTime * 8f);
+                }
+
+                if (_flashOverlay != null)
+                {
+                    float fa = Mathf.Lerp(0.18f, 0f, rt);
+                    _flashOverlay.color = new Color(0.55f, 0.02f, 0.02f, fa);
+                }
+
+                if (_heartbeatSource != null && _heartbeatSource.isPlaying)
+                {
+                    _heartbeatSource.pitch = Mathf.Lerp(1.35f, 0.75f, rt);
+                    _heartbeatSource.volume = Mathf.Lerp(0.85f, 0f, rt);
+                }
+
+                yield return null;
+            }
         }
-
-        // Clean up
-        _scareRig.SetActive(false);
-        if (_flashOverlay != null) _flashOverlay.gameObject.SetActive(false);
-
-        if (_activeBakedMesh != null)
+        finally
         {
-            Destroy(_activeBakedMesh);
-            _activeBakedMesh = null;
-        }
+            if (_heartbeatSource != null && _heartbeatSource.isPlaying) _heartbeatSource.Stop();
 
-        // Post-scare audio: static hiss and gasping for breath
-        if (_audioSource != null)
-        {
-            if (staticHissClip != null) _audioSource.PlayOneShot(staticHissClip, jumpscareVolume * 0.7f);
-            if (gaspBreathClip != null) _audioSource.PlayOneShot(gaspBreathClip, jumpscareVolume * 0.9f);
-        }
+            // Exact camera reset
+            if (_playerCam != null)
+            {
+                _playerCam.fieldOfView = startFOV;
+                _playerCam.transform.localPosition = camBaseLocalPos;
+                _playerCam.transform.localRotation = camBaseLocalRot;
+            }
+            if (_flashOverlay != null) _flashOverlay.gameObject.SetActive(false);
+            if (_scareRig != null) _scareRig.SetActive(false);
+            if (_activeBakedMesh != null)
+            {
+                Destroy(_activeBakedMesh);
+                _activeBakedMesh = null;
+            }
 
-        _isScaring = false;
+            // Restore player movement controls and camera look
+            if (_playerMovement != null)
+            {
+                _playerMovement.isJumpscareCameraOverride = false;
+                _playerMovement.SetControlsEnabled(true);
+            }
+
+            _isScaring = false;
+        }
     }
 }
