@@ -26,11 +26,11 @@ public class ProctorAI : MonoBehaviour
 
     [Header("Patrol Behaviour")]
     public bool loopInOrder = true;
-    public float minIdleTime = 2f;
-    public float maxIdleTime = 4f;
+    public float minIdleTime = 0.5f;
+    public float maxIdleTime = 1.5f;
 
     [Header("Movement")]
-    public float walkSpeed = 1.15f;
+    public float walkSpeed = 1.40f;
     public string speedParam   = "Speed";
     public string talkingParam = "Talking";
 
@@ -61,6 +61,29 @@ public class ProctorAI : MonoBehaviour
     public float maxStareCooldown = 3.0f;
     public float headTurnSpeed = 4.0f;
 
+    [Header("Horror Vision & Aggressive Chase")]
+    [Tooltip("If true, wandering students can spot the player with vision cone or proximity and chase them with an eerie audio sting.")]
+    public bool enableStudentChase = true;
+    [Tooltip("Vision cone angle (degrees from forward).")]
+    public float visionAngle = 70.0f;
+    [Tooltip("Vision cone maximum range (meters).")]
+    public float visionRange = 7.5f;
+    [Tooltip("Proximity detection radius (meters) where NPC senses player even behind/around corners.")]
+    public float proximityRange = 2.8f;
+    [Tooltip("Chase speed when student runs after the player.")]
+    public float chaseSpeed = 3.6f;
+    [Tooltip("Maximum duration of a chase before giving up and returning to patrol.")]
+    public float maxChaseDuration = 4.2f;
+    [Tooltip("Distance at which the chasing student catches the player and triggers jumpscare.")]
+    public float catchDistance = 1.15f;
+    [Range(0f, 1f)]
+    [Tooltip("Base probability of triggering a chase when player is detected in vision/proximity.")]
+    public float chaseChance = 0.20f;
+    [Tooltip("Cooldown after a chase before this student can chase again.")]
+    public float chaseCooldown = 25.0f;
+    [Tooltip("Audio clip played when chase begins (sudden horror sting).")]
+    public AudioClip chaseStingClip;
+
     [Header("Procedural Motion")]
     public bool enableProceduralWalk = true;
     public float walkBobFrequency = 7.5f;
@@ -84,6 +107,9 @@ public class ProctorAI : MonoBehaviour
     private int  _waypointIndex = 0;
     private bool _isIdling      = false;
     private bool _isTalking     = false;
+
+    public bool IsIdling => _isIdling;
+    public bool IsTalking => _isTalking;
     private bool _patrolStarted = false;
     private bool _isTraversingLink = false;
     private float _bobTimer     = 0f;
@@ -94,6 +120,15 @@ public class ProctorAI : MonoBehaviour
     private float _stareTimer           = 0f;
     private float _stareCooldownTimer   = 0f;
     private float _currentStareWeight   = 0f;
+
+    // Horror chase runtime
+    private bool  _isChasing            = false;
+    private float _chaseTimer           = 0f;
+    private float _chaseCooldownTimer   = 0f;
+    private float _detectionTimer       = 0f;
+    private AudioSource _chaseAudio;
+    private static float _globalChaseCooldownUntil = 0f;
+    public bool IsChasing => _isChasing;
 
     private int _speedHash;
     private int _talkingHash;
@@ -137,6 +172,20 @@ public class ProctorAI : MonoBehaviour
             _modelChild = mr.transform;
             _modelInitialLocalPos = _modelChild.localPosition;
             _modelInitialLocalRot = _modelChild.localRotation;
+        }
+
+        _chaseAudio = gameObject.AddComponent<AudioSource>();
+        _chaseAudio.playOnAwake = false;
+        _chaseAudio.spatialBlend = 1.0f;
+        _chaseAudio.minDistance = 2.0f;
+        _chaseAudio.maxDistance = 18.0f;
+        _chaseAudio.rolloffMode = AudioRolloffMode.Linear;
+
+        if (chaseStingClip == null)
+        {
+#if UNITY_EDITOR
+            chaseStingClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/encountering a proctor.mp3");
+#endif
         }
 
         GameSettingsManager.EnforceLobbyRoundTableCollision();
@@ -304,6 +353,7 @@ public class ProctorAI : MonoBehaviour
     }
 
     private float _stuckTimer           = 0f;
+    private float _pathRetryTimer       = 0f;
     private Vector3 _lastSampledPos;
 
     private void Update()
@@ -341,6 +391,25 @@ public class ProctorAI : MonoBehaviour
             return;
         }
 
+        // Horror chase state
+        if (_isChasing)
+        {
+            UpdateChase();
+            SyncAnimator();
+            HandleProceduralMotion();
+            UpdateFootstepAudio();
+            return;
+        }
+
+        // Periodic detection check
+        _chaseCooldownTimer -= Time.deltaTime;
+        _detectionTimer -= Time.deltaTime;
+        if (enableStudentChase && _chaseCooldownTimer <= 0f && Time.time >= _globalChaseCooldownUntil && _detectionTimer <= 0f)
+        {
+            _detectionTimer = 0.35f;
+            CheckVisionAndProximityDetection();
+        }
+
         SyncAnimator();
         HandleProceduralMotion();
         UpdateFootstepAudio();
@@ -349,22 +418,19 @@ public class ProctorAI : MonoBehaviour
         if (waypoints == null || waypoints.Length == 0) return;
         if (_isIdling) return;
 
-        // Check arrival using both 2D distance and agent remainingDistance
+        // Check arrival using flat 2D distance to current waypoint
         bool arrived = false;
         if (waypoints[_waypointIndex] != null)
         {
             Vector3 targetWP = waypoints[_waypointIndex].position;
             Vector3 flatDiff = targetWP - transform.position;
             flatDiff.y = 0f;
-            if (flatDiff.sqrMagnitude <= waypointTolerance * waypointTolerance)
+            float sqrDist = flatDiff.sqrMagnitude;
+            if (sqrDist <= waypointTolerance * waypointTolerance)
             {
                 arrived = true;
             }
-        }
-
-        if (!arrived && _agent.hasPath && !_agent.pathPending)
-        {
-            if (_agent.remainingDistance <= waypointTolerance)
+            else if (_agent.hasPath && !_agent.pathPending && _agent.remainingDistance <= waypointTolerance && sqrDist <= (waypointTolerance * 2.5f) * (waypointTolerance * 2.5f))
             {
                 arrived = true;
             }
@@ -373,6 +439,7 @@ public class ProctorAI : MonoBehaviour
         if (arrived)
         {
             _stuckTimer = 0f;
+            _pathRetryTimer = 0f;
             ArrivedAtWaypoint();
             return;
         }
@@ -382,15 +449,25 @@ public class ProctorAI : MonoBehaviour
         if (_stuckTimer >= 9.0f)
         {
             _stuckTimer = 0f;
+            _pathRetryTimer = 0f;
             AdvanceWaypointIndex();
             GoToNextWaypoint();
             return;
         }
 
-        // Failsafe: if path became invalid or empty, set destination
+        // Failsafe: if path became invalid or empty, re-issue destination with debounce
         if (!_agent.hasPath && !_agent.pathPending)
         {
-            GoToNextWaypoint();
+            _pathRetryTimer += Time.deltaTime;
+            if (_pathRetryTimer >= 1.0f)
+            {
+                _pathRetryTimer = 0f;
+                GoToNextWaypoint();
+            }
+        }
+        else
+        {
+            _pathRetryTimer = 0f;
         }
     }
 
@@ -488,6 +565,185 @@ public class ProctorAI : MonoBehaviour
         }
     }
 
+    // ── Horror Vision & Aggressive Chase Implementation ──────────────────────
+
+    public void StartChase()
+    {
+        if (_isChasing || _isTalking || _playerTransform == null) return;
+        if (!_agent.isOnNavMesh) return;
+
+        _isChasing = true;
+        _chaseTimer = 0f;
+        _chaseCooldownTimer = chaseCooldown;
+        _globalChaseCooldownUntil = Time.time + 15.0f;
+
+        if (_idleCoroutine != null)
+        {
+            StopCoroutine(_idleCoroutine);
+            _idleCoroutine = null;
+        }
+        _isIdling = false;
+
+        _agent.isStopped = false;
+        _agent.speed = chaseSpeed;
+        _agent.acceleration = 20.0f;
+        _agent.SetDestination(_playerTransform.position);
+
+        if (chaseStingClip != null)
+        {
+            if (_chaseAudio != null && _chaseAudio.enabled && _chaseAudio.gameObject.activeInHierarchy)
+            {
+                _chaseAudio.PlayOneShot(chaseStingClip, 0.85f);
+            }
+            else
+            {
+                AudioSource.PlayClipAtPoint(chaseStingClip, transform.position, 0.85f);
+            }
+        }
+
+        Debug.Log($"[ProctorAI] '{name}' SPOTTED PLAYER! Sprinting and chasing!");
+    }
+
+    public void EndChase()
+    {
+        _isChasing = false;
+        _chaseTimer = 0f;
+        _chaseCooldownTimer = chaseCooldown;
+
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.speed = walkSpeed;
+            _agent.acceleration = 12.0f;
+            GoToNextWaypoint();
+        }
+    }
+
+    private void UpdateChase()
+    {
+        if (_playerTransform == null)
+        {
+            EndChase();
+            return;
+        }
+
+        if (LockerHideManager.IsPlayerHidden || OpeningCutsceneDirector.IsAnyCutscenePlaying ||
+            (NPCJumpscareManager.Instance != null && !NPCJumpscareManager.Instance.CanTriggerScare()))
+        {
+            EndChase();
+            return;
+        }
+
+        _chaseTimer += Time.deltaTime;
+
+        Vector3 playerPos = _playerTransform.position;
+        Vector3 diff = playerPos - transform.position;
+        diff.y = 0f;
+        float dist = diff.magnitude;
+
+        // Catch player -> trigger jumpscare!
+        if (dist <= catchDistance)
+        {
+            Debug.Log($"[ProctorAI] '{name}' CAUGHT PLAYER! Triggering jumpscare!");
+            EndChase();
+            if (NPCJumpscareManager.Instance != null)
+            {
+                NPCJumpscareManager.Instance.TriggerSpecificNPCJumpscare(gameObject);
+            }
+            return;
+        }
+
+        // Lost player / timed out / outrun
+        if (_chaseTimer >= maxChaseDuration || dist > 11.5f || Mathf.Abs(transform.position.y - playerPos.y) > 2.0f)
+        {
+            Debug.Log($"[ProctorAI] '{name}' lost sight of player or chase timed out. Returning to patrol.");
+            EndChase();
+            return;
+        }
+
+        // Continue running towards player
+        if (_agent.isOnNavMesh)
+        {
+            _agent.isStopped = false;
+            _agent.speed = chaseSpeed;
+            _agent.SetDestination(playerPos);
+        }
+    }
+
+    public void TriggerImmediateBumpScare()
+    {
+        if (_isTalking || _isChasing) return;
+        if (NPCJumpscareManager.Instance == null || !NPCJumpscareManager.Instance.CanTriggerScare()) return;
+
+        Debug.Log($"[ProctorAI] '{name}' physically bumped by player! Triggering immediate aggro jumpscare!");
+        _globalChaseCooldownUntil = Time.time + 15.0f;
+        _chaseCooldownTimer = chaseCooldown;
+
+        NPCJumpscareManager.Instance.TriggerSpecificNPCJumpscare(gameObject);
+    }
+
+    private void CheckVisionAndProximityDetection()
+    {
+        if (_playerTransform == null || _isTalking || _isChasing || !_agent.isOnNavMesh) return;
+        if (LockerHideManager.IsPlayerHidden) return;
+        if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
+        if (NPCJumpscareManager.Instance != null && !NPCJumpscareManager.Instance.CanTriggerScare()) return;
+
+        // Verify same floor level
+        if (Mathf.Abs(transform.position.y - _playerTransform.position.y) > 1.8f) return;
+
+        Vector3 toPlayer = _playerTransform.position - transform.position;
+        Vector3 toPlayerFlat = toPlayer;
+        toPlayerFlat.y = 0f;
+        float dist = toPlayerFlat.magnitude;
+
+        if (dist > visionRange) return;
+
+        bool inVisionCone = false;
+        if (dist <= visionRange)
+        {
+            float angle = Vector3.Angle(transform.forward, toPlayerFlat);
+            if (angle <= visionAngle)
+            {
+                inVisionCone = true;
+            }
+        }
+
+        bool inProximity = (dist <= proximityRange);
+
+        if (!inVisionCone && !inProximity) return;
+
+        // Line-of-sight check: ensure no solid walls or closed doors block vision
+        Vector3 eyePos = (_headBone != null) ? _headBone.position : (transform.position + Vector3.up * 1.5f);
+        Vector3 playerChest = _playerTransform.position + Vector3.up * 1.2f;
+
+        RaycastHit hit;
+        int mask = LayerMask.GetMask("Default", "Environment", "Walls", "Props");
+        if (mask == 0) mask = ~0;
+        if (Physics.Linecast(eyePos, playerChest, out hit, mask, QueryTriggerInteraction.Ignore))
+        {
+            if (!hit.transform.CompareTag("Player") && !hit.transform.IsChildOf(_playerTransform))
+            {
+                return;
+            }
+        }
+
+        // Calculate chance based on player state
+        float effectiveChance = chaseChance;
+        var pm = _playerTransform.GetComponent<PlayerMovement>();
+        if (pm != null)
+        {
+            if (pm.IsRunning) effectiveChance += 0.35f;
+            if (pm.IsCrouching) effectiveChance -= 0.12f;
+        }
+
+        if (dist <= 1.8f) effectiveChance += 0.40f;
+
+        if (Random.value <= effectiveChance)
+        {
+            StartChase();
+        }
+    }
+
     // ── Public API (ClearanceNPC Dialogue Bridge) ─────────────────────────────
 
     public void SetTalkingState(bool isTalking)
@@ -496,6 +752,8 @@ public class ProctorAI : MonoBehaviour
 
         if (isTalking)
         {
+            if (_isChasing) EndChase();
+
             if (_idleCoroutine != null)
             {
                 StopCoroutine(_idleCoroutine);
@@ -542,31 +800,43 @@ public class ProctorAI : MonoBehaviour
     {
         if (_animator == null) return;
 
-        bool isMoving = !_agent.isStopped && _agent.isOnNavMesh && _agent.hasPath && (_agent.remainingDistance > 0.15f);
+        if (_isChasing)
+        {
+            _animator.SetFloat(_speedHash, 1.85f, 0.08f, Time.deltaTime);
+            return;
+        }
+
+        bool isMoving = !_isTalking && !_isIdling && _agent != null && _agent.isOnNavMesh && !_agent.isStopped && (_agent.velocity.magnitude > 0.12f || _agent.desiredVelocity.magnitude > 0.12f);
 
         if (!isMoving)
         {
-            _animator.SetFloat(_speedHash, 0f, 0.15f, Time.deltaTime);
+            _animator.SetFloat(_speedHash, 0f, 0.12f, Time.deltaTime);
         }
         else
         {
-            float actualSpeed = _agent.velocity.magnitude;
-            // If physically blocked, return to idle
-            if (actualSpeed < 0.10f)
+            float speed = Mathf.Max(_agent.velocity.magnitude, _agent.desiredVelocity.magnitude);
+            float normalizedSpeed = Mathf.Clamp01(speed / Mathf.Max(walkSpeed, 0.01f));
+            if (normalizedSpeed > 0.10f)
             {
-                _animator.SetFloat(_speedHash, 0f, 0.15f, Time.deltaTime);
-                return;
+                normalizedSpeed = Mathf.Max(normalizedSpeed, 0.88f);
             }
-
-            // Smooth linear mapping of actual ground movement to walk animation
-            float normalizedSpeed = Mathf.Clamp01(actualSpeed / Mathf.Max(walkSpeed, 0.01f));
-            _animator.SetFloat(_speedHash, normalizedSpeed, 0.12f, Time.deltaTime);
+            _animator.SetFloat(_speedHash, normalizedSpeed, 0.08f, Time.deltaTime);
         }
     }
 
     private void HandleProceduralMotion()
     {
         if (!enableProceduralWalk || _modelChild == null) return;
+
+        if (_isChasing)
+        {
+            _bobTimer += Time.deltaTime * walkBobFrequency * 1.6f;
+            float chaseBob = Mathf.Abs(Mathf.Sin(_bobTimer)) * (walkBobAmount * 1.35f);
+            _modelChild.localPosition = _modelInitialLocalPos + Vector3.up * chaseBob;
+            float chaseSway = Mathf.Sin(_bobTimer * 0.5f) * (walkSwayAngle * 1.35f);
+            _modelChild.localRotation = _modelInitialLocalRot * Quaternion.Euler(0, 0, chaseSway);
+            return;
+        }
 
         float currentSpeed = _agent.velocity.magnitude;
         if (currentSpeed > 0.15f && !_agent.isStopped)
@@ -592,7 +862,11 @@ public class ProctorAI : MonoBehaviour
     private void ArrivedAtWaypoint()
     {
         _isIdling = true;
-        if (_agent.isOnNavMesh) _agent.isStopped = true;
+        if (_agent.isOnNavMesh)
+        {
+            _agent.isStopped = true;
+            _agent.ResetPath();
+        }
 
         if (_idleCoroutine != null) StopCoroutine(_idleCoroutine);
         _idleCoroutine = StartCoroutine(IdleRoutine());
@@ -629,6 +903,13 @@ public class ProctorAI : MonoBehaviour
         if (waypoints == null || waypoints.Length == 0) return;
         if (!_agent.isOnNavMesh) return;
 
+        if (_waypointIndex < 0 || _waypointIndex >= waypoints.Length || waypoints[_waypointIndex] == null)
+        {
+            AdvanceWaypointIndex();
+        }
+
+        if (waypoints[_waypointIndex] == null) return;
+
         Vector3 targetPos = waypoints[_waypointIndex].position;
 
         // Snap waypoint to nearest NavMesh point
@@ -638,6 +919,8 @@ public class ProctorAI : MonoBehaviour
             targetPos = hit.position;
         }
 
+        _agent.isStopped = false;
+        _agent.ResetPath();
         _agent.SetDestination(targetPos);
     }
 
@@ -743,7 +1026,7 @@ public class ProctorAI : MonoBehaviour
             if (_playerTransform == null) return;
         }
 
-        if (_isTalking)
+        if (_isTalking || _isChasing)
         {
             _isStaringAtPlayer = false;
             return;

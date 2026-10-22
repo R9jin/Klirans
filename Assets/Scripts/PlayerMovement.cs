@@ -88,9 +88,25 @@ public class PlayerMovement : MonoBehaviour
     private float crouchCenterY;
     private float _lastGroundedTime = 0f;
 
+    private void Awake()
+    {
+        canMove = true;
+        isDialogueCameraOverride = false;
+        isJumpscareCameraOverride = false;
+        if (playerCamera == null)
+        {
+            playerCamera = GetComponentInChildren<Camera>();
+            if (playerCamera == null) playerCamera = Camera.main;
+        }
+    }
+
     void Start()
     {
         characterController = GetComponent<CharacterController>();
+
+        canMove = true;
+        isDialogueCameraOverride = false;
+        isJumpscareCameraOverride = false;
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
@@ -159,17 +175,12 @@ public class PlayerMovement : MonoBehaviour
                 col.isTrigger = false;
             }
 
-            // 2. Ensure NavMeshObstacle with dynamic carving so NPCs and monsters can NEVER pass through it
+            // 2. Remove any accidental NavMeshObstacle on roundTable (table has scale 103x, which would carve a 280m void!)
             var obs = roundTable.GetComponent<UnityEngine.AI.NavMeshObstacle>();
-            if (obs == null)
+            if (obs != null)
             {
-                obs = roundTable.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+                Destroy(obs);
             }
-            obs.shape = UnityEngine.AI.NavMeshObstacleShape.Box;
-            obs.center = new Vector3(0f, 0.45f, 0f);
-            obs.size = new Vector3(2.7f, 1.20f, 2.7f);
-            obs.carving = true;
-            obs.carveOnlyStationary = false;
         }
 
         foreach (var name in new string[] { "CoffeeTable_GlassTop", "CoffeeTable_Frame", "CoffeeTable_Leg1", "CoffeeTable_Leg2", "CoffeeTable_Leg3", "CoffeeTable_Leg4" })
@@ -451,14 +462,25 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleMouseLook()
     {
+        // Re-lock cursor on left mouse click during normal gameplay if unlocked in editor
+        if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked && canMove && !PauseMenu.GameIsPaused && !PauseMenu.IsAnyModalOrPuzzleOpen)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
         if (!canMove || PauseMenu.GameIsPaused || isDialogueCameraOverride || isJumpscareCameraOverride) return;
 
         float sens = GameSettingsManager.Instance != null ? GameSettingsManager.Instance.MouseSensitivity : lookSpeed;
+        if (sens <= 0.05f) sens = 1.8f; // Safety clamp against corrupted zero sensitivity
         float invertSign = (GameSettingsManager.Instance != null && GameSettingsManager.Instance.InvertMouseY) ? 1f : -1f;
 
         rotationX += invertSign * Input.GetAxis("Mouse Y") * sens;
         rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);
-        playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0f, 0f);
+        if (playerCamera != null)
+        {
+            playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0f, 0f);
+        }
         
         transform.rotation *= Quaternion.Euler(0f, Input.GetAxis("Mouse X") * sens, 0f);
     }
@@ -472,6 +494,14 @@ public class PlayerMovement : MonoBehaviour
         if (playerCamera != null)
         {
             playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0f, 0f);
+        }
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (hit != null && hit.collider != null && NPCJumpscareManager.Instance != null)
+        {
+            NPCJumpscareManager.Instance.OnPlayerControllerHit(hit.collider.gameObject);
         }
     }
 }

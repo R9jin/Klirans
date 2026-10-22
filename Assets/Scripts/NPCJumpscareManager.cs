@@ -19,7 +19,16 @@ using UnityEngine.UI;
 /// </summary>
 public class NPCJumpscareManager : MonoBehaviour
 {
-    public static NPCJumpscareManager Instance { get; private set; }
+    private static NPCJumpscareManager _instance;
+    public static NPCJumpscareManager Instance
+    {
+        get
+        {
+            if (_instance == null) _instance = FindAnyObjectByType<NPCJumpscareManager>();
+            return _instance;
+        }
+        private set { _instance = value; }
+    }
 
     [System.Serializable]
     public class WanderingNPCData
@@ -33,8 +42,8 @@ public class NPCJumpscareManager : MonoBehaviour
     }
 
     [Header("Touch & Block Punishment Settings")]
-    [Tooltip("Distance threshold (meters, horizontal XZ) where the player is touching or blocking a walking student.")]
-    public float touchDistanceThreshold = 1.30f;
+    [Tooltip("Distance threshold (meters, horizontal XZ) where the player is touching or blocking a walking student (body collision: ~1.05m).")]
+    public float touchDistanceThreshold = 1.05f;
 
     [Range(0f, 1f)]
     [Tooltip("Probability of being jumpscared when physically touching or blocking a walking student (near 50/50).")]
@@ -47,6 +56,8 @@ public class NPCJumpscareManager : MonoBehaviour
     public float touchRerollCooldown = 5.0f;
 
     [Header("Flashlight Blinding Punishment")]
+    [Tooltip("If true, shining flashlight directly into a student's eyes causes a jumpscare.")]
+    public bool enableFlashlightBlinding = false;
     [Tooltip("Distance threshold for blinding a student with the flashlight.")]
     public float flashlightInFaceRadius = 3.5f;
 
@@ -166,6 +177,20 @@ public class NPCJumpscareManager : MonoBehaviour
         CacheWanderingNPCs();
         CacheRoomBounds();
         BuildScareRig();
+
+        // Initial grace period on scene load so player is never jumpscared the instant the game starts
+        _cooldownUntil = Time.time + 15f;
+        _touchRerollCooldownUntil = Time.time + 15f;
+    }
+
+    /// <summary>
+    /// Grants a grace period during which walking student jumpscares cannot trigger (e.g. after cutscenes or puzzles).
+    /// </summary>
+    public void ApplyGraceCooldown(float duration = 15f)
+    {
+        _cooldownUntil = Mathf.Max(_cooldownUntil, Time.time + duration);
+        _touchRerollCooldownUntil = Mathf.Max(_touchRerollCooldownUntil, Time.time + duration);
+        _flashlightAimTimer = 0f;
     }
 
     private void LoadDefaultAudio()
@@ -319,6 +344,13 @@ public class NPCJumpscareManager : MonoBehaviour
             for (int r = 0; r < floor.transform.childCount; r++)
             {
                 var room = floor.transform.GetChild(r);
+                string rName = room.name.ToLower();
+                if (rName.Contains("locker") || rName.Contains("hallway") || rName.Contains("corridor") ||
+                    rName.Contains("lobby") || rName.Contains("stair") || rName.Contains("circulation"))
+                {
+                    continue;
+                }
+
                 var cols = room.GetComponentsInChildren<Collider>(true);
                 bool first = true;
                 Bounds b = new Bounds();
@@ -331,6 +363,10 @@ public class NPCJumpscareManager : MonoBehaviour
                 }
                 if (!first)
                 {
+                    if ((b.size.z > 18f && b.size.x < 5f) || (b.size.x > 18f && b.size.z < 5f))
+                    {
+                        continue;
+                    }
                     b.Expand(new Vector3(-0.15f, 0f, -0.15f));
                     _cachedRoomBounds.Add(b);
                 }
@@ -401,13 +437,19 @@ public class NPCJumpscareManager : MonoBehaviour
             var (touchNPC, distXZ) = GetTouchedNPC(touchDistanceThreshold);
             if (touchNPC != null)
             {
-                HandleTouchOrBlock(touchNPC, $"Continuous Proximity/Block (distXZ={distXZ:F2}m)");
-                return;
+                // Only trigger if NPC is actively walking into player or player is running into them (never when standing peacefully)
+                bool npcWalking = touchNPC.proctorAI != null && !touchNPC.proctorAI.IsIdling;
+                bool playerRunning = _playerMovement != null && _playerMovement.IsRunning;
+                if (npcWalking || playerRunning)
+                {
+                    HandleTouchOrBlock(touchNPC, $"Continuous Proximity/Block (distXZ={distXZ:F2}m)");
+                    return;
+                }
             }
         }
 
-        // ── 2. FLASHLIGHT BLINDING PUNISHMENT ────────────────────────────────────
-        if (Time.time >= _cooldownUntil && CanTriggerScare())
+        // ── 2. FLASHLIGHT BLINDING PUNISHMENT (Disabled by default to prevent false scares) ───
+        if (enableFlashlightBlinding && Time.time >= _cooldownUntil && CanTriggerScare())
         {
             if (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn)
             {
@@ -435,20 +477,53 @@ public class NPCJumpscareManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Direct PhysX collision callback: called when CharacterController hits a collider while moving.
-    /// Guarantees that walking into / pushing against the NPC triggers the touch check.
+    /// Invoked by PlayerMovement when the CharacterController collides with any object in the world.
     /// </summary>
-    private void OnControllerColliderHit(ControllerColliderHit hit)
+    public void OnPlayerControllerHit(GameObject hitGO)
     {
         if (GameModeManager.IsFreeRoamMode) return;
         if (_isScaring) return;
-        if (Time.time < _cooldownUntil || Time.time < _touchRerollCooldownUntil) return;
+        if (Time.time < _cooldownUntil) return;
         if (!CanTriggerScare()) return;
 
-        var npc = FindMatchingNPC(hit.collider.gameObject);
+        var npc = FindMatchingNPC(hitGO);
         if (npc != null)
         {
-            HandleTouchOrBlock(npc, "Physical Collision (OnControllerColliderHit)");
+            if (npc.proctorAI != null && !npc.proctorAI.IsTalking)
+            {
+                npc.proctorAI.TriggerImmediateBumpScare();
+            }
+            else
+            {
+                HandleTouchOrBlock(npc, "Physical Collision (OnPlayerControllerHit)");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Directly triggers a jumpscare using the horrifying face of the specified NPC.
+    /// </summary>
+    public void TriggerSpecificNPCJumpscare(GameObject npcGO)
+    {
+        if (GameModeManager.IsFreeRoamMode) return;
+        if (_isScaring) return;
+        if (!CanTriggerScare()) return;
+
+        var npc = FindMatchingNPC(npcGO);
+        if (npc != null)
+        {
+            _proximityChosenSMR = npc.smr;
+            _cooldownUntil = Time.time + jumpscareGlobalCooldown;
+            _touchRerollCooldownUntil = Time.time + jumpscareGlobalCooldown;
+            TriggerJumpscare();
+        }
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (hit != null && hit.collider != null)
+        {
+            OnPlayerControllerHit(hit.collider.gameObject);
         }
     }
 
@@ -914,145 +989,158 @@ public class NPCJumpscareManager : MonoBehaviour
         _scareRig.SetActive(true);
         if (_flashOverlay != null) _flashOverlay.gameObject.SetActive(true);
 
-        float elapsed = 0f;
-        float baseScale = faceScale;
-
-        // 7. Screamer Loop:
-        // Lunging head elevated slightly higher and staring straight into camera lens with violent tremors
-        float basePitch = 0.0f; // Upright direct eye contact with camera lens
-
-        while (elapsed < scareDuration)
+        try
         {
-            elapsed += Time.deltaTime;
-            float t = elapsed / scareDuration;
+            float elapsed = 0f;
+            float baseScale = faceScale;
 
-            // Fast slam towards camera lens
-            float lungeCurve = Mathf.Pow(Mathf.Sin(t * Mathf.PI * 0.5f), 0.6f);
-            float lungeZ = Mathf.Lerp(startDistance, closestDistance, lungeCurve);
+            // 7. Screamer Loop:
+            // Lunging head elevated slightly higher and staring straight into camera lens with violent tremors
+            float basePitch = 0.0f; // Upright direct eye contact with camera lens
 
-            // Vertigo FOV punch (first 0.28s snaps down to 40 FOV, then holds)
+            while (elapsed < scareDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = (scareDuration > 0f) ? Mathf.Clamp01(elapsed / scareDuration) : 1f;
+
+                // Fast slam towards camera lens
+                float sinVal = Mathf.Max(0f, Mathf.Sin(t * Mathf.PI * 0.5f));
+                float lungeCurve = Mathf.Pow(sinVal, 0.6f);
+                float lungeZ = Mathf.Lerp(startDistance, closestDistance, lungeCurve);
+                if (float.IsNaN(lungeZ)) lungeZ = closestDistance;
+
+                // Vertigo FOV punch (first 0.28s snaps down to 40 FOV, then holds)
+                if (_playerCam != null)
+                {
+                    float fovProgress = Mathf.Clamp01(elapsed / 0.28f);
+                    _playerCam.fieldOfView = Mathf.Lerp(startFOV, jumpscareFOV, Mathf.Pow(fovProgress, 0.4f));
+                }
+
+                // Violent high-frequency jitter (centered around headHeightOffset, no sideways tilt)
+                float intensity = 1.0f - (t * 0.30f);
+                float jitterX = Random.Range(-0.018f, 0.018f) * intensity;
+                float jitterY = Random.Range(-0.018f, 0.018f) * intensity;
+                float jitterZ = Random.Range(-0.010f, 0.010f) * intensity;
+
+                float pitchJitter = Random.Range(-3.0f, 3.0f) * intensity;
+                float yawJitter = Random.Range(-3.0f, 3.0f) * intensity;
+                float rollJitter = Random.Range(-3.0f, 3.0f) * intensity;
+
+                float scalePulse = baseScale * (1.0f + Random.Range(-0.04f, 0.04f) * intensity);
+
+                _scareRig.transform.localScale = Vector3.one * scalePulse;
+                _scareRig.transform.localPosition = new Vector3(jitterX, headHeightOffset + jitterY, lungeZ + jitterZ);
+                _scareRig.transform.localRotation = Quaternion.Euler(basePitch + pitchJitter, 180f + yawJitter, rollJitter);
+
+                // Camera involuntary recoil & tremors
+                if (_playerCam != null)
+                {
+                    float camRecoilY = Mathf.Sin(t * Mathf.PI) * 0.035f;
+                    float camRecoilZ = -Mathf.Sin(t * Mathf.PI * 0.5f) * 0.05f; // Pulls back in shock
+                    float camShakeX = Random.Range(-0.022f, 0.022f) * intensity;
+                    float camShakeY = Random.Range(-0.022f, 0.022f) * intensity;
+                    _playerCam.transform.localPosition = camBaseLocalPos + new Vector3(camShakeX, camRecoilY + camShakeY, camRecoilZ);
+
+                    float recoilPitch = -Mathf.Sin(t * Mathf.PI) * 4.0f; // Jolt back
+                    float recoilRoll = Random.Range(-1.5f, 1.5f) * intensity;
+                    _playerCam.transform.localRotation = camBaseLocalRot * Quaternion.Euler(recoilPitch, 0f, recoilRoll);
+                }
+
+                if (_flashOverlay != null)
+                {
+                    float flashAlpha = Mathf.Lerp(0.60f, 0.05f, t) + Random.Range(-0.05f, 0.05f);
+                    _flashOverlay.color = new Color(0.72f, 0.03f, 0.03f, Mathf.Clamp01(flashAlpha));
+                }
+
+                yield return null;
+            }
+
+            // Clean up 3D rig
+            _scareRig.SetActive(false);
+
+            if (_activeBakedMesh != null)
+            {
+                Destroy(_activeBakedMesh);
+                _activeBakedMesh = null;
+            }
+
+            // Post-scare audio: static hiss, gasping for breath, and adrenaline heartbeat
+            if (_audioSource != null)
+            {
+                if (staticHissClip != null) _audioSource.PlayOneShot(staticHissClip, jumpscareVolume * 0.65f);
+                if (gaspBreathClip != null) _audioSource.PlayOneShot(gaspBreathClip, jumpscareVolume * 0.95f);
+            }
+
+            // Start post-scare heart thumping
+            if (_heartbeatSource != null && heartbeatClip != null)
+            {
+                _heartbeatSource.clip = heartbeatClip;
+                _heartbeatSource.volume = 0.85f;
+                _heartbeatSource.pitch = 1.35f;
+                _heartbeatSource.Play();
+            }
+
+            // 8. Smooth Recovery Phase (FOV restoration, heartbeat deceleration, calm reset)
+            float recoveryElapsed = 0f;
+            float recoveryDuration = 1.6f;
+
+            while (recoveryElapsed < recoveryDuration)
+            {
+                recoveryElapsed += Time.unscaledDeltaTime;
+                float rt = recoveryElapsed / recoveryDuration;
+
+                if (_playerCam != null)
+                {
+                    _playerCam.fieldOfView = Mathf.Lerp(jumpscareFOV, startFOV, Mathf.SmoothStep(0f, 1f, rt));
+
+                    float trem = (1f - rt) * 0.007f;
+                    _playerCam.transform.localPosition = Vector3.Lerp(_playerCam.transform.localPosition, camBaseLocalPos, Time.unscaledDeltaTime * 8f)
+                                                        + new Vector3(Random.Range(-trem, trem), Random.Range(-trem, trem), 0f);
+                    _playerCam.transform.localRotation = Quaternion.Slerp(_playerCam.transform.localRotation, camBaseLocalRot, Time.unscaledDeltaTime * 8f);
+                }
+
+                if (_flashOverlay != null)
+                {
+                    float fa = Mathf.Lerp(0.18f, 0f, rt);
+                    _flashOverlay.color = new Color(0.55f, 0.02f, 0.02f, fa);
+                }
+
+                if (_heartbeatSource != null && _heartbeatSource.isPlaying)
+                {
+                    _heartbeatSource.pitch = Mathf.Lerp(1.35f, 0.75f, rt);
+                    _heartbeatSource.volume = Mathf.Lerp(0.85f, 0f, rt);
+                }
+
+                yield return null;
+            }
+        }
+        finally
+        {
+            if (_heartbeatSource != null && _heartbeatSource.isPlaying) _heartbeatSource.Stop();
+
+            // Exact camera reset
             if (_playerCam != null)
             {
-                float fovProgress = Mathf.Clamp01(elapsed / 0.28f);
-                _playerCam.fieldOfView = Mathf.Lerp(startFOV, jumpscareFOV, Mathf.Pow(fovProgress, 0.4f));
+                _playerCam.fieldOfView = startFOV;
+                _playerCam.transform.localPosition = camBaseLocalPos;
+                _playerCam.transform.localRotation = camBaseLocalRot;
             }
-
-            // Violent high-frequency jitter (centered around headHeightOffset, no sideways tilt)
-            float intensity = 1.0f - (t * 0.30f);
-            float jitterX = Random.Range(-0.018f, 0.018f) * intensity;
-            float jitterY = Random.Range(-0.018f, 0.018f) * intensity;
-            float jitterZ = Random.Range(-0.010f, 0.010f) * intensity;
-
-            float pitchJitter = Random.Range(-3.0f, 3.0f) * intensity;
-            float yawJitter = Random.Range(-3.0f, 3.0f) * intensity;
-            float rollJitter = Random.Range(-3.0f, 3.0f) * intensity;
-
-            float scalePulse = baseScale * (1.0f + Random.Range(-0.04f, 0.04f) * intensity);
-
-            _scareRig.transform.localScale = Vector3.one * scalePulse;
-            _scareRig.transform.localPosition = new Vector3(jitterX, headHeightOffset + jitterY, lungeZ + jitterZ);
-            _scareRig.transform.localRotation = Quaternion.Euler(basePitch + pitchJitter, 180f + yawJitter, rollJitter);
-
-            // Camera involuntary recoil & tremors
-            if (_playerCam != null)
+            if (_flashOverlay != null) _flashOverlay.gameObject.SetActive(false);
+            if (_scareRig != null) _scareRig.SetActive(false);
+            if (_activeBakedMesh != null)
             {
-                float camRecoilY = Mathf.Sin(t * Mathf.PI) * 0.035f;
-                float camRecoilZ = -Mathf.Sin(t * Mathf.PI * 0.5f) * 0.05f; // Pulls back in shock
-                float camShakeX = Random.Range(-0.022f, 0.022f) * intensity;
-                float camShakeY = Random.Range(-0.022f, 0.022f) * intensity;
-                _playerCam.transform.localPosition = camBaseLocalPos + new Vector3(camShakeX, camRecoilY + camShakeY, camRecoilZ);
-
-                float recoilPitch = -Mathf.Sin(t * Mathf.PI) * 4.0f; // Jolt back
-                float recoilRoll = Random.Range(-1.5f, 1.5f) * intensity;
-                _playerCam.transform.localRotation = camBaseLocalRot * Quaternion.Euler(recoilPitch, 0f, recoilRoll);
+                Destroy(_activeBakedMesh);
+                _activeBakedMesh = null;
             }
 
-            if (_flashOverlay != null)
+            // Restore player movement controls and camera look
+            if (_playerMovement != null)
             {
-                float flashAlpha = Mathf.Lerp(0.60f, 0.05f, t) + Random.Range(-0.05f, 0.05f);
-                _flashOverlay.color = new Color(0.72f, 0.03f, 0.03f, Mathf.Clamp01(flashAlpha));
+                _playerMovement.isJumpscareCameraOverride = false;
+                _playerMovement.SetControlsEnabled(true);
             }
 
-            yield return null;
+            _isScaring = false;
         }
-
-        // Clean up 3D rig
-        _scareRig.SetActive(false);
-
-        if (_activeBakedMesh != null)
-        {
-            Destroy(_activeBakedMesh);
-            _activeBakedMesh = null;
-        }
-
-        // Post-scare audio: static hiss, gasping for breath, and adrenaline heartbeat
-        if (_audioSource != null)
-        {
-            if (staticHissClip != null) _audioSource.PlayOneShot(staticHissClip, jumpscareVolume * 0.65f);
-            if (gaspBreathClip != null) _audioSource.PlayOneShot(gaspBreathClip, jumpscareVolume * 0.95f);
-        }
-
-        // Start post-scare heart thumping
-        if (_heartbeatSource != null && heartbeatClip != null)
-        {
-            _heartbeatSource.clip = heartbeatClip;
-            _heartbeatSource.volume = 0.85f;
-            _heartbeatSource.pitch = 1.35f;
-            _heartbeatSource.Play();
-        }
-
-        // 8. Smooth Recovery Phase (FOV restoration, heartbeat deceleration, calm reset)
-        float recoveryElapsed = 0f;
-        float recoveryDuration = 1.6f;
-
-        while (recoveryElapsed < recoveryDuration)
-        {
-            recoveryElapsed += Time.deltaTime;
-            float rt = recoveryElapsed / recoveryDuration;
-
-            if (_playerCam != null)
-            {
-                _playerCam.fieldOfView = Mathf.Lerp(jumpscareFOV, startFOV, Mathf.SmoothStep(0f, 1f, rt));
-
-                float trem = (1f - rt) * 0.007f;
-                _playerCam.transform.localPosition = Vector3.Lerp(_playerCam.transform.localPosition, camBaseLocalPos, Time.deltaTime * 8f)
-                                                    + new Vector3(Random.Range(-trem, trem), Random.Range(-trem, trem), 0f);
-                _playerCam.transform.localRotation = Quaternion.Slerp(_playerCam.transform.localRotation, camBaseLocalRot, Time.deltaTime * 8f);
-            }
-
-            if (_flashOverlay != null)
-            {
-                float fa = Mathf.Lerp(0.18f, 0f, rt);
-                _flashOverlay.color = new Color(0.55f, 0.02f, 0.02f, fa);
-            }
-
-            if (_heartbeatSource != null && _heartbeatSource.isPlaying)
-            {
-                _heartbeatSource.pitch = Mathf.Lerp(1.35f, 0.75f, rt);
-                _heartbeatSource.volume = Mathf.Lerp(0.85f, 0f, rt);
-            }
-
-            yield return null;
-        }
-
-        if (_heartbeatSource != null && _heartbeatSource.isPlaying) _heartbeatSource.Stop();
-
-        // Exact camera reset
-        if (_playerCam != null)
-        {
-            _playerCam.fieldOfView = startFOV;
-            _playerCam.transform.localPosition = camBaseLocalPos;
-            _playerCam.transform.localRotation = camBaseLocalRot;
-        }
-        if (_flashOverlay != null) _flashOverlay.gameObject.SetActive(false);
-
-        // Restore player movement controls
-        if (_playerMovement != null)
-        {
-            _playerMovement.isJumpscareCameraOverride = false;
-            _playerMovement.SetControlsEnabled(true);
-        }
-
-        _isScaring = false;
     }
 }

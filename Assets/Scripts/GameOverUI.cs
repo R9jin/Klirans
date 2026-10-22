@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// GameOverUI & Anxiety GameOver Cutscene Director — KLIRANS.
-/// Triggers when the player's Anxiety reaches 100% (or via F9 debug key in Playmode).
+/// Triggers ONLY when the player's Anxiety reaches 100% (or via F9 debug key in Playmode).
 ///
 /// Complete 4-Phase Cinematic Horror Sequence:
 /// 1. PANIC SURGE: Muffled rapid heartbeat, heavy gasping for air, frantic camera FOV breathing & jitter, pulsating tunnel-vision vignette.
@@ -56,7 +56,7 @@ public class GameOverUI : MonoBehaviour
     private AudioSource _sfxSource;
     private AudioSource _ambienceSource;
 
-    // UI Structure
+    // UI Structure (Instantiated ONLY when game over triggers)
     private GameObject _canvasGO;
     private Canvas _canvas;
     private Image _vignetteImg;
@@ -70,7 +70,7 @@ public class GameOverUI : MonoBehaviour
     private Text _autopsyStatsText;
     private GameObject _stampBox;
     private Text _stampText;
-    private Button _skipButton;
+    private GameObject _skipPromptRoot;
 
     // Player references
     private PlayerMovement _playerMovement;
@@ -93,10 +93,12 @@ public class GameOverUI : MonoBehaviour
         Instance = this;
 
         _gameStartTime = Time.time;
-        SetupAudioSources();
-        LoadDefaultAssets();
-        BuildCutsceneUI();
-        SetUIVisible(false);
+        IsCutsceneActive = false;
+        _hasTriggered = false;
+        _hasSkipped = false;
+
+        // Clean up any stale or lingering GameOver objects in the scene
+        CleanupStaleGameoverObjects();
     }
 
     private void Start()
@@ -106,10 +108,7 @@ public class GameOverUI : MonoBehaviour
             AnxietyManager.Instance.OnGameOver += HandleGameOver;
         }
 
-        if (gameOverPanel != null)
-        {
-            gameOverPanel.SetActive(false);
-        }
+        CleanupStaleGameoverObjects();
     }
 
     private void OnDestroy()
@@ -118,7 +117,29 @@ public class GameOverUI : MonoBehaviour
         {
             AnxietyManager.Instance.OnGameOver -= HandleGameOver;
         }
+        if (_canvasGO != null)
+        {
+            Destroy(_canvasGO);
+        }
         if (Instance == this) Instance = null;
+    }
+
+    private void CleanupStaleGameoverObjects()
+    {
+        var existingCanvas = GameObject.Find("AnxietyGameOverCanvas");
+        if (existingCanvas != null) Destroy(existingCanvas);
+
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            var child = transform.GetChild(i);
+            if (child.name.Contains("GameOver") || child.name.Contains("Autopsy"))
+            {
+                Destroy(child.gameObject);
+            }
+        }
+
+        gameOverPanel = null;
+        canvasGroup = null;
     }
 
     private void Update()
@@ -142,29 +163,41 @@ public class GameOverUI : MonoBehaviour
 
     private void SetupAudioSources()
     {
-        _heartbeatSource = gameObject.AddComponent<AudioSource>();
-        _heartbeatSource.playOnAwake = false;
-        _heartbeatSource.loop = true;
-        _heartbeatSource.spatialBlend = 0f;
-        _heartbeatSource.volume = 0.90f;
+        if (_heartbeatSource == null)
+        {
+            _heartbeatSource = gameObject.AddComponent<AudioSource>();
+            _heartbeatSource.playOnAwake = false;
+            _heartbeatSource.loop = true;
+            _heartbeatSource.spatialBlend = 0f;
+            _heartbeatSource.volume = 0.90f;
+        }
 
-        _breathingSource = gameObject.AddComponent<AudioSource>();
-        _breathingSource.playOnAwake = false;
-        _breathingSource.loop = false;
-        _breathingSource.spatialBlend = 0f;
-        _breathingSource.volume = 0.85f;
+        if (_breathingSource == null)
+        {
+            _breathingSource = gameObject.AddComponent<AudioSource>();
+            _breathingSource.playOnAwake = false;
+            _breathingSource.loop = false;
+            _breathingSource.spatialBlend = 0f;
+            _breathingSource.volume = 0.85f;
+        }
 
-        _sfxSource = gameObject.AddComponent<AudioSource>();
-        _sfxSource.playOnAwake = false;
-        _sfxSource.loop = false;
-        _sfxSource.spatialBlend = 0f;
-        _sfxSource.volume = 0.95f;
+        if (_sfxSource == null)
+        {
+            _sfxSource = gameObject.AddComponent<AudioSource>();
+            _sfxSource.playOnAwake = false;
+            _sfxSource.loop = false;
+            _sfxSource.spatialBlend = 0f;
+            _sfxSource.volume = 0.95f;
+        }
 
-        _ambienceSource = gameObject.AddComponent<AudioSource>();
-        _ambienceSource.playOnAwake = false;
-        _ambienceSource.loop = true;
-        _ambienceSource.spatialBlend = 0f;
-        _ambienceSource.volume = 0.50f;
+        if (_ambienceSource == null)
+        {
+            _ambienceSource = gameObject.AddComponent<AudioSource>();
+            _ambienceSource.playOnAwake = false;
+            _ambienceSource.loop = true;
+            _ambienceSource.spatialBlend = 0f;
+            _ambienceSource.volume = 0.50f;
+        }
     }
 
     private void LoadDefaultAssets()
@@ -219,16 +252,16 @@ public class GameOverUI : MonoBehaviour
         return f;
     }
 
-    // ── UI Construction ────────────────────────────────────────────────────────
+    // ── UI Construction (Constructed ONLY on game over) ────────────────────────
     private void BuildCutsceneUI()
     {
-        if (_canvasGO != null) return;
+        if (_canvasGO != null) Destroy(_canvasGO);
 
         var typewriterFont = GetLegibleFont();
         var horrorFont = GetHorrorFont();
 
         _canvasGO = new GameObject("AnxietyGameOverCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        _canvasGO.transform.SetParent(transform, false);
+        _canvasGO.transform.SetParent(null); // Independent root overlay canvas! NEVER a child of HudCanvas!
 
         _canvas = _canvasGO.GetComponent<Canvas>();
         _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -240,6 +273,7 @@ public class GameOverUI : MonoBehaviour
         scaler.matchWidthOrHeight = 0.5f;
 
         canvasGroup = _canvasGO.AddComponent<CanvasGroup>();
+        canvasGroup.alpha = 1f;
         gameOverPanel = _canvasGO;
 
         // 1. Fullscreen Pulsating Vignette
@@ -302,13 +336,13 @@ public class GameOverUI : MonoBehaviour
         _thoughtsText.alignment = TextAnchor.MiddleCenter;
         _thoughtsText.fontStyle = FontStyle.Bold;
 
-        // 5. Official Autopsy / Psychological Report Paper Sheet
+        // 5. Official Autopsy / Psychological Report Paper Sheet (starts INACTIVE)
         _autopsySheetBox = new GameObject("AutopsyPaperSheet", typeof(RectTransform), typeof(Image));
         _autopsySheetBox.transform.SetParent(_canvasGO.transform, false);
         var sheetRT = _autopsySheetBox.GetComponent<RectTransform>();
         sheetRT.anchorMin = new Vector2(0.5f, 0.5f);
         sheetRT.anchorMax = new Vector2(0.5f, 0.5f);
-        sheetRT.sizeDelta = new Vector2(760f, 620f);
+        sheetRT.sizeDelta = new Vector2(740f, 600f);
         sheetRT.localRotation = Quaternion.Euler(0f, 0f, -0.6f);
 
         var sheetImg = _autopsySheetBox.GetComponent<Image>();
@@ -322,16 +356,16 @@ public class GameOverUI : MonoBehaviour
         tRT.anchorMin = new Vector2(0.5f, 1f);
         tRT.anchorMax = new Vector2(0.5f, 1f);
         tRT.pivot = new Vector2(0.5f, 1f);
-        tRT.anchoredPosition = new Vector2(0f, -28f);
-        tRT.sizeDelta = new Vector2(700f, 100f);
+        tRT.anchoredPosition = new Vector2(0f, -24f);
+        tRT.sizeDelta = new Vector2(680f, 95f);
 
         _autopsyTitleText = titleGO.GetComponent<Text>();
         _autopsyTitleText.font = typewriterFont;
-        _autopsyTitleText.fontSize = 17;
+        _autopsyTitleText.fontSize = 16;
         _autopsyTitleText.fontStyle = FontStyle.Bold;
         _autopsyTitleText.color = new Color(0.12f, 0.08f, 0.08f, 1f);
         _autopsyTitleText.alignment = TextAnchor.UpperCenter;
-        _autopsyTitleText.text = "REPUBLIKA NG PILIPINAS  •  PAMANTASAN NG CABUYAO\nOFFICE OF STUDENT WELFARE & CAMPUS SECURITY\n<size=19><color=#881111>INCIDENT AUTOPSY & PSYCHOLOGICAL COLLAPSE REPORT</color></size>\nCASE FILE: CASE-PNC-BCH-1994-0824  •  CLASSIFIED";
+        _autopsyTitleText.text = "REPUBLIKA NG PILIPINAS  •  PAMANTASAN NG CABUYAO\nOFFICE OF STUDENT WELFARE & CAMPUS SECURITY\n<size=18><color=#881111>INCIDENT AUTOPSY & PSYCHOLOGICAL COLLAPSE REPORT</color></size>\nCASE FILE: CASE-PNC-BCH-1994-0824  •  CLASSIFIED";
 
         // Document Body
         var bodyGO = new GameObject("DocumentBody", typeof(RectTransform), typeof(Text));
@@ -340,8 +374,8 @@ public class GameOverUI : MonoBehaviour
         bRT.anchorMin = new Vector2(0.5f, 1f);
         bRT.anchorMax = new Vector2(0.5f, 1f);
         bRT.pivot = new Vector2(0.5f, 1f);
-        bRT.anchoredPosition = new Vector2(0f, -135f);
-        bRT.sizeDelta = new Vector2(680f, 210f);
+        bRT.anchoredPosition = new Vector2(0f, -125f);
+        bRT.sizeDelta = new Vector2(660f, 210f);
 
         _autopsyBodyText = bodyGO.GetComponent<Text>();
         _autopsyBodyText.font = typewriterFont;
@@ -358,8 +392,8 @@ public class GameOverUI : MonoBehaviour
         sRT.anchorMin = new Vector2(0.5f, 1f);
         sRT.anchorMax = new Vector2(0.5f, 1f);
         sRT.pivot = new Vector2(0.5f, 1f);
-        sRT.anchoredPosition = new Vector2(0f, -345f);
-        sRT.sizeDelta = new Vector2(680f, 110f);
+        sRT.anchoredPosition = new Vector2(0f, -335f);
+        sRT.sizeDelta = new Vector2(660f, 105f);
 
         _autopsyStatsText = statsGO.GetComponent<Text>();
         _autopsyStatsText.font = typewriterFont;
@@ -373,13 +407,13 @@ public class GameOverUI : MonoBehaviour
         _stampBox = new GameObject("FailedStamp", typeof(RectTransform), typeof(Image));
         _stampBox.transform.SetParent(_autopsySheetBox.transform, false);
         var stampRT = _stampBox.GetComponent<RectTransform>();
-        stampRT.anchorMin = new Vector2(0.70f, 0.48f);
-        stampRT.anchorMax = new Vector2(0.70f, 0.48f);
-        stampRT.sizeDelta = new Vector2(340f, 75f);
+        stampRT.anchorMin = new Vector2(0.70f, 0.50f);
+        stampRT.anchorMax = new Vector2(0.70f, 0.50f);
+        stampRT.sizeDelta = new Vector2(360f, 70f);
         stampRT.localRotation = Quaternion.Euler(0f, 0f, -14f);
 
         var stampImg = _stampBox.GetComponent<Image>();
-        stampImg.color = new Color(0.75f, 0.08f, 0.08f, 0.18f); // Faint stamp ink background
+        stampImg.color = new Color(0.75f, 0.08f, 0.08f, 0.18f); // Stamp ink border/fill
 
         var stampTextGO = new GameObject("StampText", typeof(RectTransform), typeof(Text), typeof(Outline));
         stampTextGO.transform.SetParent(_stampBox.transform, false);
@@ -390,11 +424,11 @@ public class GameOverUI : MonoBehaviour
 
         _stampText = stampTextGO.GetComponent<Text>();
         _stampText.font = horrorFont;
-        _stampText.fontSize = 28;
+        _stampText.fontSize = 22;
         _stampText.fontStyle = FontStyle.Bold;
         _stampText.alignment = TextAnchor.MiddleCenter;
         _stampText.color = new Color(0.85f, 0.08f, 0.08f, 1f);
-        _stampText.text = "[ CLEARANCE TERMINATED ]\n<size=16>FAILED TO ESCAPE BCH BUILDING</size>";
+        _stampText.text = "[ CLEARANCE TERMINATED ]\n<size=15>FAILED TO ESCAPE BCH</size>";
 
         var outline = stampTextGO.GetComponent<Outline>();
         outline.effectColor = new Color(0.45f, 0.02f, 0.02f, 0.85f);
@@ -407,8 +441,8 @@ public class GameOverUI : MonoBehaviour
         btnRT.anchorMin = new Vector2(0.5f, 0f);
         btnRT.anchorMax = new Vector2(0.5f, 0f);
         btnRT.pivot = new Vector2(0.5f, 0f);
-        btnRT.anchoredPosition = new Vector2(0f, 32f);
-        btnRT.sizeDelta = new Vector2(620f, 52f);
+        btnRT.anchoredPosition = new Vector2(0f, 26f);
+        btnRT.sizeDelta = new Vector2(620f, 50f);
 
         var hlg = btnContainer.GetComponent<HorizontalLayoutGroup>();
         hlg.spacing = 30f;
@@ -420,22 +454,27 @@ public class GameOverUI : MonoBehaviour
         retryButton = CreateStyledButton(btnContainer.transform, "RetryButton", "SUMUBOK MULI  [WAKE UP]", typewriterFont, OnRetryClicked);
         menuButton = CreateStyledButton(btnContainer.transform, "MenuButton", "PANGUNAHING MENU  [EXIT]", typewriterFont, OnMainMenuClicked);
 
-        // Skip prompt pill
-        var skipGO = new GameObject("SkipPrompt", typeof(RectTransform), typeof(Text));
-        skipGO.transform.SetParent(_canvasGO.transform, false);
-        var skipRT = skipGO.GetComponent<RectTransform>();
+        // Skip prompt pill (only visible during fainting sequence)
+        _skipPromptRoot = new GameObject("SkipPrompt", typeof(RectTransform), typeof(Text));
+        _skipPromptRoot.transform.SetParent(_canvasGO.transform, false);
+        var skipRT = _skipPromptRoot.GetComponent<RectTransform>();
         skipRT.anchorMin = new Vector2(0.5f, 0f);
         skipRT.anchorMax = new Vector2(0.5f, 0f);
         skipRT.pivot = new Vector2(0.5f, 0f);
         skipRT.anchoredPosition = new Vector2(0f, 16f);
         skipRT.sizeDelta = new Vector2(400f, 25f);
 
-        var skipTxt = skipGO.GetComponent<Text>();
+        var skipTxt = _skipPromptRoot.GetComponent<Text>();
         skipTxt.font = typewriterFont;
         skipTxt.fontSize = 12;
         skipTxt.color = new Color(0.6f, 0.6f, 0.6f, 0.65f);
         skipTxt.alignment = TextAnchor.MiddleCenter;
         skipTxt.text = "[SPACE / ENTER / ESC]  Laktawan ang Cutscene";
+
+        // Ensure sub-elements start in clean initial states
+        _autopsySheetBox.SetActive(false);
+        _stampBox.SetActive(false);
+        _skipPromptRoot.SetActive(true);
     }
 
     private Button CreateStyledButton(Transform parent, string goName, string text, Font font, UnityEngine.Events.UnityAction onClick)
@@ -470,7 +509,7 @@ public class GameOverUI : MonoBehaviour
         var txt = textGO.GetComponent<Text>();
         txt.text = text;
         txt.font = font;
-        txt.fontSize = 15;
+        txt.fontSize = 14;
         txt.fontStyle = FontStyle.Bold;
         txt.color = Color.white;
         txt.alignment = TextAnchor.MiddleCenter;
@@ -498,33 +537,18 @@ public class GameOverUI : MonoBehaviour
         return tex;
     }
 
-    private void SetUIVisible(bool visible)
-    {
-        if (canvasGroup != null)
-        {
-            canvasGroup.alpha = visible ? 1f : 0f;
-            canvasGroup.interactable = visible;
-            canvasGroup.blocksRaycasts = visible;
-        }
-        if (gameOverPanel != null)
-        {
-            gameOverPanel.SetActive(visible);
-        }
-    }
-
     // ── Cutscene Execution ─────────────────────────────────────────────────────
     public void HandleGameOver()
     {
         if (_hasTriggered) return;
         _hasTriggered = true;
         IsCutsceneActive = true;
+        _hasSkipped = false;
 
-        if (_canvasGO == null)
-        {
-            SetupAudioSources();
-            LoadDefaultAssets();
-            BuildCutsceneUI();
-        }
+        CleanupStaleGameoverObjects();
+        SetupAudioSources();
+        LoadDefaultAssets();
+        BuildCutsceneUI();
 
         StartCoroutine(CutsceneChoreographyRoutine());
     }
@@ -558,9 +582,10 @@ public class GameOverUI : MonoBehaviour
         var dialogueSystem = NPCDialogueSystem.Instance ?? FindAnyObjectByType<NPCDialogueSystem>();
         if (dialogueSystem != null) dialogueSystem.EndDialogue();
 
-        SetUIVisible(true);
+        if (_canvasGO != null) _canvasGO.SetActive(true);
         if (_autopsySheetBox != null) _autopsySheetBox.SetActive(false);
         if (_stampBox != null) _stampBox.SetActive(false);
+        if (_skipPromptRoot != null) _skipPromptRoot.SetActive(true);
 
         // ═════════════════════════════════════════════════════════════════════
         // PHASE 1: PANIC ATTACK SURGE (~3.4 seconds)
@@ -763,10 +788,11 @@ public class GameOverUI : MonoBehaviour
 
     private void ShowAutopsyReport()
     {
-        SetUIVisible(true);
+        if (_canvasGO != null) _canvasGO.SetActive(true);
 
         if (_fadeToBlackImg != null) _fadeToBlackImg.color = new Color(0.02f, 0.02f, 0.02f, 0.95f);
         if (_thoughtsText != null) _thoughtsText.color = new Color(1f, 1f, 1f, 0f);
+        if (_skipPromptRoot != null) _skipPromptRoot.SetActive(false);
 
         if (_letterboxTop != null) _letterboxTop.sizeDelta = new Vector2(0f, 75f);
         if (_letterboxBottom != null) _letterboxBottom.sizeDelta = new Vector2(0f, 75f);
@@ -817,7 +843,7 @@ public class GameOverUI : MonoBehaviour
         {
             _stampBox.SetActive(true);
             var rt = _stampBox.GetComponent<RectTransform>();
-            Vector3 originalScale = rt.localScale;
+            Vector3 originalScale = Vector3.one;
             rt.localScale = originalScale * 2.2f;
 
             if (_sfxSource != null && stampClip != null)
@@ -840,12 +866,18 @@ public class GameOverUI : MonoBehaviour
     private void OnRetryClicked()
     {
         Time.timeScale = 1f;
+        IsCutsceneActive = false;
+        _hasTriggered = false;
+        if (_canvasGO != null) Destroy(_canvasGO);
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
     private void OnMainMenuClicked()
     {
         Time.timeScale = 1f;
+        IsCutsceneActive = false;
+        _hasTriggered = false;
+        if (_canvasGO != null) Destroy(_canvasGO);
         SceneManager.LoadScene("MainMenu");
     }
 }

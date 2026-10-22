@@ -215,14 +215,15 @@ public class TheProctorAI : MonoBehaviour
         }
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (currentState == ProctorState.Inactive || currentState == ProctorState.Despawning) return;
-        if (currentState == ProctorState.Jumpscare) return;
 
         // Failsafe: if power is restored by external means, despawn immediately
-        if (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive)
+        if (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive && !isDevSpawn)
         {
             Despawn();
             return;
         }
+
+        if (currentState == ProctorState.Jumpscare) return;
 
         // Keep player reference warm
         if (_playerTransform == null) FindPlayerReferences();
@@ -1087,12 +1088,27 @@ public class TheProctorAI : MonoBehaviour
             yield return null;
         }
 
-        // 7. Blinding Whiteout Flash Overlay & Teleport to Safe Zone
-        yield return StartCoroutine(WhiteoutAndResetRoutine());
+        // 7. Entity vanishes behind whiteout flash & restores power immediately!
+        if (TheProctorManager.Instance != null)
+        {
+            TheProctorManager.Instance.TriggerJumpscareWhiteout(staticHissClip, _playerCam, _playerMovement);
+            TheProctorManager.Instance.OnProctorCompletedEncounter();
+        }
+        else if (BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.RestorePower();
+        }
 
-        // 8. Despawn Proctor & Restore Power
-        TheProctorManager.Instance?.OnProctorCompletedEncounter();
         Despawn();
+    }
+
+    private void SetRenderersEnabled(bool enabled)
+    {
+        var rends = GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < rends.Length; i++)
+        {
+            if (rends[i] != null) rends[i].enabled = enabled;
+        }
     }
 
     private IEnumerator WhiteoutAndResetRoutine()
@@ -1121,6 +1137,11 @@ public class TheProctorAI : MonoBehaviour
         {
             _audioSource.PlayOneShot(staticHissClip, 0.7f);
         }
+
+        // Instantly vanish The Proctor behind the solid whiteout blast!
+        SetRenderersEnabled(false);
+        if (_audioSource != null) _audioSource.Stop();
+        if (_footstepAudio != null) _footstepAudio.Stop();
 
         // Hold solid white for 0.35s during shock
         yield return new WaitForSeconds(0.35f);
@@ -1199,6 +1220,9 @@ public class TheProctorAI : MonoBehaviour
 
         if (ActiveProctor == this) ActiveProctor = null;
 
+        SetRenderersEnabled(false);
+        gameObject.SetActive(false);
+
         Debug.Log("[TheProctorAI] Despawned.");
         Destroy(gameObject);
     }
@@ -1208,6 +1232,14 @@ public class TheProctorAI : MonoBehaviour
         if (ActiveProctor != null)
         {
             ActiveProctor.Despawn();
+        }
+        var all = UnityEngine.Object.FindObjectsByType<TheProctorAI>(UnityEngine.FindObjectsInactive.Include);
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i] != null && all[i].gameObject != null)
+            {
+                all[i].Despawn();
+            }
         }
     }
 

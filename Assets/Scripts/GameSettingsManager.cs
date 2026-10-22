@@ -245,15 +245,10 @@ public class GameSettingsManager : MonoBehaviour
         capsule.height = 0.68f; // spans y = 2.34 to y = 3.02 (strictly below the 3.095 tabletop and 3.12 Flashlight!)
 
         var obstacle = blockerGO.GetComponent<NavMeshObstacle>();
-        if (obstacle == null) obstacle = blockerGO.AddComponent<NavMeshObstacle>();
-        obstacle.shape = NavMeshObstacleShape.Capsule;
-        obstacle.center = Vector3.zero;
-        obstacle.radius = radiusWorld + 0.18f; // extra margin so NPCs steer cleanly around table
-        obstacle.height = 1.20f;
-        obstacle.carving = true;
-        obstacle.carveOnlyStationary = false;
-        obstacle.carvingMoveThreshold = 0.05f;
-        obstacle.carvingTimeToStationary = 0f;
+        if (obstacle != null)
+        {
+            Destroy(obstacle);
+        }
 
         // Also ensure the Flashlight pickup on the Lobby_RoundTable has a generous, unobstructed interaction collider
         var allPickups = FindObjectsByType<PickupItem>(FindObjectsInactive.Exclude);
