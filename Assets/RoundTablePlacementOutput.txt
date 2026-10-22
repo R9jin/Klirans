@@ -1,0 +1,6 @@
+=== PLACING ROUND TABLE IN LOBBY CENTER ===
+Created standalone round table prefab at Assets/InteriorAssets/round-table-and-chairs/Lobby_RoundTable.prefab
+Placed Lobby_RoundTable at (-84.50, 2.30, 16.65) (static = true)
+Updated Player position to (-86.50, 2.35, 16.65) facing table.
+Updated PlayerSpawnPoint position to (-86.50, 2.35, 16.65).
+Scene marked dirty and saved successfully!

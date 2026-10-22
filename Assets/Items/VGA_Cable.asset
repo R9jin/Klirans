@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7902f9d091be45d4fabc9d5e72f58aeb, type: 3}
+  m_Name: VGA_Cable
+  m_EditorClassIdentifier: Assembly-CSharp::InventoryItem
+  itemName: VGA Monitor Cable
+  description: Makapal na asul na video display cable na may 15-pin D-sub connectors
+    at dalawang thumbscrews. Kailangan ito para magka-signal ang offline computer
+    database terminal sa ComLab.
+  icon: {fileID: 21300000, guid: 5c3b2bc5f65465c4a8b373ced1c407ab, type: 3}
+  itemType: 3
+  itemPrefab: {fileID: 4215137233101779371, guid: b22144d97a671df40b009673a8fc1a95, type: 3}
+  isStackable: 0
+  maxStack: 1
+  anxietyChange: 0
+  staminaChange: 0
+  canBeDropped: 1
+  isInspectable: 1
+  inspectionTitle: VGA Monitor Cable
+  inspectionText: Makapal na asul na video display cable na may 15-pin D-sub connectors
+    at dalawang thumbscrews. Kailangan ito para magka-signal ang offline computer
+    database terminal sa ComLab.

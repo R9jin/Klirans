@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7902f9d091be45d4fabc9d5e72f58aeb, type: 3}
+  m_Name: Blank_Paper
+  m_EditorClassIdentifier: Assembly-CSharp::InventoryItem
+  itemName: University Clearance Slip
+  description: A completed clearance slip assembled from the 4 fragments.
+  icon: {fileID: 21300000, guid: 7c92aefcaea911944a574726a30698d9, type: 3}
+  itemType: 0
+  itemPrefab: {fileID: 5084006359717043871, guid: ac26a450ebde0b84684a49178da995d2, type: 3}
+  isStackable: 0
+  maxStack: 1
+  anxietyChange: 0
+  staminaChange: 0
+  canBeDropped: 1
+  isInspectable: 1
+  inspectionTitle: Official University Clearance Slip
+  inspectionText: "========================================\nPAMANTASAN NG CABUYAO\nOFFICIAL
+    SENIOR GRADUATION CLEARANCE SLIP\n========================================\nStudent
+    Name: Dela Cruz, Juan M.\nStudent ID: 2021-08492\nAcademic Year: Senior Year
+    (Graduating Status)\n\nSIGNATURE ACCOUNTABILITIES (IN SEQUENCE):\n[1] University
+    Library (3rd Floor Room 308)\n[2] Guidance & Counseling Office (2nd Floor Room
+    207)\n[3] College of Computing Studies Dean (2nd Floor Room 205)\n[4] University
+    Registrar (Ground Floor Window 2 Room 104)\n[5] University Cashier (Ground Floor
+    Window 2 Room 102)\n[6] Office of the Executive Vice President (Ground Floor
+    Room 101)\n\n* FINAL SUBMISSION: Surrender fully signed slip to Registrar Window
+    2\n  to authorize release and unlock the campus main gate.\n========================================"

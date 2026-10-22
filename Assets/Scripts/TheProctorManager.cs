@@ -1,0 +1,552 @@
+using System.Collections;
+using UnityEngine;
+
+/// <summary>
+/// TheProctorManager — Singleton controller governing The Proctor's lifecycle during blackouts.
+///
+/// Responsibilities:
+/// 1. Enforces ONLY ONE Proctor spawning at any time.
+/// 2. Spawns The Proctor strictly in the hallway of the floor the player is on when blackout begins.
+/// 3. Manages the blackout chase countdown timer (blackoutChaseDuration).
+/// 4. Handles Timer Expiration: clean despawn, power restoration, 0 anxiety.
+/// 5. Handles Player Catch callback: ensures race-condition safety so only one ending executes.
+/// 6. Auto-despawns The Proctor whenever power is restored.
+/// </summary>
+public class TheProctorManager : MonoBehaviour
+{
+    private static TheProctorManager _instance;
+    public static TheProctorManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+                _instance = FindAnyObjectByType<TheProctorManager>();
+            return _instance;
+        }
+        private set => _instance = value;
+    }
+
+    [Header("Blackout & Proctor Balancing")]
+    [Tooltip("How long (seconds) The Proctor stalks the hallway before power returns and it despawns.")]
+    public float blackoutChaseDuration = 26.0f;
+
+    public enum BlackoutEnemyType
+    {
+        Random,
+        TheProctor,
+        WeepingStudent
+    }
+
+    [Header("Enemy Selection")]
+    [Tooltip("Choose which enemy stalks the player during blackout. Random picks 50/50 between The Proctor and Weeping Student.")]
+    public BlackoutEnemyType enemySelection = BlackoutEnemyType.Random;
+
+    [Tooltip("The Proctor Prefab (configured with TheProctorAI, NavMeshAgent, Model & Audio).")]
+    public GameObject theProctorPrefab;
+
+    [Tooltip("Weeping Student Prefab (configured with WeepingStudentAI, NavMeshAgent, Model & Audio).")]
+    public GameObject weepingStudentPrefab;
+
+    [Header("Hallway Spawn Distance")]
+    [Tooltip("Distance along hallway corridor ahead/behind player where Proctor spawns.")]
+    public float spawnDistance = 16.0f;
+
+    [Header("Runtime State (Read Only)")]
+    public string proctorAssignedHallway = "None";
+    public int proctorAssignedFloor = 1;
+    public float currentTimer = 0f;
+    public bool isEncounterActive = false;
+
+    // Mutex / Atomic flag preventing timer expiration and player-catch from running simultaneously
+    private bool _isBlackoutEnding = false;
+    private Coroutine _chaseTimerCoroutine;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
+
+    private void Start()
+    {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            CleanupProctor();
+            return;
+        }
+
+        // Hook into BlackoutManager events
+        if (BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.OnBlackoutStart += HandleBlackoutStart;
+            BlackoutManager.Instance.OnBlackoutEnd += HandleBlackoutEnd;
+        }
+
+#if UNITY_EDITOR
+        if (theProctorPrefab == null)
+        {
+            theProctorPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/TheProctor.prefab");
+        }
+        if (weepingStudentPrefab == null)
+        {
+            weepingStudentPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/WeepingStudent.prefab");
+        }
+#endif
+    }
+
+    private void Update()
+    {
+        // Debug shortcut F7: only allowed in Free Roam mode
+        if (GameModeManager.IsFreeRoamMode && Input.GetKeyDown(KeyCode.F7))
+        {
+            SpawnWeepingStudentDebug();
+        }
+    }
+
+    [ContextMenu("Spawn Weeping Student (Debug F7)")]
+    public void SpawnWeepingStudentDebug()
+    {
+        if (!GameModeManager.IsFreeRoamMode && !DevDemoPanel.IsDevSpawning) return;
+        var playerGO = GameObject.FindGameObjectWithTag("Player");
+        if (playerGO == null) return;
+
+        Vector3 playerPos = playerGO.transform.position;
+        DetectPlayerHallway(playerPos);
+        Vector3 spawnPos = CalculateHallwaySpawnPosition(playerPos);
+
+        Vector3 toPlayer = playerPos - spawnPos;
+        toPlayer.y = 0f;
+        Quaternion spawnRot = toPlayer.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toPlayer) : Quaternion.identity;
+
+        WeepingStudentAI.DespawnActiveWeepingStudent();
+
+        GameObject studentGO = null;
+        if (weepingStudentPrefab != null)
+        {
+            studentGO = Instantiate(weepingStudentPrefab, spawnPos, spawnRot);
+        }
+
+        if (studentGO != null)
+        {
+            var weepingAI = studentGO.GetComponent<WeepingStudentAI>();
+            if (weepingAI != null)
+            {
+                weepingAI.isDevSpawn = true;
+                weepingAI.currentState = WeepingStudentAI.WeepingState.Stalking;
+                weepingAI.despawnOnBlackoutEnd = false; // Persistent for manual debug testing
+                weepingAI.assignedHallway = proctorAssignedHallway;
+                weepingAI.assignedFloor = proctorAssignedFloor;
+                ConfigureWeepingHallwayBoundaries(weepingAI, proctorAssignedFloor);
+            }
+            Debug.Log($"[TheProctorManager] 🚨 Debug F7: Spawned WEEPING STUDENT at {spawnPos}! Stare at her to freeze her; look away and she will rush!");
+        }
+    }
+
+    [ContextMenu("Spawn The Proctor (Debug)")]
+    public void SpawnProctorDebug()
+    {
+        if (!GameModeManager.IsFreeRoamMode && !DevDemoPanel.IsDevSpawning) return;
+        var playerGO = GameObject.FindGameObjectWithTag("Player");
+        if (playerGO == null) return;
+
+        Vector3 playerPos = playerGO.transform.position;
+        DetectPlayerHallway(playerPos);
+        Vector3 spawnPos = CalculateHallwaySpawnPosition(playerPos);
+
+        Vector3 toPlayer = playerPos - spawnPos;
+        toPlayer.y = 0f;
+        Quaternion spawnRot = toPlayer.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toPlayer) : Quaternion.identity;
+
+        TheProctorAI.DespawnActiveProctor();
+
+        GameObject proctorGO = null;
+        if (theProctorPrefab != null)
+        {
+            proctorGO = Instantiate(theProctorPrefab, spawnPos, spawnRot);
+        }
+        else
+        {
+            proctorGO = CreateFallbackProctor(spawnPos);
+        }
+
+        if (proctorGO != null)
+        {
+            var ai = proctorGO.GetComponent<TheProctorAI>();
+            if (ai != null)
+            {
+                ai.isDevSpawn = true;
+                ai.assignedHallway = proctorAssignedHallway;
+                ai.assignedFloor = proctorAssignedFloor;
+                ConfigureHallwayBoundaries(ai, proctorAssignedFloor);
+            }
+            Debug.Log($"[TheProctorManager] 🚨 Debug: Spawned THE PROCTOR at {spawnPos}!");
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.OnBlackoutStart -= HandleBlackoutStart;
+            BlackoutManager.Instance.OnBlackoutEnd -= HandleBlackoutEnd;
+        }
+    }
+
+    // ── Blackout Lifecycle ───────────────────────────────────────────────────
+
+    private void HandleBlackoutStart()
+    {
+        if (GameModeManager.IsFreeRoamMode) return;
+
+        // Prevent duplicate encounters if one is already running
+        if (isEncounterActive || _isBlackoutEnding) return;
+
+        // Never spawn during Game Over
+        if (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver) return;
+
+        StartCoroutine(StartProctorEncounterRoutine());
+    }
+
+    private void HandleBlackoutEnd()
+    {
+        // Power restored — immediately clean up Proctor if still present
+        CleanupProctor();
+    }
+
+    private IEnumerator StartProctorEncounterRoutine()
+    {
+        // Wait 1.5 seconds for lights to pop off and blackout sound to finish dropping
+        yield return new WaitForSeconds(1.5f);
+
+        if (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive)
+            yield break;
+
+        var playerGO = GameObject.FindGameObjectWithTag("Player");
+        if (playerGO == null) yield break;
+
+        Vector3 playerPos = playerGO.transform.position;
+
+        // 1. Detect player's floor and hallway
+        DetectPlayerHallway(playerPos);
+
+        // Dynamic difficulty sync with CampusThreatDirector (FNAF-style Night scaling)
+        if (CampusThreatDirector.Instance != null)
+        {
+            var threat = CampusThreatDirector.Instance.CurrentProfile;
+            blackoutChaseDuration = UnityEngine.Random.Range(threat.blackoutDurationMin, threat.blackoutDurationMax);
+            spawnDistance = threat.weepingSpawnDistance;
+        }
+
+        // 2. Compute safe hallway spawn location away from player
+        Vector3 spawnPos = CalculateHallwaySpawnPosition(playerPos);
+
+        // 3. Spawn chosen blackout enemy (The Proctor or Weeping Student)
+        TheProctorAI.DespawnActiveProctor();
+        WeepingStudentAI.DespawnActiveWeepingStudent();
+
+        Vector3 toPlayer = playerPos - spawnPos;
+        toPlayer.y = 0f;
+        Quaternion spawnRot = toPlayer.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toPlayer) : Quaternion.identity;
+
+        BlackoutEnemyType chosenEnemy = enemySelection;
+        if (chosenEnemy == BlackoutEnemyType.Random)
+        {
+            chosenEnemy = (Random.value < 0.5f) ? BlackoutEnemyType.TheProctor : BlackoutEnemyType.WeepingStudent;
+        }
+
+        // DevDemoPanel enemy filter override
+        if (DevDemoPanel.CurrentEnemyFilter == DevDemoPanel.EnemyFilter.Peaceful)
+        {
+            Debug.Log("[TheProctorManager] Peaceful mode active - skipping enemy spawn during blackout.");
+            yield break;
+        }
+        else if (DevDemoPanel.CurrentEnemyFilter == DevDemoPanel.EnemyFilter.OnlyGuardStalker)
+        {
+            SecurityGuardEndgameManager.Instance?.TriggerEndgame();
+            yield break;
+        }
+        else if (DevDemoPanel.CurrentEnemyFilter == DevDemoPanel.EnemyFilter.OnlyProctor)
+        {
+            chosenEnemy = BlackoutEnemyType.TheProctor;
+        }
+        else if (DevDemoPanel.CurrentEnemyFilter == DevDemoPanel.EnemyFilter.OnlyWeeping)
+        {
+            chosenEnemy = BlackoutEnemyType.WeepingStudent;
+        }
+
+        // Fallback checks
+        if (chosenEnemy == BlackoutEnemyType.WeepingStudent && weepingStudentPrefab == null)
+        {
+            Debug.LogWarning("[TheProctorManager] weepingStudentPrefab is null, falling back to The Proctor.");
+            chosenEnemy = BlackoutEnemyType.TheProctor;
+        }
+        else if (chosenEnemy == BlackoutEnemyType.TheProctor && theProctorPrefab == null && weepingStudentPrefab != null)
+        {
+            chosenEnemy = BlackoutEnemyType.WeepingStudent;
+        }
+
+        if (chosenEnemy == BlackoutEnemyType.WeepingStudent)
+        {
+            GameObject studentGO = Instantiate(weepingStudentPrefab, spawnPos, spawnRot);
+            if (studentGO != null)
+            {
+                var weepingAI = studentGO.GetComponent<WeepingStudentAI>();
+                if (weepingAI != null)
+                {
+                    weepingAI.currentState = WeepingStudentAI.WeepingState.Stalking;
+                    weepingAI.despawnOnBlackoutEnd = true;
+                    weepingAI.assignedHallway = proctorAssignedHallway;
+                    weepingAI.assignedFloor = proctorAssignedFloor;
+                    ConfigureWeepingHallwayBoundaries(weepingAI, proctorAssignedFloor);
+
+                    if (CampusThreatDirector.Instance != null)
+                    {
+                        CampusThreatDirector.Instance.ApplyStatsToWeeping(weepingAI);
+                    }
+                }
+            }
+            Debug.Log($"[TheProctorManager] Spawned WEEPING STUDENT for blackout encounter on {proctorAssignedHallway} (Floor {proctorAssignedFloor})!");
+        }
+        else
+        {
+            GameObject proctorGO = null;
+            if (theProctorPrefab != null)
+            {
+                proctorGO = Instantiate(theProctorPrefab, spawnPos, spawnRot);
+            }
+            else
+            {
+                // Fallback runtime construct if prefab is missing
+                proctorGO = CreateFallbackProctor(spawnPos);
+            }
+
+            if (proctorGO != null)
+            {
+                var ai = proctorGO.GetComponent<TheProctorAI>();
+                if (ai != null)
+                {
+                    ai.assignedHallway = proctorAssignedHallway;
+                    ai.assignedFloor = proctorAssignedFloor;
+                    ConfigureHallwayBoundaries(ai, proctorAssignedFloor);
+
+                    if (CampusThreatDirector.Instance != null)
+                    {
+                        CampusThreatDirector.Instance.ApplyStatsToProctor(ai);
+                    }
+                }
+            }
+            Debug.Log($"[TheProctorManager] Spawned THE PROCTOR for blackout encounter on {proctorAssignedHallway} (Floor {proctorAssignedFloor})!");
+        }
+
+        isEncounterActive = true;
+        _isBlackoutEnding = false;
+
+        // 4. Start chase countdown timer
+        if (_chaseTimerCoroutine != null) StopCoroutine(_chaseTimerCoroutine);
+        _chaseTimerCoroutine = StartCoroutine(ChaseCountdownRoutine());
+    }
+
+    private IEnumerator ChaseCountdownRoutine()
+    {
+        currentTimer = blackoutChaseDuration;
+
+        while (currentTimer > 0f)
+        {
+            // If encounter was resolved (e.g. player caught), exit timer loop
+            if (!isEncounterActive || _isBlackoutEnding) yield break;
+
+            // Pause timer if either enemy is actively jumpscaring or in struggle QTE with player
+            bool isProctorJumpscare = TheProctorAI.ActiveProctor != null && TheProctorAI.ActiveProctor.currentState == TheProctorAI.ProctorState.Jumpscare;
+            bool isWeepingJumpscare = WeepingStudentAI.ActiveWeepingStudent != null && WeepingStudentAI.ActiveWeepingStudent.currentState == WeepingStudentAI.WeepingState.Jumpscare;
+
+            if (isProctorJumpscare || isWeepingJumpscare)
+            {
+                yield return null;
+                continue;
+            }
+
+            currentTimer -= Time.deltaTime;
+            yield return null;
+        }
+
+        // TIMER EXPIRED CONDITION:
+        // Player successfully survived the blackout!
+        // Despawn Enemy -> Power ON -> 0 Anxiety added.
+        OnTimerExpired();
+    }
+
+    /// <summary>
+    /// Called when the blackout timer expires without the player getting caught.
+    /// Clean escape: despawns Proctor and restores power with 0 anxiety penalty.
+    /// </summary>
+    private void OnTimerExpired()
+    {
+        if (_isBlackoutEnding) return;
+        _isBlackoutEnding = true;
+
+        Debug.Log("[TheProctorManager] BLACKOUT TIMER EXPIRED! Player survived! Despawning Proctor and restoring power.");
+
+        // Despawn Proctor cleanly
+        CleanupProctor();
+
+        // Restore campus power
+        if (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive)
+        {
+            BlackoutManager.Instance.RestorePower();
+        }
+
+        isEncounterActive = false;
+        _isBlackoutEnding = false;
+    }
+
+    /// <summary>
+    /// Called by TheProctorAI when the player is caught and jumpscare sequence completes.
+    /// Restores power and wraps up the encounter.
+    /// </summary>
+    public void OnProctorCompletedEncounter()
+    {
+        if (_isBlackoutEnding) return;
+        _isBlackoutEnding = true;
+
+        if (_chaseTimerCoroutine != null)
+        {
+            StopCoroutine(_chaseTimerCoroutine);
+            _chaseTimerCoroutine = null;
+        }
+
+        Debug.Log("[TheProctorManager] Proctor caught player encounter completed. Restoring power.");
+
+        // Restore campus power
+        if (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive)
+        {
+            BlackoutManager.Instance.RestorePower();
+        }
+
+        isEncounterActive = false;
+        _isBlackoutEnding = false;
+    }
+
+    private void CleanupProctor()
+    {
+        if (_chaseTimerCoroutine != null)
+        {
+            StopCoroutine(_chaseTimerCoroutine);
+            _chaseTimerCoroutine = null;
+        }
+
+        TheProctorAI.DespawnActiveProctor();
+        WeepingStudentAI.DespawnActiveWeepingStudent();
+        isEncounterActive = false;
+    }
+
+    // ── Hallway & Spawn Math ──────────────────────────────────────────────────
+
+    private void DetectPlayerHallway(Vector3 playerPos)
+    {
+        if (playerPos.y < 5.5f)
+        {
+            proctorAssignedFloor = 1;
+            proctorAssignedHallway = "Hallway_1F";
+        }
+        else if (playerPos.y < 11.5f)
+        {
+            proctorAssignedFloor = 2;
+            proctorAssignedHallway = "Hallway_2F";
+        }
+        else
+        {
+            proctorAssignedFloor = 3;
+            proctorAssignedHallway = "Hallway_3F";
+        }
+
+        Debug.Log($"[TheProctorManager] Player detected on Floor {proctorAssignedFloor} -> {proctorAssignedHallway}");
+    }
+
+    private void ConfigureHallwayBoundaries(TheProctorAI ai, int floor)
+    {
+        ai.hallwayCenterX = -84.0f;
+        ai.hallwayHalfWidth = 2.8f;
+
+        switch (floor)
+        {
+            case 1:
+                ai.hallwayMinZ = -22.0f;
+                ai.hallwayMaxZ = 55.0f;
+                ai.hallwayHalfWidth = 3.6f; // Lobby area on 1F is wider
+                break;
+            case 2:
+                ai.hallwayMinZ = -18.0f;
+                ai.hallwayMaxZ = 51.0f;
+                break;
+            case 3:
+                ai.hallwayMinZ = -18.0f;
+                ai.hallwayMaxZ = 51.0f;
+                break;
+        }
+    }
+
+    private void ConfigureWeepingHallwayBoundaries(WeepingStudentAI ai, int floor)
+    {
+        ai.hallwayCenterX = -84.0f;
+        ai.hallwayHalfWidth = 2.8f;
+
+        switch (floor)
+        {
+            case 1:
+                ai.hallwayMinZ = -22.0f;
+                ai.hallwayMaxZ = 55.0f;
+                ai.hallwayHalfWidth = 3.6f; // Lobby area on 1F is wider
+                break;
+            case 2:
+                ai.hallwayMinZ = -18.0f;
+                ai.hallwayMaxZ = 51.0f;
+                break;
+            case 3:
+                ai.hallwayMinZ = -18.0f;
+                ai.hallwayMaxZ = 51.0f;
+                break;
+        }
+    }
+
+    private Vector3 CalculateHallwaySpawnPosition(Vector3 playerPos)
+    {
+        float floorY = 2.43f;
+        float minZ = -22.0f;
+        float maxZ = 55.0f;
+
+        if (proctorAssignedFloor == 2) { floorY = 8.35f; minZ = -18.0f; maxZ = 51.0f; }
+        else if (proctorAssignedFloor == 3) { floorY = 14.34f; minZ = -18.0f; maxZ = 51.0f; }
+
+        // Choose to spawn North or South of the player along the corridor depending on available space
+        float targetZ;
+        if (playerPos.z < (minZ + maxZ) * 0.5f)
+        {
+            // Player is in southern half -> spawn to the North
+            targetZ = Mathf.Clamp(playerPos.z + spawnDistance, minZ + 2f, maxZ - 2f);
+        }
+        else
+        {
+            // Player is in northern half -> spawn to the South
+            targetZ = Mathf.Clamp(playerPos.z - spawnDistance, minZ + 2f, maxZ - 2f);
+        }
+
+        Vector3 candidatePos = new Vector3(-84.0f, floorY, targetZ);
+        if (UnityEngine.AI.NavMesh.SamplePosition(candidatePos, out UnityEngine.AI.NavMeshHit hit, 5.0f, UnityEngine.AI.NavMesh.AllAreas))
+        {
+            return hit.position;
+        }
+        return candidatePos;
+    }
+
+    private GameObject CreateFallbackProctor(Vector3 pos)
+    {
+        Debug.LogWarning("[TheProctorManager] theProctorPrefab not assigned — constructing runtime fallback entity.");
+        var go = new GameObject("TheProctor", typeof(UnityEngine.AI.NavMeshAgent), typeof(TheProctorAI));
+        go.transform.position = pos;
+        return go;
+    }
+}

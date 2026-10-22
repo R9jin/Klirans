@@ -1,0 +1,19 @@
+=== FIX ALL PATHING AND SPEED AUDIT ===
+  Removed self-parented Waypoints from 'Signatory_Librarian'.
+Staff 'Signatory_Librarian': anchored to station at (-76.00, 14.30, 44.15), rot=270 deg.
+  Removed self-parented Waypoints from 'Signatory_GuidanceCounselor'.
+Staff 'Signatory_GuidanceCounselor': anchored to station at (-89.50, 8.35, 42.20), rot=90 deg.
+  Removed self-parented Waypoints from 'Signatory_Registrar'.
+Staff 'Signatory_Registrar': anchored to station at (-81.30, 2.35, 4.90), rot=270 deg.
+  Removed self-parented Waypoints from 'Signatory_CCSDean'.
+Staff 'Signatory_CCSDean': anchored to station at (-77.80, 8.35, -3.60), rot=180 deg.
+  Removed self-parented Waypoints from 'Signatory_Cashier'.
+Staff 'Signatory_Cashier': anchored to station at (-81.30, 2.35, -7.10), rot=270 deg.
+  Removed self-parented Waypoints from 'Signatory_EVP'.
+Staff 'Signatory_EVP': anchored to station at (-88.50, 2.35, 7.80), rot=180 deg.
+Student 'ClearanceNPC_Drei': Agent configured (speed=1.15, angularSpeed=480, stoppingDist=0.25, tol=1.1). Snapped to NavMesh at (-80.94, 2.43, 9.38).
+Student 'ClearanceNPC_Glad': Agent configured (speed=1.15, angularSpeed=480, stoppingDist=0.25, tol=1.1). Snapped to NavMesh at (-77.34, 2.43, 20.00).
+Student 'ClearanceNPC_Ira': Agent configured (speed=1.15, angularSpeed=480, stoppingDist=0.25, tol=1.1). Snapped to NavMesh at (-84.00, 8.35, 25.00).
+Student 'ClearanceNPC_Jessa': Agent configured (speed=1.15, angularSpeed=480, stoppingDist=0.25, tol=1.1). Snapped to NavMesh at (-84.00, 8.35, 2.00).
+Student 'ClearanceNPC_Josua': Agent configured (speed=1.15, angularSpeed=480, stoppingDist=0.25, tol=1.1). Snapped to NavMesh at (-84.00, 14.35, 2.00).
+Student 'ClearanceNPC_Niel': Agent configured (speed=1.15, angularSpeed=480, stoppingDist=0.25, tol=1.1). Snapped to NavMesh at (-84.00, 14.35, 26.00).

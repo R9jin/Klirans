@@ -1,0 +1,11 @@
+=== DETAILED OBSTACLE COLLIDER INSPECTION ===
+Time: 10/8/2026 12:00:44 PM
+Summary: Solid=761, TriggerOnly=0, NoCollider=4
+
+=== UNCOLLIDED OBSTACLES ===
+[NO COLLIDER] 'Rooms/3rdFloor/Room 308/LibraryFurniture/LibrarianDesk/DeskMonitor' | bounds: center=(-77.01, 15.11, 44.42), size=(0.28, 0.37, 0.50)
+[NO COLLIDER] 'Rooms/1stFloor/COMLAB 2/ComlabFurniture/TeacherDesk/wallTV' | bounds: center=(-93.12, 3.85, 41.47), size=(0.08, 0.71, 1.16)
+[NO COLLIDER] 'Rooms/1stFloor/COMLAB 1/ComlabFurniture/TeacherDesk/wallTV' | bounds: center=(-75.63, 3.85, 28.99), size=(0.08, 0.71, 1.16)
+[NO COLLIDER] 'Rooms/2ndFloor/Room 207/GuidanceOffice/InformationDesk/ReceptionMonitor' | bounds: center=(-88.86, 9.24, 42.20), size=(0.10, 0.37, 0.50)
+
+=== TRIGGER ONLY OBSTACLES ===
