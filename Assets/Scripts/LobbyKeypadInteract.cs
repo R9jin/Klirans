@@ -38,6 +38,7 @@ public class LobbyKeypadInteract : MonoBehaviour, IInteractable
     private AudioSource _audioSource;
     private bool _isUIOpen = false;
     public bool IsOpen => _isUIOpen;
+    private int _openedFrame = -1;
 
     private void Awake()
     {
@@ -71,14 +72,21 @@ public class LobbyKeypadInteract : MonoBehaviour, IInteractable
 
     private void BuildKeypadUI()
     {
-        var hudCanvas = GameObject.Find("HudCanvas");
-        Transform parentTransform = hudCanvas != null ? hudCanvas.transform : transform;
+        if (_keypadCanvasGO != null)
+        {
+            Destroy(_keypadCanvasGO);
+            _keypadCanvasGO = null;
+        }
+
+        var stale = GameObject.Find("LobbyKeypad_UI");
+        if (stale != null) Destroy(stale);
 
         _keypadCanvasGO = new GameObject("LobbyKeypad_UI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        _keypadCanvasGO.transform.SetParent(parentTransform, false);
+        _keypadCanvasGO.transform.SetParent(null, false);
         var canvas = _keypadCanvasGO.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 240;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 500;
 
         _canvasGroup = _keypadCanvasGO.AddComponent<CanvasGroup>();
 
@@ -248,6 +256,11 @@ public class LobbyKeypadInteract : MonoBehaviour, IInteractable
             );
         }
 
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.TriggerAutosave("Lobby Door Unlocked");
+        }
+
         yield return new WaitForSeconds(1.2f);
         CloseKeypadUI();
     }
@@ -256,7 +269,10 @@ public class LobbyKeypadInteract : MonoBehaviour, IInteractable
     {
         if (!_isUIOpen) return;
 
-        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Tab))
+        // CRITICAL FIX: Do NOT close on the exact frame it opened from pressing [E]!
+        if (Time.frameCount <= _openedFrame + 5) return;
+
+        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.E))
         {
             CloseKeypadUI();
             return;
@@ -296,6 +312,7 @@ public class LobbyKeypadInteract : MonoBehaviour, IInteractable
     public void OpenKeypadUI()
     {
         _isUIOpen = true;
+        _openedFrame = Time.frameCount;
         currentEnteredCode = "";
         UpdateDisplay();
         SetUIVisible(true);
@@ -342,6 +359,21 @@ public class LobbyKeypadInteract : MonoBehaviour, IInteractable
         {
             _audioSource.pitch = pitch;
             _audioSource.PlayOneShot(clip, vol);
+        }
+    }
+
+    public void UnlockInstant()
+    {
+        isGateUnlocked = true;
+        if (keypadLight != null)
+        {
+            keypadLight.color = Color.green;
+            keypadLight.intensity = 1.8f;
+        }
+        if (exitDoorObject != null)
+        {
+            var door = exitDoorObject.GetComponent<DoorInteract>();
+            if (door != null) door.isLocked = false;
         }
     }
 }

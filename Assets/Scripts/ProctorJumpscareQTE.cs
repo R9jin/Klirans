@@ -17,7 +17,19 @@ using UnityEngine.UI;
 /// </summary>
 public class ProctorJumpscareQTE : MonoBehaviour
 {
-    public static ProctorJumpscareQTE Instance { get; private set; }
+    private static ProctorJumpscareQTE _instance;
+    public static ProctorJumpscareQTE Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindAnyObjectByType<ProctorJumpscareQTE>(FindObjectsInactive.Include);
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     [Header("Struggle QTE Balancing")]
     [Tooltip("Key the player must rapidly press to break free.")]
@@ -31,16 +43,16 @@ public class ProctorJumpscareQTE : MonoBehaviour
     public float decayGracePeriod = 0.28f;
 
     [Tooltip("Escape progress gained (0..1) per [Q] key press.")]
-    public float progressPerPress = 0.135f;
+    public float progressPerPress = 0.125f;
 
     [Tooltip("Passive decay of the escape bar per second (The Proctor pushing back).")]
-    public float progressDecayPerSecond = 0.18f;
+    public float progressDecayPerSecond = 0.14f;
 
     [Tooltip("Initial instant anxiety spike upon getting grabbed by The Proctor.")]
-    public float initialGrabAnxietySpike = 12f;
+    public float initialGrabAnxietySpike = 4f;
 
     [Tooltip("Continuous anxiety added per second while struggling in The Proctor's grasp.")]
-    public float struggleAnxietyPerSecond = 16.5f;
+    public float struggleAnxietyPerSecond = 2.5f;
 
     [Header("Audio Feedback")]
     public AudioClip keyTapClip;
@@ -61,16 +73,26 @@ public class ProctorJumpscareQTE : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
             return;
         }
-        Instance = this;
+        _instance = this;
 
         _audioSource = gameObject.AddComponent<AudioSource>();
         _audioSource.spatialBlend = 0f;
         _audioSource.playOnAwake = false;
+
+        initialGrabAnxietySpike = 4f;
+        struggleAnxietyPerSecond = 2.5f;
+
+#if UNITY_EDITOR
+        if (strugglePressAudio == null)
+            strugglePressAudio = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/clicking.mp3");
+#endif
+        if (strugglePressAudio == null)
+            strugglePressAudio = Resources.Load<AudioClip>("Sounds/clicking");
     }
 
     public static void AbortActiveQTE()
@@ -153,16 +175,22 @@ public class ProctorJumpscareQTE : MonoBehaviour
                 }
             }
 
-            // 2. Check [Q] key mash input
-            bool pressed = Input.GetKeyDown(struggleKey);
+            // 2. Check [Q] key mash input (also allow Space or AlternateKey for accessibility)
+            bool pressed = Input.GetKeyDown(struggleKey) || Input.GetKeyDown(alternateKey) || Input.GetKeyDown(KeyCode.Space);
             if (pressed)
             {
                 progress += progressPerPress;
-                badgeScale = 1.32f;
+                badgeScale = 1.35f;
 
                 if (_keyBadgeBg != null)
                 {
-                    _keyBadgeBg.color = new Color(1f, 0.92f, 0.35f, 1f); // Flash bright gold/white on press
+                    _keyBadgeBg.color = new Color(1f, 0.95f, 0.40f, 1f); // Flash bright gold/white on press
+                }
+
+                if (_audioSource != null && strugglePressAudio != null)
+                {
+                    _audioSource.pitch = UnityEngine.Random.Range(0.95f, 1.15f);
+                    _audioSource.PlayOneShot(strugglePressAudio, 0.8f);
                 }
             }
             else
@@ -238,19 +266,22 @@ public class ProctorJumpscareQTE : MonoBehaviour
     {
         if (_qteRoot != null) Destroy(_qteRoot);
 
-        var hud = GameObject.Find("HudCanvas");
-        if (hud == null) return;
+        // Independent Top-Level Overlay Canvas guaranteed to render over everything
+        _qteRoot = new GameObject("ProctorStruggleQTE_Canvas");
+        var canvas = _qteRoot.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 950;
+
+        var scaler = _qteRoot.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.matchWidthOrHeight = 0.5f;
+
+        _qteRoot.AddComponent<GraphicRaycaster>();
 
         var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-
-        _qteRoot = new GameObject("ProctorStruggleQTE_UI", typeof(RectTransform));
-        _qteRoot.transform.SetParent(hud.transform, false);
-        var rootRT = _qteRoot.GetComponent<RectTransform>();
-        rootRT.anchorMin = Vector2.zero;
-        rootRT.anchorMax = Vector2.one;
-        rootRT.offsetMin = Vector2.zero;
-        rootRT.offsetMax = Vector2.zero;
 
         // Container positioned at lower-center of screen so The Proctor's screaming face is unobstructed above
         var panelGO = new GameObject("QTEContainer", typeof(RectTransform), typeof(Image));

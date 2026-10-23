@@ -890,7 +890,7 @@ public class DevDemoPanel : MonoBehaviour
         GUILayout.EndHorizontal();
 
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("1F ComLab 105", _actionButtonStyle, GUILayout.Height(28))) WarpPlayer(new Vector3(-88.5f, 2.35f, -14.0f));
+        if (GUILayout.Button("1F ComLab 1", _actionButtonStyle, GUILayout.Height(28))) WarpPlayer(new Vector3(-78.5f, 2.35f, 29.0f));
         if (GUILayout.Button("1F Registrar Office", _actionButtonStyle, GUILayout.Height(28))) WarpPlayer(new Vector3(-80.0f, 2.35f, 42.0f));
         if (GUILayout.Button("1F Breaker Box Panel", _actionButtonStyle, GUILayout.Height(28))) WarpToBreaker();
         GUILayout.EndHorizontal();

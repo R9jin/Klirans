@@ -17,15 +17,27 @@ using UnityEngine.UI;
 /// </summary>
 public class NPCJumpscareManager : MonoBehaviour
 {
-    public static NPCJumpscareManager Instance { get; private set; }
+    private static NPCJumpscareManager _instance;
+    public static NPCJumpscareManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindAnyObjectByType<NPCJumpscareManager>(FindObjectsInactive.Include);
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     [Header("Touch / Block Detection")]
     [Tooltip("Distance at which walking into an NPC counts as touching/blocking them (forgiving radius so passing in hallways is safe).")]
-    public float touchDistanceThreshold = 0.62f;
+    public float touchDistanceThreshold = 0.52f;
 
     [Tooltip("Probability (0.0 to 1.0) that touching/bumping an NPC triggers a jumpscare.")]
     [Range(0f, 1f)]
-    public float touchScareChance = 0.22f;
+    public float touchScareChance = 0.18f;
 
     [Tooltip("Cooldown before the same NPC can roll for a touch scare again if the roll didn't trigger.")]
     public float touchRerollCooldown = 8f;
@@ -68,8 +80,8 @@ public class NPCJumpscareManager : MonoBehaviour
     [Tooltip("Stamina drained when startled by a jumpscare.")]
     public float staminaDrain = 10f;
 
-    [Tooltip("Amount of anxiety (0-100) added to the AnxietyManager when jumpscared by a wandering NPC (kept low).")]
-    public float jumpscareAnxietyIncrease = 4f;
+    [Tooltip("Amount of anxiety (0-100) added to the AnxietyManager when jumpscared by a wandering NPC.")]
+    public float jumpscareAnxietyIncrease = 2.0f;
 
     [Tooltip("Master volume for the jumpscare scream audio.")]
     [Range(0.1f, 1f)]
@@ -138,16 +150,14 @@ public class NPCJumpscareManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
             Destroy(this);
             return;
         }
-        Instance = this;
+        _instance = this;
 
-        // Enforce low anxiety impact and forgiving touch radius even if higher values were serialized in the scene
-        jumpscareAnxietyIncrease = Mathf.Min(jumpscareAnxietyIncrease, 4f);
-        if (jumpscareAnxietyIncrease <= 0f) jumpscareAnxietyIncrease = 4f;
+        jumpscareAnxietyIncrease = 2.0f;
         staminaDrain = Mathf.Min(staminaDrain, 10f);
         touchDistanceThreshold = Mathf.Min(touchDistanceThreshold, 0.62f);
         if (touchDistanceThreshold <= 0.1f) touchDistanceThreshold = 0.62f;
@@ -615,6 +625,7 @@ public class NPCJumpscareManager : MonoBehaviour
 
     private void HandleTouchOrBlock(TrackedNPC npc, float planarDist)
     {
+        if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver)) return;
         if (!CanTriggerScare()) return;
         if (Time.time < npc.nextTouchRollTime) return;
 
@@ -662,10 +673,8 @@ public class NPCJumpscareManager : MonoBehaviour
         if (PauseMenu.GameIsPaused) return false;
         if (LockerHideManager.IsPlayerHidden) return false;
 
-        // Do not let passive hallway wandering NPCs interrupt an open desk puzzle
-        if (GuidanceWordPuzzle.Instance != null && GuidanceWordPuzzle.Instance.IsOpen) return false;
-        if (CashierBalancePuzzle.Instance != null && CashierBalancePuzzle.Instance.IsOpen) return false;
-        if (RegistrarDocumentSortPuzzle.Instance != null && RegistrarDocumentSortPuzzle.Instance.IsOpen) return false;
+        // Do not let passive hallway wandering NPCs interrupt an open puzzle, safe cracking minigame, or modal
+        if (PauseMenu.IsAnyActivePuzzleOrModalOpen) return false;
 
         if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return false;
 
@@ -941,8 +950,8 @@ public class NPCJumpscareManager : MonoBehaviour
             }
         }
 
-        // 5. Increment Anxiety Meter! (Low impact for wandering NPCs)
-        float anxietyToAdd = isGuardCatch ? Mathf.Max(jumpscareAnxietyIncrease, 12f) : Mathf.Min(jumpscareAnxietyIncrease, 4f);
+        // 5. Increment Anxiety Meter! (Forgiving low impact: Guard catch +10, wandering NPC +2.5)
+        float anxietyToAdd = isGuardCatch ? 4.0f : jumpscareAnxietyIncrease;
         if (AnxietyManager.Instance != null)
         {
             AnxietyManager.Instance.AddAnxiety(anxietyToAdd);

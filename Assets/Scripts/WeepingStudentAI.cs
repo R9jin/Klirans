@@ -107,8 +107,8 @@ public class WeepingStudentAI : MonoBehaviour
     public AudioClip weepingSoundClip;
 
     [Header("Horror & Balancing")]
-    [Tooltip("Amount of anxiety added to the AnxietyMeter on jumpscare (kept low).")]
-    public float jumpscareAnxietyIncrease = 8f;
+    [Tooltip("Amount of anxiety added to the AnxietyMeter on jumpscare.")]
+    public float jumpscareAnxietyIncrease = 4.5f;
 
     [Tooltip("Stamina penalty when jumpscared.")]
     public float staminaDrain = 20f;
@@ -163,8 +163,7 @@ public class WeepingStudentAI : MonoBehaviour
         }
         ActiveWeepingStudent = this;
 
-        jumpscareAnxietyIncrease = Mathf.Min(jumpscareAnxietyIncrease, 8f);
-        if (jumpscareAnxietyIncrease <= 0f) jumpscareAnxietyIncrease = 8f;
+        jumpscareAnxietyIncrease = 4.5f;
         catchDistance = Mathf.Min(catchDistance, 1.05f);
         if (catchDistance <= 0.3f) catchDistance = 1.05f;
 
@@ -556,7 +555,7 @@ public class WeepingStudentAI : MonoBehaviour
         }
 
         // Force-close any open puzzle/modal if the Weeping Student is about to catch the player
-        if (!playerHidden && !playerInRoom && dy < 1.9f && distToPlayer <= catchDistance + 1.2f && PauseMenu.IsAnyActivePuzzleOrModalOpen)
+        if (!playerHidden && !playerInRoom && dy < 1.9f && distToPlayer <= catchDistance + 4.5f && PauseMenu.IsAnyActivePuzzleOrModalOpen)
         {
             PauseMenu.ForceCloseAllModalsAndPuzzles();
         }
@@ -1210,6 +1209,7 @@ public class WeepingStudentAI : MonoBehaviour
 
     public void Despawn()
     {
+        StopAllCoroutines();
         currentState = WeepingState.Despawning;
 
         if (_weepingAudio != null && _weepingAudio.isPlaying)

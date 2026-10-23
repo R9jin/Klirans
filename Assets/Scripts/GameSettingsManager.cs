@@ -123,7 +123,7 @@ public class GameSettingsManager : MonoBehaviour
         if (Instance == null)
         {
             var go = new GameObject("GameSettingsManager");
-            DontDestroyOnLoad(go);
+            if (Application.isPlaying) DontDestroyOnLoad(go);
             Instance = go.AddComponent<GameSettingsManager>();
         }
     }
@@ -142,7 +142,7 @@ public class GameSettingsManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
+        if (Application.isPlaying) DontDestroyOnLoad(gameObject);
 
         BuildResolutionList();
         LoadAssets();

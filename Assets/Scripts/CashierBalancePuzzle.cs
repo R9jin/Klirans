@@ -171,6 +171,7 @@ public class CashierBalancePuzzle : MonoBehaviour
 
     // Runtime state
     public bool IsSolved { get; private set; } = false;
+    public void RestoreSolvedState() { IsSolved = true; }
     public bool IsOpen => puzzlePanel != null && puzzlePanel.activeSelf;
 
     private BalanceSheetChallenge _activeChallenge;

@@ -69,7 +69,7 @@ public class ProctorAI : MonoBehaviour
     public float visionRange = 5.0f;
 
     [Tooltip("Close proximity range (even from the side) where the NPC senses the player")]
-    public float proximityRange = 1.20f;
+    public float proximityRange = 1.0f;
 
     [Tooltip("Field of view angle in degrees")]
     [Range(30f, 180f)]
@@ -86,7 +86,7 @@ public class ProctorAI : MonoBehaviour
     public float maxChaseDuration = 6.0f;
 
     [Tooltip("Distance at which the chasing NPC catches the player and triggers the jumpscare (forgiving radius)")]
-    public float catchDistance = 0.68f;
+    public float catchDistance = 0.65f;
 
     [Tooltip("Cooldown after a chase/scare before this NPC can chase again")]
     public float chaseCooldown = 25f;
@@ -181,6 +181,11 @@ public class ProctorAI : MonoBehaviour
             if (currentState == NPCState.Chasing)
             {
                 StopChaseAndResumeWander();
+            }
+            if (_agent != null && _agent.isOnNavMesh)
+            {
+                _agent.isStopped = true;
+                _agent.velocity = Vector3.zero;
             }
             return;
         }
@@ -425,6 +430,9 @@ public class ProctorAI : MonoBehaviour
             TriggerSpecificNPCJumpscare();
             return;
         }
+
+        // Exit any open puzzle or modal immediately if this NPC starts chasing
+        PauseMenu.ForceCloseAllModalsAndPuzzles();
 
         currentState = NPCState.Chasing;
         _globalChaseActive = true;

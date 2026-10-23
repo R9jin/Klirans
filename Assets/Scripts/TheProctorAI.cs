@@ -542,7 +542,7 @@ public class TheProctorAI : MonoBehaviour
         bool playerInsideRoom = IsPositionInsideAnyRoom(playerPos);
 
         // Force-close any open puzzle/minigame/modal when The Proctor is about to catch/jumpscare the player!
-        if (!playerHidden && sameFloor && distToPlayer <= catchDistance + 2.2f && PauseMenu.IsAnyActivePuzzleOrModalOpen)
+        if (!playerHidden && sameFloor && distToPlayer <= catchDistance + 4.5f && PauseMenu.IsAnyActivePuzzleOrModalOpen)
         {
             PauseMenu.ForceCloseAllModalsAndPuzzles();
         }
@@ -1136,16 +1136,22 @@ public class TheProctorAI : MonoBehaviour
         Vector3 faceDir = -camFwd; // Face directly back at player camera
         transform.rotation = Quaternion.LookRotation(faceDir);
 
-        // Compute exact true face center offset (eyes & nose bridge, 0.10m below top skull bone)
-        Vector3 faceOffset = (_headBone != null) ? (_headBone.position - Vector3.up * 0.10f - transform.position) : new Vector3(0f, targetHeightMeters * 0.88f, 0f);
+        // Lock camera squarely forward along camFwd
+        _playerCam.transform.rotation = Quaternion.LookRotation(camFwd);
+
+        // Compute exact true head height relative to root
+        float headLocalHeight = (_headBone != null) ? Mathf.Abs(transform.InverseTransformPoint(_headBone.position).y) : (targetHeightMeters * 0.88f);
+        if (headLocalHeight < 1.0f || headLocalHeight > 3.0f) headLocalHeight = targetHeightMeters * 0.88f;
 
         // Desired face position in world space:
-        // Positioned 0.68m in front of camera, elevated +0.04m above camera eye-level
-        // This frames face center at exact viewport center (0.50, 0.50), top of skull at y=0.97, and chin at y=0.26 (fully above QTE UI)
-        Vector3 desiredFacePos = camPos + camFwd * 0.68f + Vector3.up * 0.04f;
+        // Positioned 0.68m in front of camera, elevated +0.02m above camera eye-level
+        // This frames face center at exact viewport center, chin safely above the QTE UI
+        Vector3 desiredFacePos = camPos + camFwd * 0.68f + Vector3.up * 0.02f;
+        Vector3 targetProctorPos = desiredFacePos - Vector3.up * headLocalHeight;
 
-        Vector3 targetProctorPos = desiredFacePos - faceOffset;
-        Vector3 initialProctorPos = transform.position;
+        // Place him initially 1.45m in front of camera so he slams directly towards the lens!
+        Vector3 initialProctorPos = (camPos + camFwd * 1.45f + Vector3.up * 0.02f) - Vector3.up * headLocalHeight;
+        transform.position = initialProctorPos;
 
         // 3. Audio Horror Screamer
         if (_audioSource != null)
@@ -1181,13 +1187,8 @@ public class TheProctorAI : MonoBehaviour
             // Dramatic vertigo camera zoom directly into his face
             _playerCam.fieldOfView = Mathf.Lerp(startFOV, jumpscareFOV, ease);
 
-            // Continuously lock camera directly on his true face center (eyes & nose bridge)
-            Vector3 currentFacePos = (_headBone != null) ? (_headBone.position - Vector3.up * 0.10f) : (transform.position + faceOffset);
-            Vector3 lookDir = currentFacePos - _playerCam.transform.position;
-            if (lookDir.sqrMagnitude > 0.0001f)
-            {
-                _playerCam.transform.rotation = Quaternion.LookRotation(lookDir);
-            }
+            // Lock camera directly on his screaming face along camFwd
+            _playerCam.transform.rotation = Quaternion.LookRotation(camFwd);
 
             // Violent shudder shake
             float shakeX = Random.Range(-0.025f, 0.025f);
@@ -1212,7 +1213,7 @@ public class TheProctorAI : MonoBehaviour
             _headBone,
             targetProctorPos,
             faceDir,
-            faceOffset.y,
+            headLocalHeight,
             camBaseLocalPos,
             (escaped) => { playerEscaped = escaped; }
         ));
@@ -1360,6 +1361,7 @@ public class TheProctorAI : MonoBehaviour
 
     public void Despawn()
     {
+        StopAllCoroutines();
         currentState = ProctorState.Despawning;
 
         if (_agent != null && _agent.isOnNavMesh)

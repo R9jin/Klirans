@@ -1555,7 +1555,7 @@ public static class Item3DModelFactory
         var clue = root.AddComponent<InspectableClueMarker>();
         clue.clueID = "VGACableSerial";
         clue.clueTitle = "VGA Connector Serial Code";
-        clue.clueDescription = "May nakatatak sa connector boot: 'CCS-SRV-TERMINAL-01 // 800x600 60Hz'. Para ito sa Master Database Terminal sa Room 105 Computer Lab!";
+        clue.clueDescription = "May nakatatak sa connector boot: 'CCS-SRV-TERMINAL-01 // 800x600 60Hz'. Para ito sa Master Database Terminal sa ComLab 1!";
         clue.revealDirection = Vector3.up;
         clue.detectionAngle = 50.0f;
 

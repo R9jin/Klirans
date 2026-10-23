@@ -21,7 +21,19 @@ using UnityEngine;
 /// </summary>
 public class AnxietyManager : MonoBehaviour
 {
-    public static AnxietyManager Instance { get; private set; }
+    private static AnxietyManager _instance;
+    public static AnxietyManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindAnyObjectByType<AnxietyManager>();
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     [Header("Anxiety State")]
     [Range(0f, 100f)]
@@ -34,27 +46,31 @@ public class AnxietyManager : MonoBehaviour
 
     [Header("Passive Buildup Rates (per second)")]
     [Tooltip("Anxiety gained per second during a campus blackout when flashlight is OFF.")]
-    public float blackoutDarknessRate = 2.8f;
+    public float blackoutDarknessRate = 1.6f;
 
     [Tooltip("Anxiety gained per second during a campus blackout when flashlight is ON (much slower).")]
-    public float blackoutWithFlashlightRate = 0.65f;
+    public float blackoutWithFlashlightRate = 0.4f;
 
     [Tooltip("Anxiety gained per second while The Proctor is actively chasing the player.")]
-    public float proctorChaseRate = 7.5f;
+    public float proctorChaseRate = 4.8f;
 
     [Tooltip("Anxiety gained per second when The Proctor is patrolling nearby (< 14m).")]
-    public float proctorProximityRate = 2.2f;
+    public float proctorProximityRate = 1.4f;
 
     [Header("Instant Spike Amounts")]
-    [Tooltip("Instant anxiety spike when startled by a wandering NPC jumpscare (kept low).")]
-    public float jumpscareAnxietyIncrease = 4f;
+    [Tooltip("Instant anxiety spike when startled by a wandering NPC jumpscare.")]
+    public float jumpscareAnxietyIncrease = 2.0f;
+
+    [Tooltip("Seconds after taking anxiety damage before passive calm recovery begins.")]
+    public float calmRecoveryDelay = 1.5f;
+    private float _lastDamageTime = -999f;
 
     [Tooltip("Instant anxiety relief when successfully obtaining a clearance signature.")]
     public float signatureReliefAmount = 25f;
 
     [Header("Recovery / Calming Rates (per second)")]
     [Tooltip("Anxiety reduced per second when lights are ON and no threat is chasing.")]
-    public float normalCalmRecoveryRate = 2.0f;
+    public float normalCalmRecoveryRate = 2.5f;
 
     [Tooltip("Anxiety reduced per second when hiding inside a locker and Proctor is not right outside.")]
     public float lockerSafeRecoveryRate = 3.2f;
@@ -76,15 +92,19 @@ public class AnxietyManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
             return;
         }
-        Instance = this;
+        _instance = this;
 
-        jumpscareAnxietyIncrease = Mathf.Min(jumpscareAnxietyIncrease, 4f);
-        if (jumpscareAnxietyIncrease <= 0f) jumpscareAnxietyIncrease = 4f;
+        jumpscareAnxietyIncrease = 2.0f;
+        calmRecoveryDelay = 1.5f;
+        blackoutDarknessRate = 1.6f;
+        blackoutWithFlashlightRate = 0.4f;
+        proctorChaseRate = 4.8f;
+        proctorProximityRate = 1.4f;
 
         SetupAudio();
         LoadDefaultAudio();
@@ -226,16 +246,22 @@ public class AnxietyManager : MonoBehaviour
             }
         }
 
-        // 3. Recovery when safe
+        // 3. Recovery when safe (only after calmRecoveryDelay cooldown)
         if (!isThreatActive)
         {
             if (LockerHideManager.IsPlayerHidden)
             {
-                delta -= lockerSafeRecoveryRate;
+                if (Time.time - _lastDamageTime >= 1.5f)
+                {
+                    delta -= lockerSafeRecoveryRate;
+                }
             }
             else if (!isBlackout)
             {
-                delta -= normalCalmRecoveryRate;
+                if (Time.time - _lastDamageTime >= calmRecoveryDelay)
+                {
+                    delta -= normalCalmRecoveryRate;
+                }
             }
         }
 
@@ -307,6 +333,11 @@ public class AnxietyManager : MonoBehaviour
         if (GameModeManager.IsFreeRoamMode && delta > 0f) return;
         if (DevDemoPanel.IsGodModeActive && delta > 0f) return;
         if (IsGameOver) return;
+
+        if (delta > 0.05f)
+        {
+            _lastDamageTime = Time.time;
+        }
 
         float prev = currentAnxiety;
         currentAnxiety = Mathf.Clamp(currentAnxiety + delta, 0f, maxAnxiety);
@@ -385,5 +416,9 @@ public class AnxietyManager : MonoBehaviour
         }
 
         OnGameOver?.Invoke();
+        if (GameOverUI.Instance != null)
+        {
+            GameOverUI.Instance.HandleGameOver();
+        }
     }
 }

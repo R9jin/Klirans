@@ -200,6 +200,7 @@ public class DoorInteract : MonoBehaviour, IInteractable
     {
         isLocked = false;
         isBlackoutLocked = false;
+        SaveManager.RegisterUnlockedDoor(gameObject.name);
         ToggleDoor();
     }
 

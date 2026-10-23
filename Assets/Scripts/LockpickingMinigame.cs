@@ -583,7 +583,7 @@ public class LockpickingMinigame : MonoBehaviour
         }
         else if (!success && message == "Time expired.")
         {
-            if (AnxietyManager.Instance != null) AnxietyManager.Instance.AddAnxiety(10f);
+            if (AnxietyManager.Instance != null) AnxietyManager.Instance.AddAnxiety(4f);
             var jsMgr = NPCJumpscareManager.Instance ?? Object.FindAnyObjectByType<NPCJumpscareManager>();
             if (jsMgr != null) jsMgr.PunishPlayerError("Lockpicking Time Expired", 0.45f);
         }

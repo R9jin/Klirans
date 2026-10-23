@@ -10,7 +10,19 @@ using UnityEngine.UI;
 /// </summary>
 public class AnxietyUI : MonoBehaviour
 {
-    public static AnxietyUI Instance { get; private set; }
+    private static AnxietyUI _instance;
+    public static AnxietyUI Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindAnyObjectByType<AnxietyUI>(FindObjectsInactive.Include);
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     [Header("UI References (Optional - Auto-Built if null)")]
     public CanvasGroup rootCanvasGroup;
@@ -36,35 +48,50 @@ public class AnxietyUI : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
             return;
         }
-        Instance = this;
+        _instance = this;
     }
+
+    private bool _isSubscribed = false;
 
     private void Start()
     {
         EnsureUIConstructed();
+        TrySubscribe();
+    }
 
+    private void TrySubscribe()
+    {
+        if (_isSubscribed) return;
         if (AnxietyManager.Instance != null)
         {
+            AnxietyManager.Instance.OnAnxietyChanged -= HandleAnxietyChanged;
             AnxietyManager.Instance.OnAnxietyChanged += HandleAnxietyChanged;
             UpdateDisplay(AnxietyManager.Instance.CurrentAnxiety, AnxietyManager.Instance.maxAnxiety, instant: true);
+            _isSubscribed = true;
         }
     }
 
     private void OnDestroy()
     {
-        if (AnxietyManager.Instance != null)
+        if (AnxietyManager.Instance != null && _isSubscribed)
         {
             AnxietyManager.Instance.OnAnxietyChanged -= HandleAnxietyChanged;
+            _isSubscribed = false;
         }
     }
 
     private void Update()
     {
+        if (!_isSubscribed)
+        {
+            TrySubscribe();
+        }
+
         if (barFill != null)
         {
             barFill.fillAmount = Mathf.MoveTowards(barFill.fillAmount, _targetFill, Time.deltaTime * smoothFillSpeed);

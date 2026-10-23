@@ -509,8 +509,13 @@ public class CircuitBreakerPuzzle : MonoBehaviour, IInteractable
         {
             ObjectiveHUD.Instance.SetObjective(
                 "Kuryente sa ComLab Naibalik!",
-                "Naibalik ang power grid sa 2nd Floor. Maaari nang puntahan ang Master Computer Terminal sa Room 105."
+                "Naibalik ang power grid sa 2nd Floor. Maaari nang puntahan ang Master Computer Terminal sa ComLab 1."
             );
+        }
+
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.TriggerAutosave("Power Restored");
         }
 
         Debug.Log("[CircuitBreakerPuzzle] 15A Ceramic Fuse installed. Grid power restored!");
@@ -556,6 +561,31 @@ public class CircuitBreakerPuzzle : MonoBehaviour, IInteractable
         {
             _audioSource.pitch = pitch;
             _audioSource.PlayOneShot(clip, vol);
+        }
+    }
+
+    public void RestorePowerInstant()
+    {
+        isFuseInstalled = true;
+        isPowerRestored = true;
+
+        if (slotStatusLight != null)
+        {
+            slotStatusLight.color = Color.green;
+            slotStatusLight.intensity = 1.5f;
+        }
+
+        if (wingLightsGroup != null)
+        {
+            foreach (var light in wingLightsGroup.GetComponentsInChildren<Light>(true))
+            {
+                light.enabled = true;
+            }
+        }
+
+        if (BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.OnBreakerGridStabilized();
         }
     }
 }

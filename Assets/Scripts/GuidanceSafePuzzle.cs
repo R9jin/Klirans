@@ -58,6 +58,7 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
     private AudioSource _audioSource;
     private bool _isUIOpen = false;
     public bool IsOpen => _isUIOpen;
+    private int _openedFrame = -1;
 
     private void Awake()
     {
@@ -164,14 +165,21 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
 
     private void BuildSafeUI()
     {
-        var hudCanvas = GameObject.Find("HudCanvas");
-        Transform parentTransform = hudCanvas != null ? hudCanvas.transform : transform;
+        if (_safeCanvasGO != null)
+        {
+            Destroy(_safeCanvasGO);
+            _safeCanvasGO = null;
+        }
+
+        var stale = GameObject.Find("GuidanceSafe_UI");
+        if (stale != null) Destroy(stale);
 
         _safeCanvasGO = new GameObject("GuidanceSafe_UI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        _safeCanvasGO.transform.SetParent(parentTransform, false);
+        _safeCanvasGO.transform.SetParent(null, false);
         var canvas = _safeCanvasGO.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 240;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 500;
 
         var scaler = _safeCanvasGO.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -208,6 +216,30 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
         {
             _safeDoorImage.color = new Color(0.12f, 0.13f, 0.16f, 0.98f);
         }
+
+        // Close Button [X] in top-right corner of safe door
+        var closeBtnGO = new GameObject("Btn_Close", typeof(RectTransform), typeof(Image), typeof(Button));
+        closeBtnGO.transform.SetParent(panel.transform, false);
+        var cbrt = closeBtnGO.GetComponent<RectTransform>();
+        cbrt.anchorMin = new Vector2(1f, 1f);
+        cbrt.anchorMax = new Vector2(1f, 1f);
+        cbrt.anchoredPosition = new Vector2(-18f, -18f);
+        cbrt.sizeDelta = new Vector2(30f, 30f);
+        closeBtnGO.GetComponent<Image>().color = new Color(0.45f, 0.12f, 0.12f, 0.90f);
+
+        var cbTxtGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        cbTxtGO.transform.SetParent(closeBtnGO.transform, false);
+        var cbtrt = cbTxtGO.GetComponent<RectTransform>();
+        cbtrt.anchorMin = Vector2.zero;
+        cbtrt.anchorMax = Vector2.one;
+        var cbt = cbTxtGO.GetComponent<Text>();
+        cbt.text = "✕";
+        cbt.fontSize = 18;
+        cbt.fontStyle = FontStyle.Bold;
+        cbt.alignment = TextAnchor.MiddleCenter;
+        cbt.color = Color.white;
+        cbt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        closeBtnGO.GetComponent<Button>().onClick.AddListener(CloseSafeUI);
 
         // Vault Model Plaque / Subheader
         var titleGO = new GameObject("SafeTitle", typeof(RectTransform), typeof(Text));
@@ -319,6 +351,10 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
             hubRT.sizeDelta = new Vector2(58f, 58f);
             var hubImg = hubGO.GetComponent<Image>();
             hubImg.color = new Color(0.12f, 0.11f, 0.10f, 0.95f);
+            var hubBtn = hubGO.AddComponent<Button>();
+            hubBtn.onClick.AddListener(() => SelectTumbler(index));
+            var wheelBtn = wheelGO.AddComponent<Button>();
+            wheelBtn.onClick.AddListener(() => SelectTumbler(index));
 
             // Digit Text
             var digitGO = new GameObject("DigitText", typeof(RectTransform), typeof(Text));
@@ -380,7 +416,7 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
         hrt.anchorMin = new Vector2(0f, 0f);
         hrt.anchorMax = new Vector2(1f, 0.14f);
         var hintTxt = hintGO.GetComponent<Text>();
-        hintTxt.text = "[A / D / 1-3] Select Tumbler  •  [W / S / ▲ / ▼] Rotate  •  [ESC / E] Close Safe";
+        hintTxt.text = "[A / D / 1-3 / Click] Select Tumbler  •  [W / S / ▲ / ▼ / Scroll] Rotate  •  [ESC / TAB / X] Close Safe";
         hintTxt.fontSize = 13;
         hintTxt.alignment = TextAnchor.MiddleCenter;
         hintTxt.color = new Color(0.70f, 0.68f, 0.62f, 0.85f);
@@ -492,9 +528,14 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
         if (ObjectiveHUD.Instance != null)
         {
             ObjectiveHUD.Instance.SetObjective(
-                "Guidance Safe Na-unlock! (4-1-9)",
+                "Guidance Safe Na-unlock!",
                 "Nakuha ang opisyal na Guidance Recommendation Seal mula sa wall safe! Bumalik kay Ma'am sa Room 207."
             );
+        }
+
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.TriggerAutosave("Guidance Safe Unlocked");
         }
 
         yield return new WaitForSeconds(1.6f);
@@ -517,11 +558,26 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
 
         if (isSafeUnlocked) return;
 
-        // 1. Close safe
-        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Tab))
+        // CRITICAL FIX: Do NOT close on the exact frame the safe was opened by pressing [E]!
+        // GetKeyDown(KeyCode.E) is true for the entire frame across all Update() calls.
+        if (Time.frameCount <= _openedFrame + 5) return;
+
+        // 1. Close safe (ESC, TAB, or a distinct subsequent press of E)
+        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.E))
         {
             CloseSafeUI();
             return;
+        }
+
+        // 2. Mouse scroll wheel support for dialing
+        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        if (scroll > 0.04f)
+        {
+            ChangeTumbler(selectedTumblerIndex, 1);
+        }
+        else if (scroll < -0.04f)
+        {
+            ChangeTumbler(selectedTumblerIndex, -1);
         }
 
         // 2. Select Tumbler (A/D or Left/Right or 1/2/3)
@@ -578,15 +634,44 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
 
     public void OpenSafeUI()
     {
+        EnsureUIBuilt();
         _isUIOpen = true;
+        _openedFrame = Time.frameCount;
         SetUIVisible(true);
         UpdateSelectionVisuals();
+
+        bool knowsCode = ItemInspectionViewer3D.DiscoveredClueIDs.Contains("CassetteSafeCode");
+        if (_statusBannerText != null)
+        {
+            _statusBannerText.text = knowsCode
+                ? "<color=#FFE066>DISCOVERED CODE: 4 - 1 - 9 (From Audio Cassette Tape)</color>"
+                : "ALIGN 3 ROTARY TUMBLERS TO THE RECORDED COMBINATION";
+        }
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
         var pm = FindAnyObjectByType<PlayerMovement>();
         if (pm != null) pm.SetControlsEnabled(false);
+    }
+
+    private void EnsureUIBuilt()
+    {
+        if (_safeCanvasGO == null)
+        {
+            BuildSafeUI();
+        }
+        else if (_safeCanvasGO.transform.parent != null)
+        {
+            _safeCanvasGO.transform.SetParent(null, false);
+            var canvas = _safeCanvasGO.GetComponent<Canvas>();
+            if (canvas != null)
+            {
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.overrideSorting = true;
+                canvas.sortingOrder = 500;
+            }
+        }
     }
 
     public void CloseSafeUI()

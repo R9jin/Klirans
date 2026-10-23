@@ -977,7 +977,7 @@ public class WinCutsceneDirector : MonoBehaviour
         _clearanceStampsText.text =
             "[X] LIBRARY & ARCHIVES    — SIGNED (Rm 308)\n" +
             "[X] GUIDANCE OFFICE       — SIGNED (Rm 207)\n" +
-            "[X] COMPUTER LABORATORY   — SIGNED (Rm 105)\n" +
+            "[X] COMPUTER LABORATORY   — SIGNED (ComLab 1)\n" +
             "[X] UNIVERSITY CLINIC     — SIGNED (Rm 102)\n" +
             "[X] CASHIER WINDOW        — SIGNED (Win 1)\n" +
             "[X] REGISTRAR / EVP       — SIGNED (Win 2)";

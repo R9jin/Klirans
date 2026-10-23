@@ -42,6 +42,9 @@ public class ObjectiveHUD : MonoBehaviour
     public static bool HasDiscoveredExitLockdown = false;
     private string _currentTitle = string.Empty;
     private string _currentDetail = string.Empty;
+
+    public string CurrentTitle => _currentTitle;
+    public string CurrentDetail => _currentDetail;
     private Coroutine _animCoroutine;
     private AudioSource _audioSource;
 
@@ -428,11 +431,11 @@ public class ObjectiveHUD : MonoBehaviour
             }
 
             sb.AppendLine($"{Tag(s0, sigCount == 0)} <b>1. 3F LIBRARY (Room 308)</b> — Return Archive Book to study table (Librarian Signature)");
-            sb.AppendLine($"{Tag(s1, sigCount == 1)} <b>2. 2F GUIDANCE (Room 207)</b> — Audio Cassette Clue & Wall Safe 4-1-9 (Counselor Signature)");
+            sb.AppendLine($"{Tag(s1, sigCount == 1)} <b>2. 2F GUIDANCE (Room 207)</b> — Audio Cassette Inspection & Wall Safe (Counselor Signature)");
             sb.AppendLine($"{Tag(s2, sigCount == 2)} <b>3. 2F CCS DEAN (Room 202)</b> — Dean's Lockpin, 15A Fuse at Breaker, ComLab Form (Dean Signature)");
             sb.AppendLine($"{Tag(s3, sigCount == 3)} <b>4. 1F REGISTRAR (Room 104)</b> — Clinic Medical Record & Grade Sorting (Registrar Signature)");
             sb.AppendLine($"{Tag(s4, sigCount == 4)} <b>5. 1F CASHIER (Room 102)</b> — 50 PHP Tuition Coin & Balance Ledger (Cashier Signature)");
-            sb.AppendLine($"{Tag(s5, sigCount == 5)} <b>6. 1F EXECUTIVE (Room 103)</b> — Official University Seal Stamp (Executive VP Signature)");
+            sb.AppendLine($"{Tag(s5, sigCount == 5)} <b>6. 1F EXECUTIVE (Room 103)</b> — Executive Vault Safe & Seal Stamp (Executive VP Signature)");
             sb.AppendLine("");
             string exitTag = isSubmitted ? "<color=#1b5e20><b>[🔓 BUKAS NA]</b></color>" : "<color=#777777>[🔒 NAKA-KANDADO]</color>";
             sb.AppendLine($"{exitTag} <b>7. 1F LOBBY EXIT GATE</b> — I-submit ang kumpletong slip sa Registrar Window 2 para buksan ang gate at makatakas!");

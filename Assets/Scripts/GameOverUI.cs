@@ -15,7 +15,19 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class GameOverUI : MonoBehaviour
 {
-    public static GameOverUI Instance { get; private set; }
+    private static GameOverUI _instance;
+    public static GameOverUI Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindAnyObjectByType<GameOverUI>();
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     /// <summary>
     /// True while the Game Over collapse sequence or report screen is active.
@@ -72,6 +84,7 @@ public class GameOverUI : MonoBehaviour
     private Text _autopsyStatsText;
     private GameObject _stampBox;
     private Text _stampText;
+    private Image _solidBackdropImg;
 
     // Audio Sources
     private AudioSource _sfxSource;
@@ -81,12 +94,12 @@ public class GameOverUI : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
             Destroy(this);
             return;
         }
-        Instance = this;
+        _instance = this;
         IsCutsceneActive = false;
         _gameStartTime = Time.time;
 
@@ -100,14 +113,23 @@ public class GameOverUI : MonoBehaviour
         }
     }
 
+    private bool _isSubscribed = false;
+
     private void Start()
     {
+        TrySubscribe();
+        BuildCutsceneUI();
+    }
+
+    private void TrySubscribe()
+    {
+        if (_isSubscribed) return;
         if (AnxietyManager.Instance != null)
         {
+            AnxietyManager.Instance.OnGameOver -= HandleGameOver;
             AnxietyManager.Instance.OnGameOver += HandleGameOver;
+            _isSubscribed = true;
         }
-
-        BuildCutsceneUI();
     }
 
     private void OnDestroy()
@@ -124,6 +146,11 @@ public class GameOverUI : MonoBehaviour
 
     private void Update()
     {
+        if (!_isSubscribed)
+        {
+            TrySubscribe();
+        }
+
         // Developer shortcut: Press F9 to preview/test the Game Over Cutscene
         if (!_hasTriggered && Input.GetKeyDown(debugTriggerKey))
         {
@@ -138,6 +165,13 @@ public class GameOverUI : MonoBehaviour
             {
                 SkipToReport();
             }
+        }
+
+        // When Game Over report is visible, constantly enforce mouse cursor unlock
+        if (_hasTriggered && _autopsySheetBox != null && _autopsySheetBox.activeSelf)
+        {
+            if (Cursor.lockState != CursorLockMode.None) Cursor.lockState = CursorLockMode.None;
+            if (!Cursor.visible) Cursor.visible = true;
         }
     }
 
@@ -235,9 +269,15 @@ public class GameOverUI : MonoBehaviour
         _canvasGO = new GameObject("GameOverCutsceneCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         _canvasGO.transform.SetParent(transform, false);
 
+        if (UnityEngine.EventSystems.EventSystem.current == null && FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
+        {
+            var esGO = new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem), typeof(UnityEngine.EventSystems.StandaloneInputModule));
+            DontDestroyOnLoad(esGO);
+        }
+
         var canvas = _canvasGO.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 2000; // Above all HUDs, jumpscares, and interaction prompts
+        canvas.sortingOrder = 3000; // Above all HUDs, puzzles, jumpscares, and interaction prompts
 
         var scaler = _canvasGO.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -304,6 +344,18 @@ public class GameOverUI : MonoBehaviour
         _thoughtsText.alignment = TextAnchor.MiddleCenter;
         _thoughtsText.fontStyle = FontStyle.Bold;
 
+        // Solid dark full-screen backing image behind autopsy sheet so 3D world & underlying UI are 100% blocked
+        var solidBackGO = new GameObject("SolidBackdrop", typeof(RectTransform), typeof(Image));
+        solidBackGO.transform.SetParent(_canvasGO.transform, false);
+        var sbRT = solidBackGO.GetComponent<RectTransform>();
+        sbRT.anchorMin = Vector2.zero;
+        sbRT.anchorMax = Vector2.one;
+        sbRT.sizeDelta = Vector2.zero;
+        _solidBackdropImg = solidBackGO.GetComponent<Image>();
+        _solidBackdropImg.color = new Color(0.03f, 0.02f, 0.02f, 1.0f);
+        _solidBackdropImg.raycastTarget = true;
+        solidBackGO.SetActive(false);
+
         // 5. Official Autopsy / Psychological Report Paper Sheet (starts INACTIVE)
         _autopsySheetBox = new GameObject("AutopsyPaperSheet", typeof(RectTransform), typeof(Image));
         _autopsySheetBox.transform.SetParent(_canvasGO.transform, false);
@@ -334,6 +386,7 @@ public class GameOverUI : MonoBehaviour
         _autopsyTitleText.color = new Color(0.14f, 0.10f, 0.09f, 1f);
         _autopsyTitleText.alignment = TextAnchor.UpperCenter;
         _autopsyTitleText.lineSpacing = 1.15f;
+        _autopsyTitleText.raycastTarget = false;
         _autopsyTitleText.text =
             "REPUBLIKA NG PILIPINAS  •  PAMANTASAN NG CABUYAO\n" +
             "OFFICE OF STUDENT WELFARE & CAMPUS SECURITY\n" +
@@ -357,6 +410,7 @@ public class GameOverUI : MonoBehaviour
         sec1Text.color = new Color(0.22f, 0.16f, 0.14f, 1f);
         sec1Text.alignment = TextAnchor.MiddleLeft;
         sec1Text.text = "  SECTION I: SUBJECT EVALUATION & CLINICAL FINDINGS";
+        sec1Text.raycastTarget = false;
 
         // Document Body
         var bodyGO = new GameObject("DocumentBody", typeof(RectTransform), typeof(Text));
@@ -375,6 +429,7 @@ public class GameOverUI : MonoBehaviour
         _autopsyBodyText.color = new Color(0.16f, 0.12f, 0.12f, 1f);
         _autopsyBodyText.alignment = TextAnchor.UpperLeft;
         _autopsyBodyText.lineSpacing = 1.18f;
+        _autopsyBodyText.raycastTarget = false;
 
         // Section II Header Label
         var sec2GO = new GameObject("Section2Header", typeof(RectTransform), typeof(Text));
@@ -393,6 +448,7 @@ public class GameOverUI : MonoBehaviour
         sec2Text.color = new Color(0.22f, 0.16f, 0.14f, 1f);
         sec2Text.alignment = TextAnchor.MiddleLeft;
         sec2Text.text = "  SECTION II: CLEARANCE PROGRESS & SURVIVAL RECORD";
+        sec2Text.raycastTarget = false;
 
         // Stats Block (Left aligned inside Section II box so the stamp can sit cleanly on the right)
         var statsGO = new GameObject("DocumentStats", typeof(RectTransform), typeof(Text));
@@ -411,6 +467,7 @@ public class GameOverUI : MonoBehaviour
         _autopsyStatsText.color = new Color(0.18f, 0.11f, 0.11f, 1f);
         _autopsyStatsText.alignment = TextAnchor.UpperLeft;
         _autopsyStatsText.lineSpacing = 1.28f;
+        _autopsyStatsText.raycastTarget = false;
 
         // Red Rubber Stamp [CLEARANCE TERMINATED] — positioned in lower-right of the report, free of text overlap
         _stampBox = new GameObject("FailedStamp", typeof(RectTransform), typeof(Image));
@@ -444,6 +501,7 @@ public class GameOverUI : MonoBehaviour
         _stampText.verticalOverflow = VerticalWrapMode.Overflow;
         _stampText.lineSpacing = 1.05f;
         _stampText.color = new Color(0.76f, 0.08f, 0.08f, 0.94f);
+        _stampText.raycastTarget = false;
         _stampText.text = "CLEARANCE TERMINATED\n<size=12>FAILED TO ESCAPE BCH</size>";
 
         // Buttons Container
@@ -496,6 +554,7 @@ public class GameOverUI : MonoBehaviour
         var img = btnGO.GetComponent<Image>();
         if (buttonSprite != null) img.sprite = buttonSprite;
         img.color = new Color(0.18f, 0.14f, 0.12f, 0.96f);
+        img.raycastTarget = true;
 
         var btn = btnGO.GetComponent<Button>();
         var colors = btn.colors;
@@ -524,6 +583,7 @@ public class GameOverUI : MonoBehaviour
         txt.fontStyle = FontStyle.Bold;
         txt.color = new Color(0.95f, 0.90f, 0.85f, 1f);
         txt.alignment = TextAnchor.MiddleCenter;
+        txt.raycastTarget = false;
         txt.text = label;
 
         return btn;
@@ -727,6 +787,38 @@ public class GameOverUI : MonoBehaviour
         // 1. Force-close any open puzzle, minigame, inspection modal, inventory, or dialogue
         PauseMenu.ForceCloseAllModalsAndPuzzles();
 
+        // Extra defensive sweep: unconditionally hide any remaining puzzle panels or backdrops
+        var allGuidance = FindObjectsByType<GuidanceWordPuzzle>(FindObjectsInactive.Include);
+        for (int i = 0; i < allGuidance.Length; i++)
+        {
+            if (allGuidance[i] != null)
+            {
+                allGuidance[i].ClosePuzzle();
+                if (allGuidance[i].puzzlePanel != null) allGuidance[i].puzzlePanel.SetActive(false);
+                if (allGuidance[i].backdropOverlay != null) allGuidance[i].backdropOverlay.SetActive(false);
+            }
+        }
+        var allCashier = FindObjectsByType<CashierBalancePuzzle>(FindObjectsInactive.Include);
+        for (int i = 0; i < allCashier.Length; i++)
+        {
+            if (allCashier[i] != null)
+            {
+                allCashier[i].ClosePuzzle();
+                if (allCashier[i].puzzlePanel != null) allCashier[i].puzzlePanel.SetActive(false);
+                if (allCashier[i].backdropOverlay != null) allCashier[i].backdropOverlay.SetActive(false);
+            }
+        }
+        var allRegistrar = FindObjectsByType<RegistrarDocumentSortPuzzle>(FindObjectsInactive.Include);
+        for (int i = 0; i < allRegistrar.Length; i++)
+        {
+            if (allRegistrar[i] != null)
+            {
+                allRegistrar[i].ClosePuzzle();
+                if (allRegistrar[i].puzzlePanel != null) allRegistrar[i].puzzlePanel.SetActive(false);
+                if (allRegistrar[i].backdropOverlay != null) allRegistrar[i].backdropOverlay.SetActive(false);
+            }
+        }
+
         // 2. Abort any active Proctor struggle QTE or wandering NPC jumpscare
         ProctorJumpscareQTE.AbortActiveQTE();
         if (NPCJumpscareManager.Instance != null)
@@ -738,14 +830,24 @@ public class GameOverUI : MonoBehaviour
         TheProctorAI.DespawnActiveProctor();
         WeepingStudentAI.DespawnActiveWeepingStudent();
         SecurityGuardStalkerAI.DespawnActiveGuardStalker();
+        if (TheProctorManager.Instance != null)
+        {
+            TheProctorManager.Instance.CleanupProctor();
+        }
 
-        // 4. Stop all wandering student ProctorAI chases
+        // 4. Freeze and disable all wandering student ProctorAI so they NEVER walk, chase or scare during/after Game Over
         var wanderingNPCs = FindObjectsByType<ProctorAI>(FindObjectsInactive.Include);
         for (int i = 0; i < wanderingNPCs.Length; i++)
         {
-            if (wanderingNPCs[i] != null && wanderingNPCs[i].isChasing)
+            if (wanderingNPCs[i] != null)
             {
                 wanderingNPCs[i].StopChase();
+                if (wanderingNPCs[i].TryGetComponent<UnityEngine.AI.NavMeshAgent>(out var agent) && agent.isOnNavMesh)
+                {
+                    agent.isStopped = true;
+                    agent.velocity = Vector3.zero;
+                }
+                wanderingNPCs[i].enabled = false;
             }
         }
 
@@ -1062,8 +1164,13 @@ public class GameOverUI : MonoBehaviour
         SilenceAllThreatsAndPrompts();
 
         if (_canvasGO != null) _canvasGO.SetActive(true);
+        if (_solidBackdropImg != null) _solidBackdropImg.gameObject.SetActive(true);
 
-        if (_fadeToBlackImg != null) _fadeToBlackImg.color = new Color(0.02f, 0.02f, 0.02f, 0.96f);
+        if (_fadeToBlackImg != null)
+        {
+            _fadeToBlackImg.color = new Color(0.02f, 0.02f, 0.02f, 1.0f);
+            _fadeToBlackImg.raycastTarget = true;
+        }
         if (_thoughtsText != null) _thoughtsText.color = new Color(1f, 1f, 1f, 0f);
         if (_skipPromptRoot != null) _skipPromptRoot.SetActive(false);
 
@@ -1101,6 +1208,9 @@ public class GameOverUI : MonoBehaviour
             _autopsySheetBox.SetActive(true);
         }
 
+        // Completely freeze the game world now that the collapse cutscene is finished and report is visible!
+        Time.timeScale = 0f;
+
         StartCoroutine(StampSlamRoutine());
 
         // Unlock mouse cursor
@@ -1110,7 +1220,7 @@ public class GameOverUI : MonoBehaviour
 
     private IEnumerator StampSlamRoutine()
     {
-        yield return new WaitForSeconds(0.35f);
+        yield return new WaitForSecondsRealtime(0.35f);
 
         if (_stampBox != null)
         {
@@ -1128,7 +1238,7 @@ public class GameOverUI : MonoBehaviour
             float t = 0f;
             while (t < 0.18f)
             {
-                t += Time.deltaTime;
+                t += Time.unscaledDeltaTime;
                 rt.localScale = Vector3.Lerp(originalScale * 2.2f, originalScale, t / 0.18f);
                 yield return null;
             }

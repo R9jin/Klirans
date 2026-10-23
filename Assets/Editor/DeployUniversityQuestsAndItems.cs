@@ -125,8 +125,8 @@ To officially exit the campus grounds, you must gather all 6 department endorsem
      - Requires sorting disorganized student grade records into archival trays.
   5. University Cashier (Ground Floor Window 2 Room 102)
      - Requires calculating assessment balance sheet total.
-  6. Executive Vice President (Ground Floor Executive Suite Room 101)
-     - Requires retrieving the Official University Seal Stamp from 2nd Floor Records Locker.
+  6. Executive Vice President (Ground Floor Executive Suite Room 103)
+     - Requires cracking the 3-tumbler Executive Vault Safe (7-3-2) to retrieve the Official University Seal Stamp.
   * Final Step: Submit completed clearance slip back to Registrar Window 2 to unlock the campus main gate!
 
 [PAGE 2: CAMPUS NIGHT PROTOCOL & BLACKOUT ADVISORY]
@@ -343,30 +343,12 @@ and is hereby recommended for Library Clearance Signing.
         EditorUtility.SetDirty(comlabGO);
         Debug.Log("[DeployUniversityQuestsAndItems] Placed Pickup_ComLabClearanceForm flat on Floor 1 ComLab 1 Teacher Desk!");
 
-        // 2. Executive Seal Stamp Pickup at Floor 2 Faculty Records Locker (-76.00, 9.25, -12.00)
+        // 2. Remove duplicate loose Pickup_ExecutiveSealStamp if present (Seal is securely locked inside Executive Vault Safe)
         Transform existingSeal = container.transform.Find("Pickup_ExecutiveSealStamp");
-        if (existingSeal == null)
+        if (existingSeal != null)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            go.name = "Pickup_ExecutiveSealStamp";
-            go.transform.SetParent(container.transform, false);
-            go.transform.position = new Vector3(-76.00f, 9.25f, -12.00f);
-            go.transform.rotation = Quaternion.identity;
-            go.transform.localScale = new Vector3(0.08f, 0.06f, 0.08f);
-
-            var col = go.GetComponent<Collider>();
-            if (col != null) col.isTrigger = false;
-
-            var sealPickup = go.AddComponent<PickupItem>();
-            sealPickup.itemData = sealItem;
-            sealPickup.amount = 1;
-
-            var sealHighlight = go.AddComponent<ItemVisualHighlight>();
-            sealHighlight.category = ItemVisualHighlight.ItemCategory.Key;
-            sealHighlight.glowColor = new Color(1.0f, 0.84f, 0.32f, 1f);
-
-            EditorUtility.SetDirty(go);
-            Debug.Log("[DeployUniversityQuestsAndItems] Spawned Pickup_ExecutiveSealStamp at 2F Faculty Records Locker!");
+            Object.DestroyImmediate(existingSeal.gameObject);
+            Debug.Log("[DeployUniversityQuestsAndItems] Removed loose Pickup_ExecutiveSealStamp (Seal is now secured in Executive Vault Safe)");
         }
     }
 

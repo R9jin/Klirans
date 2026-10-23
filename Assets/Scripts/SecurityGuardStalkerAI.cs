@@ -803,7 +803,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         else
         {
             // Fallback: drain stamina & anxiety surge
-            if (AnxietyManager.Instance != null) AnxietyManager.Instance.AddAnxiety(25f);
+            if (AnxietyManager.Instance != null) AnxietyManager.Instance.AddAnxiety(4f);
             if (_playerMovement != null && _playerMovement.staminaSystem != null)
             {
                 _playerMovement.staminaSystem.currentStamina = Mathf.Max(0f, _playerMovement.staminaSystem.currentStamina - 50f);

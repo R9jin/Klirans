@@ -2200,7 +2200,7 @@ public class ItemInspectionViewer3D : MonoBehaviour
             case "VGACableSerial":
                 ObjectiveHUD.Instance.SetObjective(
                     "ComLab Cable Serial (CCS-SRV-TERMINAL-01)",
-                    "Ikabit ang VGA cable sa Master Terminal sa Room 105 para ma-clear ang terminal hold!"
+                    "Ikabit ang VGA cable sa Master Terminal sa ComLab 1 para ma-clear ang terminal hold!"
                 );
                 break;
 
