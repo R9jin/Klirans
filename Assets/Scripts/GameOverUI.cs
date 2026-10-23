@@ -1,42 +1,42 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 /// <summary>
-/// GameOverUI & Anxiety GameOver Cutscene Director — KLIRANS.
-/// Triggers ONLY when the player's Anxiety reaches 100% (or via F9 debug key in Playmode).
-///
-/// Complete 4-Phase Cinematic Horror Sequence:
-/// 1. PANIC SURGE: Muffled rapid heartbeat, heavy gasping for air, frantic camera FOV breathing & jitter, pulsating tunnel-vision vignette.
-/// 2. PHYSICAL COLLAPSE: Legs buckle, camera plunges to floor (Y ~0.22m, Roll ~40°), impact thud, fading heartbeat.
-/// 3. VOID & FINAL BREATH: Total blackout, Tagalog internal monologue text ("Hindi na ako makahinga..."), heartbeat flatlines.
-/// 4. OFFICIAL AUTOPSY & PSYCHOLOGICAL REPORT: Authentic university incident report paper UI, live clearance stats,
-///    red rubber stamp slam [CLEARANCE TERMINATED // FAILED], Retry and Main Menu buttons.
+/// First-Person Psychological Collapse & Autopsy Game Over Director:
+/// When the player's Anxiety reaches 100%, instead of an abrupt menu pop-up:
+/// 1. All enemy chases, active jumpscares, QTEs, and open puzzles/modals are immediately aborted and closed.
+/// 2. The player's controls lock as they suffer an acute panic-induced collapse in the hallway.
+/// 3. First-person camera sways, stumbles, drops to its knees, and falls sideways onto the cold floor.
+/// 4. Heavy gasping, thud impact, and a decelerating heartbeat flatline into an eerie drone.
+/// 5. A clean, custom-rendered "INCIDENT AUTOPSY & PSYCHOLOGICAL COLLAPSE REPORT" is slammed onto the screen
+///    with dynamic stats (Signatures Collected, Time Survived, Cause of Collapse) and a crisp red rubber stamp.
 /// </summary>
 public class GameOverUI : MonoBehaviour
 {
     public static GameOverUI Instance { get; private set; }
-    public static bool IsCutsceneActive { get; private set; } = false;
 
-    [Header("Debug Testing")]
-    [Tooltip("Press this key in playmode to trigger the anxiety game over cutscene immediately.")]
+    /// <summary>
+    /// True while the Game Over collapse sequence or report screen is active.
+    /// Suppresses normal HUD overlays, enemy chases, jumpscares, and interaction prompts.
+    /// </summary>
+    public static bool IsCutsceneActive { get; private set; }
+
+    [Header("Developer Debug")]
+    [Tooltip("Press F9 at any time during Play Mode to test the Game Over Collapse Cutscene.")]
     public KeyCode debugTriggerKey = KeyCode.F9;
 
-    [Header("UI Root Elements")]
+    [Header("Legacy / Optional References")]
     public GameObject gameOverPanel;
     public CanvasGroup canvasGroup;
-
-    [Header("Text References (Legacy & Expanded)")]
     public Text titleText;
     public Text subtitleText;
-
-    [Header("Buttons")]
     public Button retryButton;
     public Button menuButton;
-
-    [Header("Audio Clips")]
     public AudioClip deathSound;
+
+    [Header("Audio Clips (Auto-Loaded)")]
     public AudioClip fastHeartbeatClip;
     public AudioClip slowHeartbeatClip;
     public AudioClip gaspingClip;
@@ -46,59 +46,58 @@ public class GameOverUI : MonoBehaviour
     public AudioClip eerieDroneClip;
     public AudioClip buttonClickClip;
 
-    [Header("Paper UI Sprites")]
+    [Header("UI Assets (Auto-Loaded)")]
     public Sprite documentSheetSprite;
     public Sprite buttonSprite;
+    private Font horrorFont;
+    private Font typewriterFont;
 
-    // Runtime Audio Sources
-    private AudioSource _heartbeatSource;
-    private AudioSource _breathingSource;
-    private AudioSource _sfxSource;
-    private AudioSource _ambienceSource;
+    // ── Runtime Cutscene & UI State ───────────────────────────────────────────
+    private bool _hasTriggered = false;
+    private bool _hasSkipped = false;
+    private float _gameStartTime;
 
-    // UI Structure (Instantiated ONLY when game over triggers)
     private GameObject _canvasGO;
-    private Canvas _canvas;
     private Image _vignetteImg;
     private Image _fadeToBlackImg;
     private RectTransform _letterboxTop;
     private RectTransform _letterboxBottom;
     private Text _thoughtsText;
+    private GameObject _skipPromptRoot;
+
+    // Autopsy Report Document Elements
     private GameObject _autopsySheetBox;
     private Text _autopsyTitleText;
     private Text _autopsyBodyText;
     private Text _autopsyStatsText;
     private GameObject _stampBox;
     private Text _stampText;
-    private GameObject _skipPromptRoot;
 
-    // Player references
-    private PlayerMovement _playerMovement;
-    private Camera _playerCamera;
-    private Vector3 _originalCamLocalPos;
-    private Quaternion _originalCamLocalRot;
-    private float _originalCamFOV = 60f;
-
-    private bool _hasTriggered = false;
-    private bool _hasSkipped = false;
-    private float _gameStartTime = 0f;
+    // Audio Sources
+    private AudioSource _sfxSource;
+    private AudioSource _heartbeatSource;
+    private AudioSource _breathingSource;
+    private AudioSource _droneSource;
 
     private void Awake()
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(gameObject);
+            Destroy(this);
             return;
         }
         Instance = this;
-
-        _gameStartTime = Time.time;
         IsCutsceneActive = false;
-        _hasTriggered = false;
-        _hasSkipped = false;
+        _gameStartTime = Time.time;
 
-        // Clean up any stale or lingering GameOver objects in the scene
-        CleanupStaleGameoverObjects();
+        LoadDefaultAssets();
+        SetupAudioSources();
+
+        // Hide any legacy static panel so our cinematic canvas handles everything cleanly
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(false);
+        }
     }
 
     private void Start()
@@ -108,7 +107,7 @@ public class GameOverUI : MonoBehaviour
             AnxietyManager.Instance.OnGameOver += HandleGameOver;
         }
 
-        CleanupStaleGameoverObjects();
+        BuildCutsceneUI();
     }
 
     private void OnDestroy()
@@ -117,166 +116,135 @@ public class GameOverUI : MonoBehaviour
         {
             AnxietyManager.Instance.OnGameOver -= HandleGameOver;
         }
-        if (_canvasGO != null)
+        if (Instance == this)
         {
-            Destroy(_canvasGO);
+            IsCutsceneActive = false;
         }
-        if (Instance == this) Instance = null;
-    }
-
-    private void CleanupStaleGameoverObjects()
-    {
-        var existingCanvas = GameObject.Find("AnxietyGameOverCanvas");
-        if (existingCanvas != null) Destroy(existingCanvas);
-
-        for (int i = transform.childCount - 1; i >= 0; i--)
-        {
-            var child = transform.GetChild(i);
-            if (child.name.Contains("GameOver") || child.name.Contains("Autopsy"))
-            {
-                Destroy(child.gameObject);
-            }
-        }
-
-        gameOverPanel = null;
-        canvasGroup = null;
     }
 
     private void Update()
     {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-        if (Input.GetKeyDown(debugTriggerKey) && !IsCutsceneActive)
+        // Developer shortcut: Press F9 to preview/test the Game Over Cutscene
+        if (!_hasTriggered && Input.GetKeyDown(debugTriggerKey))
         {
+            Debug.Log("[GameOverUI] F9 pressed — Triggering Game Over Collapse Cutscene.");
             HandleGameOver();
-            return;
         }
-#endif
 
-        if (!IsCutsceneActive || _hasSkipped) return;
-
-        // Skip to autopsy paper report on Space, Enter, or Escape
-        if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Escape))
+        // Allow skipping the physical collapse animation to jump straight to the Autopsy Report
+        if (_hasTriggered && !_hasSkipped && _autopsySheetBox != null && !_autopsySheetBox.activeSelf)
         {
-            SkipToReport();
+            if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
+            {
+                SkipToReport();
+            }
         }
     }
 
     private void SetupAudioSources()
     {
-        if (_heartbeatSource == null)
-        {
-            _heartbeatSource = gameObject.AddComponent<AudioSource>();
-            _heartbeatSource.playOnAwake = false;
-            _heartbeatSource.loop = true;
-            _heartbeatSource.spatialBlend = 0f;
-            _heartbeatSource.volume = 0.90f;
-        }
+        _sfxSource = gameObject.AddComponent<AudioSource>();
+        _sfxSource.spatialBlend = 0f;
+        _sfxSource.playOnAwake = false;
 
-        if (_breathingSource == null)
-        {
-            _breathingSource = gameObject.AddComponent<AudioSource>();
-            _breathingSource.playOnAwake = false;
-            _breathingSource.loop = false;
-            _breathingSource.spatialBlend = 0f;
-            _breathingSource.volume = 0.85f;
-        }
+        _heartbeatSource = gameObject.AddComponent<AudioSource>();
+        _heartbeatSource.spatialBlend = 0f;
+        _heartbeatSource.loop = true;
+        _heartbeatSource.playOnAwake = false;
 
-        if (_sfxSource == null)
-        {
-            _sfxSource = gameObject.AddComponent<AudioSource>();
-            _sfxSource.playOnAwake = false;
-            _sfxSource.loop = false;
-            _sfxSource.spatialBlend = 0f;
-            _sfxSource.volume = 0.95f;
-        }
+        _breathingSource = gameObject.AddComponent<AudioSource>();
+        _breathingSource.spatialBlend = 0f;
+        _breathingSource.loop = false;
+        _breathingSource.playOnAwake = false;
 
-        if (_ambienceSource == null)
-        {
-            _ambienceSource = gameObject.AddComponent<AudioSource>();
-            _ambienceSource.playOnAwake = false;
-            _ambienceSource.loop = true;
-            _ambienceSource.spatialBlend = 0f;
-            _ambienceSource.volume = 0.50f;
-        }
+        _droneSource = gameObject.AddComponent<AudioSource>();
+        _droneSource.spatialBlend = 0f;
+        _droneSource.loop = true;
+        _droneSource.volume = 0f;
+        _droneSource.playOnAwake = false;
     }
 
     private void LoadDefaultAssets()
     {
 #if UNITY_EDITOR
-        if (deathSound == null)
-            deathSound = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/you died (lobotomy sound).mp3");
         if (fastHeartbeatClip == null)
-            fastHeartbeatClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/fast heart beat.mp3");
+            fastHeartbeatClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/fast heartbeat.mp3");
         if (slowHeartbeatClip == null)
-            slowHeartbeatClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/heartbeat.mp3");
+            slowHeartbeatClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/slow heartbeat.mp3");
         if (gaspingClip == null)
-            gaspingClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/man gasping for air.mp3");
+            gaspingClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/gasping for air.mp3");
         if (breathingClip == null)
-            breathingClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/male heavy breathing.mp3");
+            breathingClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/breathing.mp3");
         if (bodyThudClip == null)
-            bodyThudClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/door_closing.mp3");
+            bodyThudClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/closing locker & cabinet.mp3");
         if (stampClip == null)
-            stampClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/xeroxSoundEffect_Print.wav");
+            stampClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/stamp.mp3");
         if (eerieDroneClip == null)
-            eerieDroneClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/dysopian background sound.mp3");
+            eerieDroneClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/horror background sound 2.mp3");
         if (buttonClickClip == null)
-            buttonClickClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/opening door pt.2.mp3");
+            buttonClickClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/clicking.mp3");
 
-        if (documentSheetSprite == null)
-            documentSheetSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/GuidancePaperSheet.png");
-        if (documentSheetSprite == null)
-            documentSheetSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/ScrambledPaper_HUD.png");
         if (buttonSprite == null)
             buttonSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/PlayerAssets/KeypadButton_Normal.png");
+
+        horrorFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/TextMesh Pro/Fonts/HelpMe.ttf");
+        typewriterFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/TextMesh Pro/Fonts/CourierPrime-Bold.ttf");
 #endif
+        if (fastHeartbeatClip == null)
+            fastHeartbeatClip = Resources.Load<AudioClip>("Sounds/fast heartbeat");
+        if (slowHeartbeatClip == null)
+            slowHeartbeatClip = Resources.Load<AudioClip>("Sounds/slow heartbeat");
+        if (gaspingClip == null)
+            gaspingClip = Resources.Load<AudioClip>("Sounds/gasping for air");
+        if (breathingClip == null)
+            breathingClip = Resources.Load<AudioClip>("Sounds/breathing");
+        if (bodyThudClip == null)
+            bodyThudClip = Resources.Load<AudioClip>("Sounds/closing locker & cabinet");
+        if (stampClip == null)
+            stampClip = Resources.Load<AudioClip>("Sounds/stamp");
+        if (eerieDroneClip == null)
+            eerieDroneClip = Resources.Load<AudioClip>("Sounds/horror background sound 2");
+        if (buttonClickClip == null)
+            buttonClickClip = Resources.Load<AudioClip>("Sounds/clicking");
+
+        if (buttonSprite == null)
+            buttonSprite = Resources.Load<Sprite>("PlayerAssets/KeypadButton_Normal");
+
+        if (horrorFont == null)
+            horrorFont = Resources.Load<Font>("Fonts/HelpMe");
+        if (typewriterFont == null)
+            typewriterFont = Resources.Load<Font>("Fonts/CourierPrime-Bold");
+
+        Font fallback = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (horrorFont == null) horrorFont = fallback;
+        if (typewriterFont == null) typewriterFont = fallback;
+
+        // Always generate a dedicated, clean procedural parchment report sprite
+        // so baked-in text from GuidancePaperSheet.png NEVER overlaps the Game Over report!
+        documentSheetSprite = CreateCleanAutopsyPaperSprite();
     }
 
-    private Font GetLegibleFont()
-    {
-        Font f = Resources.Load<Font>("Fonts/Lucida_Typewriter_Bold");
-#if UNITY_EDITOR
-        if (f == null) f = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Fonts/Lucida_Typewriter_Bold.ttf");
-#endif
-        if (f == null) f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        return f;
-    }
+    // ═════════════════════════════════════════════════════════════════════════
+    // PROCEDURAL UI CONSTRUCTION
+    // ═════════════════════════════════════════════════════════════════════════
 
-    private Font GetHorrorFont()
-    {
-        Font f = Resources.Load<Font>("Fonts/watch people die");
-#if UNITY_EDITOR
-        if (f == null) f = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Main Menu/watch people die.ttf");
-        if (f == null) f = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Resources/Fonts/watch people die.ttf");
-#endif
-        if (f == null) f = GetLegibleFont();
-        return f;
-    }
-
-    // ── UI Construction (Constructed ONLY on game over) ────────────────────────
     private void BuildCutsceneUI()
     {
         if (_canvasGO != null) Destroy(_canvasGO);
 
-        var typewriterFont = GetLegibleFont();
-        var horrorFont = GetHorrorFont();
+        _canvasGO = new GameObject("GameOverCutsceneCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        _canvasGO.transform.SetParent(transform, false);
 
-        _canvasGO = new GameObject("AnxietyGameOverCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        _canvasGO.transform.SetParent(null); // Independent root overlay canvas! NEVER a child of HudCanvas!
-
-        _canvas = _canvasGO.GetComponent<Canvas>();
-        _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        _canvas.sortingOrder = 9999; // Topmost presentation
+        var canvas = _canvasGO.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 2000; // Above all HUDs, jumpscares, and interaction prompts
 
         var scaler = _canvasGO.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.referenceResolution = new Vector2(1280, 720);
         scaler.matchWidthOrHeight = 0.5f;
 
-        canvasGroup = _canvasGO.AddComponent<CanvasGroup>();
-        canvasGroup.alpha = 1f;
-        gameOverPanel = _canvasGO;
-
-        // 1. Fullscreen Pulsating Vignette
+        // 1. Blood / Asphyxiation Vignette Overlay
         var vigGO = new GameObject("VignetteOverlay", typeof(RectTransform), typeof(Image));
         vigGO.transform.SetParent(_canvasGO.transform, false);
         var vigRT = vigGO.GetComponent<RectTransform>();
@@ -342,12 +310,12 @@ public class GameOverUI : MonoBehaviour
         var sheetRT = _autopsySheetBox.GetComponent<RectTransform>();
         sheetRT.anchorMin = new Vector2(0.5f, 0.5f);
         sheetRT.anchorMax = new Vector2(0.5f, 0.5f);
-        sheetRT.sizeDelta = new Vector2(740f, 600f);
-        sheetRT.localRotation = Quaternion.Euler(0f, 0f, -0.6f);
+        sheetRT.sizeDelta = new Vector2(760f, 600f);
+        sheetRT.localRotation = Quaternion.Euler(0f, 0f, -0.5f);
 
         var sheetImg = _autopsySheetBox.GetComponent<Image>();
-        sheetImg.sprite = documentSheetSprite;
-        sheetImg.color = new Color(0.95f, 0.93f, 0.88f, 1f);
+        sheetImg.sprite = documentSheetSprite != null ? documentSheetSprite : CreateCleanAutopsyPaperSprite();
+        sheetImg.color = Color.white;
 
         // Document Header
         var titleGO = new GameObject("DocumentTitle", typeof(RectTransform), typeof(Text));
@@ -356,16 +324,39 @@ public class GameOverUI : MonoBehaviour
         tRT.anchorMin = new Vector2(0.5f, 1f);
         tRT.anchorMax = new Vector2(0.5f, 1f);
         tRT.pivot = new Vector2(0.5f, 1f);
-        tRT.anchoredPosition = new Vector2(0f, -24f);
-        tRT.sizeDelta = new Vector2(680f, 95f);
+        tRT.anchoredPosition = new Vector2(0f, -26f);
+        tRT.sizeDelta = new Vector2(680f, 96f);
 
         _autopsyTitleText = titleGO.GetComponent<Text>();
         _autopsyTitleText.font = typewriterFont;
-        _autopsyTitleText.fontSize = 16;
+        _autopsyTitleText.fontSize = 15;
         _autopsyTitleText.fontStyle = FontStyle.Bold;
-        _autopsyTitleText.color = new Color(0.12f, 0.08f, 0.08f, 1f);
+        _autopsyTitleText.color = new Color(0.14f, 0.10f, 0.09f, 1f);
         _autopsyTitleText.alignment = TextAnchor.UpperCenter;
-        _autopsyTitleText.text = "REPUBLIKA NG PILIPINAS  •  PAMANTASAN NG CABUYAO\nOFFICE OF STUDENT WELFARE & CAMPUS SECURITY\n<size=18><color=#881111>INCIDENT AUTOPSY & PSYCHOLOGICAL COLLAPSE REPORT</color></size>\nCASE FILE: CASE-PNC-BCH-1994-0824  •  CLASSIFIED";
+        _autopsyTitleText.lineSpacing = 1.15f;
+        _autopsyTitleText.text =
+            "REPUBLIKA NG PILIPINAS  •  PAMANTASAN NG CABUYAO\n" +
+            "OFFICE OF STUDENT WELFARE & CAMPUS SECURITY\n" +
+            "<size=18><color=#8B1111>INCIDENT AUTOPSY & PSYCHOLOGICAL COLLAPSE REPORT</color></size>\n" +
+            "<size=13><color=#4A3C35>CASE FILE: CASE-PNC-BCH-1994-0824  •  CLASSIFIED</color></size>";
+
+        // Section I Header Label
+        var sec1GO = new GameObject("Section1Header", typeof(RectTransform), typeof(Text));
+        sec1GO.transform.SetParent(_autopsySheetBox.transform, false);
+        var sec1RT = sec1GO.GetComponent<RectTransform>();
+        sec1RT.anchorMin = new Vector2(0.5f, 1f);
+        sec1RT.anchorMax = new Vector2(0.5f, 1f);
+        sec1RT.pivot = new Vector2(0.5f, 1f);
+        sec1RT.anchoredPosition = new Vector2(0f, -134f);
+        sec1RT.sizeDelta = new Vector2(676f, 24f);
+
+        var sec1Text = sec1GO.GetComponent<Text>();
+        sec1Text.font = typewriterFont;
+        sec1Text.fontSize = 13;
+        sec1Text.fontStyle = FontStyle.Bold;
+        sec1Text.color = new Color(0.22f, 0.16f, 0.14f, 1f);
+        sec1Text.alignment = TextAnchor.MiddleLeft;
+        sec1Text.text = "  SECTION I: SUBJECT EVALUATION & CLINICAL FINDINGS";
 
         // Document Body
         var bodyGO = new GameObject("DocumentBody", typeof(RectTransform), typeof(Text));
@@ -374,48 +365,70 @@ public class GameOverUI : MonoBehaviour
         bRT.anchorMin = new Vector2(0.5f, 1f);
         bRT.anchorMax = new Vector2(0.5f, 1f);
         bRT.pivot = new Vector2(0.5f, 1f);
-        bRT.anchoredPosition = new Vector2(0f, -125f);
-        bRT.sizeDelta = new Vector2(660f, 210f);
+        bRT.anchoredPosition = new Vector2(0f, -166f);
+        bRT.sizeDelta = new Vector2(660f, 195f);
 
         _autopsyBodyText = bodyGO.GetComponent<Text>();
         _autopsyBodyText.font = typewriterFont;
         _autopsyBodyText.fontSize = 14;
         _autopsyBodyText.fontStyle = FontStyle.Normal;
-        _autopsyBodyText.color = new Color(0.18f, 0.14f, 0.14f, 1f);
+        _autopsyBodyText.color = new Color(0.16f, 0.12f, 0.12f, 1f);
         _autopsyBodyText.alignment = TextAnchor.UpperLeft;
-        _autopsyBodyText.lineSpacing = 1.15f;
+        _autopsyBodyText.lineSpacing = 1.18f;
 
-        // Stats Block
+        // Section II Header Label
+        var sec2GO = new GameObject("Section2Header", typeof(RectTransform), typeof(Text));
+        sec2GO.transform.SetParent(_autopsySheetBox.transform, false);
+        var sec2RT = sec2GO.GetComponent<RectTransform>();
+        sec2RT.anchorMin = new Vector2(0.5f, 1f);
+        sec2RT.anchorMax = new Vector2(0.5f, 1f);
+        sec2RT.pivot = new Vector2(0.5f, 1f);
+        sec2RT.anchoredPosition = new Vector2(0f, -372f);
+        sec2RT.sizeDelta = new Vector2(676f, 24f);
+
+        var sec2Text = sec2GO.GetComponent<Text>();
+        sec2Text.font = typewriterFont;
+        sec2Text.fontSize = 13;
+        sec2Text.fontStyle = FontStyle.Bold;
+        sec2Text.color = new Color(0.22f, 0.16f, 0.14f, 1f);
+        sec2Text.alignment = TextAnchor.MiddleLeft;
+        sec2Text.text = "  SECTION II: CLEARANCE PROGRESS & SURVIVAL RECORD";
+
+        // Stats Block (Left aligned inside Section II box so the stamp can sit cleanly on the right)
         var statsGO = new GameObject("DocumentStats", typeof(RectTransform), typeof(Text));
         statsGO.transform.SetParent(_autopsySheetBox.transform, false);
         var sRT = statsGO.GetComponent<RectTransform>();
         sRT.anchorMin = new Vector2(0.5f, 1f);
         sRT.anchorMax = new Vector2(0.5f, 1f);
         sRT.pivot = new Vector2(0.5f, 1f);
-        sRT.anchoredPosition = new Vector2(0f, -335f);
-        sRT.sizeDelta = new Vector2(660f, 105f);
+        sRT.anchoredPosition = new Vector2(0f, -404f);
+        sRT.sizeDelta = new Vector2(660f, 92f);
 
         _autopsyStatsText = statsGO.GetComponent<Text>();
         _autopsyStatsText.font = typewriterFont;
         _autopsyStatsText.fontSize = 14;
         _autopsyStatsText.fontStyle = FontStyle.Bold;
-        _autopsyStatsText.color = new Color(0.20f, 0.10f, 0.10f, 1f);
+        _autopsyStatsText.color = new Color(0.18f, 0.11f, 0.11f, 1f);
         _autopsyStatsText.alignment = TextAnchor.UpperLeft;
-        _autopsyStatsText.lineSpacing = 1.2f;
+        _autopsyStatsText.lineSpacing = 1.28f;
 
-        // Red Rubber Stamp [CLEARANCE TERMINATED]
+        // Red Rubber Stamp [CLEARANCE TERMINATED] — positioned in lower-right of the report, free of text overlap
         _stampBox = new GameObject("FailedStamp", typeof(RectTransform), typeof(Image));
         _stampBox.transform.SetParent(_autopsySheetBox.transform, false);
         var stampRT = _stampBox.GetComponent<RectTransform>();
-        stampRT.anchorMin = new Vector2(0.70f, 0.50f);
-        stampRT.anchorMax = new Vector2(0.70f, 0.50f);
-        stampRT.sizeDelta = new Vector2(360f, 70f);
-        stampRT.localRotation = Quaternion.Euler(0f, 0f, -14f);
+        stampRT.anchorMin = new Vector2(0.75f, 0.25f);
+        stampRT.anchorMax = new Vector2(0.75f, 0.25f);
+        stampRT.pivot = new Vector2(0.5f, 0.5f);
+        stampRT.anchoredPosition = Vector2.zero;
+        stampRT.sizeDelta = new Vector2(280f, 72f);
+        stampRT.localRotation = Quaternion.Euler(0f, 0f, -11f);
 
         var stampImg = _stampBox.GetComponent<Image>();
-        stampImg.color = new Color(0.75f, 0.08f, 0.08f, 0.18f); // Stamp ink border/fill
+        stampImg.sprite = CreateRubberStampBorderSprite();
+        stampImg.color = Color.white;
+        stampImg.raycastTarget = false;
 
-        var stampTextGO = new GameObject("StampText", typeof(RectTransform), typeof(Text), typeof(Outline));
+        var stampTextGO = new GameObject("StampText", typeof(RectTransform), typeof(Text));
         stampTextGO.transform.SetParent(_stampBox.transform, false);
         var stRT = stampTextGO.GetComponent<RectTransform>();
         stRT.anchorMin = Vector2.zero;
@@ -423,16 +436,15 @@ public class GameOverUI : MonoBehaviour
         stRT.sizeDelta = Vector2.zero;
 
         _stampText = stampTextGO.GetComponent<Text>();
-        _stampText.font = horrorFont;
-        _stampText.fontSize = 22;
+        _stampText.font = typewriterFont;
+        _stampText.fontSize = 17;
         _stampText.fontStyle = FontStyle.Bold;
         _stampText.alignment = TextAnchor.MiddleCenter;
-        _stampText.color = new Color(0.85f, 0.08f, 0.08f, 1f);
-        _stampText.text = "[ CLEARANCE TERMINATED ]\n<size=15>FAILED TO ESCAPE BCH</size>";
-
-        var outline = stampTextGO.GetComponent<Outline>();
-        outline.effectColor = new Color(0.45f, 0.02f, 0.02f, 0.85f);
-        outline.effectDistance = new Vector2(1.5f, -1.5f);
+        _stampText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        _stampText.verticalOverflow = VerticalWrapMode.Overflow;
+        _stampText.lineSpacing = 1.05f;
+        _stampText.color = new Color(0.76f, 0.08f, 0.08f, 0.94f);
+        _stampText.text = "CLEARANCE TERMINATED\n<size=12>FAILED TO ESCAPE BCH</size>";
 
         // Buttons Container
         var btnContainer = new GameObject("Buttons", typeof(RectTransform), typeof(HorizontalLayoutGroup));
@@ -442,10 +454,10 @@ public class GameOverUI : MonoBehaviour
         btnRT.anchorMax = new Vector2(0.5f, 0f);
         btnRT.pivot = new Vector2(0.5f, 0f);
         btnRT.anchoredPosition = new Vector2(0f, 26f);
-        btnRT.sizeDelta = new Vector2(620f, 50f);
+        btnRT.sizeDelta = new Vector2(640f, 48f);
 
         var hlg = btnContainer.GetComponent<HorizontalLayoutGroup>();
-        hlg.spacing = 30f;
+        hlg.spacing = 32f;
         hlg.childControlWidth = true;
         hlg.childControlHeight = true;
         hlg.childForceExpandWidth = true;
@@ -464,269 +476,528 @@ public class GameOverUI : MonoBehaviour
         skipRT.anchoredPosition = new Vector2(0f, 16f);
         skipRT.sizeDelta = new Vector2(400f, 25f);
 
-        var skipTxt = _skipPromptRoot.GetComponent<Text>();
-        skipTxt.font = typewriterFont;
-        skipTxt.fontSize = 12;
-        skipTxt.color = new Color(0.6f, 0.6f, 0.6f, 0.65f);
-        skipTxt.alignment = TextAnchor.MiddleCenter;
-        skipTxt.text = "[SPACE / ENTER / ESC]  Laktawan ang Cutscene";
+        var skipText = _skipPromptRoot.GetComponent<Text>();
+        skipText.font = typewriterFont;
+        skipText.fontSize = 13;
+        skipText.color = new Color(0.65f, 0.65f, 0.65f, 0.5f);
+        skipText.alignment = TextAnchor.MiddleCenter;
+        skipText.text = "Press [SPACE] to skip to Incident Report";
 
-        // Ensure sub-elements start in clean initial states
         _autopsySheetBox.SetActive(false);
         _stampBox.SetActive(false);
-        _skipPromptRoot.SetActive(true);
+        _canvasGO.SetActive(false);
     }
 
-    private Button CreateStyledButton(Transform parent, string goName, string text, Font font, UnityEngine.Events.UnityAction onClick)
+    private Button CreateStyledButton(Transform parent, string name, string label, Font font, UnityEngine.Events.UnityAction onClick)
     {
-        var btnGO = new GameObject(goName, typeof(RectTransform), typeof(Image), typeof(Button));
+        var btnGO = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
         btnGO.transform.SetParent(parent, false);
 
         var img = btnGO.GetComponent<Image>();
-        img.sprite = buttonSprite;
-        img.type = Image.Type.Sliced;
-        img.color = new Color(0.18f, 0.15f, 0.15f, 0.95f);
+        if (buttonSprite != null) img.sprite = buttonSprite;
+        img.color = new Color(0.18f, 0.14f, 0.12f, 0.96f);
 
         var btn = btnGO.GetComponent<Button>();
         var colors = btn.colors;
-        colors.normalColor = new Color(0.18f, 0.15f, 0.15f, 0.95f);
-        colors.highlightedColor = new Color(0.65f, 0.12f, 0.12f, 1.0f);
-        colors.pressedColor = new Color(0.95f, 0.20f, 0.20f, 1.0f);
+        colors.normalColor = new Color(0.18f, 0.14f, 0.12f, 0.96f);
+        colors.highlightedColor = new Color(0.55f, 0.10f, 0.10f, 1f);
+        colors.pressedColor = new Color(0.35f, 0.05f, 0.05f, 1f);
         btn.colors = colors;
+
         btn.onClick.AddListener(() =>
         {
-            if (_sfxSource != null && buttonClickClip != null) _sfxSource.PlayOneShot(buttonClickClip, 0.9f);
+            if (_sfxSource != null && buttonClickClip != null)
+                _sfxSource.PlayOneShot(buttonClickClip, 0.85f);
             onClick?.Invoke();
         });
 
-        var textGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
-        textGO.transform.SetParent(btnGO.transform, false);
-        var textRT = textGO.GetComponent<RectTransform>();
-        textRT.anchorMin = Vector2.zero;
-        textRT.anchorMax = Vector2.one;
-        textRT.sizeDelta = Vector2.zero;
+        var txtGO = new GameObject("Label", typeof(RectTransform), typeof(Text));
+        txtGO.transform.SetParent(btnGO.transform, false);
+        var txtRT = txtGO.GetComponent<RectTransform>();
+        txtRT.anchorMin = Vector2.zero;
+        txtRT.anchorMax = Vector2.one;
+        txtRT.sizeDelta = Vector2.zero;
 
-        var txt = textGO.GetComponent<Text>();
-        txt.text = text;
+        var txt = txtGO.GetComponent<Text>();
         txt.font = font;
-        txt.fontSize = 14;
+        txt.fontSize = 15;
         txt.fontStyle = FontStyle.Bold;
-        txt.color = Color.white;
+        txt.color = new Color(0.95f, 0.90f, 0.85f, 1f);
         txt.alignment = TextAnchor.MiddleCenter;
+        txt.text = label;
 
         return btn;
     }
 
-    private Texture2D CreateVignetteTexture()
+    /// <summary>
+    /// Creates a clean, high-resolution aged official paper sprite with subtle section boxes and borders,
+    /// containing ZERO baked-in text so there is never any text overlap with the dynamic report fields.
+    /// </summary>
+    private Sprite CreateCleanAutopsyPaperSprite()
     {
-        int w = 256, h = 256;
+        int w = 760;
+        int h = 600;
         Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        Vector2 center = new Vector2(w * 0.5f, h * 0.5f);
-        float maxDist = center.magnitude;
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color basePaper = new Color(0.925f, 0.898f, 0.835f, 1f);
+        Color borderDark = new Color(0.28f, 0.23f, 0.18f, 0.92f);
+        Color sectionHeaderBg = new Color(0.855f, 0.820f, 0.750f, 1f);
+        Color sectionBoxBg = new Color(0.895f, 0.868f, 0.805f, 1f);
+        Color boxBorder = new Color(0.55f, 0.49f, 0.42f, 0.75f);
+
+        Color[] pixels = new Color[w * h];
 
         for (int y = 0; y < h; y++)
         {
             for (int x = 0; x < w; x++)
             {
-                float dist = Vector2.Distance(new Vector2(x, y), center) / maxDist;
-                float alpha = Mathf.SmoothStep(0.25f, 1.0f, dist);
-                tex.SetPixel(x, y, new Color(0f, 0f, 0f, alpha));
+                // Subtle aged vignette toward edges + fine paper grain
+                float nx = (x / (float)w) * 2f - 1f;
+                float ny = (y / (float)h) * 2f - 1f;
+                float edgeDist = Mathf.Max(Mathf.Abs(nx), Mathf.Abs(ny));
+                float edgeDarken = Mathf.Clamp01((edgeDist - 0.75f) * 0.22f);
+                float grain = (Mathf.PerlinNoise(x * 0.18f, y * 0.18f) - 0.5f) * 0.018f;
+
+                Color c = new Color(
+                    Mathf.Clamp01(basePaper.r - edgeDarken + grain),
+                    Mathf.Clamp01(basePaper.g - edgeDarken + grain),
+                    Mathf.Clamp01(basePaper.b - edgeDarken + grain),
+                    1f
+                );
+
+                // Outer double frame border (14px and 19px from edges)
+                bool outerBorder = (x >= 12 && x <= 15 && y >= 12 && y <= h - 13) ||
+                                   (x >= w - 16 && x <= w - 13 && y >= 12 && y <= h - 13) ||
+                                   (y >= 12 && y <= 15 && x >= 12 && x <= w - 13) ||
+                                   (y >= h - 16 && y <= h - 13 && x >= 12 && x <= w - 13);
+
+                bool innerBorder = (x == 19 && y >= 19 && y <= h - 20) ||
+                                   (x == w - 20 && y >= 19 && y <= h - 20) ||
+                                   (y == 19 && x >= 19 && x <= w - 20) ||
+                                   (y == h - 20 && x >= 19 && x <= w - 20);
+
+                if (outerBorder || innerBorder)
+                {
+                    pixels[y * w + x] = borderDark;
+                    continue;
+                }
+
+                // Header divider double line (at y = h - 124 and y = h - 127)
+                if (x >= 34 && x <= w - 35 && (y == h - 124 || y == h - 125 || y == h - 128))
+                {
+                    pixels[y * w + x] = borderDark;
+                    continue;
+                }
+
+                // Section I Header Bar (top offset 134..158 -> y in [h-158 .. h-134])
+                int s1Top = h - 134;
+                int s1Bot = h - 158;
+                if (x >= 40 && x <= w - 41 && y >= s1Bot && y <= s1Top)
+                {
+                    bool barBorder = (x == 40 || x == w - 41 || y == s1Bot || y == s1Top);
+                    pixels[y * w + x] = barBorder ? boxBorder : sectionHeaderBg;
+                    continue;
+                }
+
+                // Section I Body Box (top offset 162..362 -> y in [h-362 .. h-162])
+                int b1Top = h - 162;
+                int b1Bot = h - 362;
+                if (x >= 40 && x <= w - 41 && y >= b1Bot && y <= b1Top)
+                {
+                    bool bBorder = (x == 40 || x == w - 41 || y == b1Bot || y == b1Top);
+                    pixels[y * w + x] = bBorder ? boxBorder : sectionBoxBg;
+                    continue;
+                }
+
+                // Section II Header Bar (top offset 372..396 -> y in [h-396 .. h-372])
+                int s2Top = h - 372;
+                int s2Bot = h - 396;
+                if (x >= 40 && x <= w - 41 && y >= s2Bot && y <= s2Top)
+                {
+                    bool barBorder = (x == 40 || x == w - 41 || y == s2Bot || y == s2Top);
+                    pixels[y * w + x] = barBorder ? boxBorder : sectionHeaderBg;
+                    continue;
+                }
+
+                // Section II Stats Box (top offset 400..502 -> y in [h-502 .. h-400])
+                int b2Top = h - 400;
+                int b2Bot = h - 502;
+                if (x >= 40 && x <= w - 41 && y >= b2Bot && y <= b2Top)
+                {
+                    bool bBorder = (x == 40 || x == w - 41 || y == b2Bot || y == b2Top);
+                    pixels[y * w + x] = bBorder ? boxBorder : sectionBoxBg;
+                    continue;
+                }
+
+                pixels[y * w + x] = c;
             }
         }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f));
+    }
+
+    /// <summary>
+    /// Creates a crisp red rubber-stamp border sprite with a translucent ink wash inside.
+    /// </summary>
+    private Sprite CreateRubberStampBorderSprite()
+    {
+        int w = 280;
+        int h = 72;
+        Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color inkBorder = new Color(0.76f, 0.08f, 0.08f, 0.88f);
+        Color inkFill = new Color(0.76f, 0.08f, 0.08f, 0.10f);
+        Color[] pixels = new Color[w * h];
+
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                bool outer = (x >= 2 && x <= 5 && y >= 2 && y <= h - 3) ||
+                             (x >= w - 6 && x <= w - 3 && y >= 2 && y <= h - 3) ||
+                             (y >= 2 && y <= 5 && x >= 2 && x <= w - 3) ||
+                             (y >= h - 6 && y <= h - 3 && x >= 2 && x <= w - 3);
+
+                bool inner = (x == 9 && y >= 9 && y <= h - 10) ||
+                             (x == w - 10 && y >= 9 && y <= h - 10) ||
+                             (y == 9 && x >= 9 && x <= w - 10) ||
+                             (y == h - 10 && x >= 9 && x <= w - 10);
+
+                if (outer || inner)
+                {
+                    // Slight distressed ink texture
+                    float noise = Mathf.PerlinNoise(x * 0.25f, y * 0.25f);
+                    float alpha = noise > 0.18f ? inkBorder.a : inkBorder.a * 0.45f;
+                    pixels[y * w + x] = new Color(inkBorder.r, inkBorder.g, inkBorder.b, alpha);
+                }
+                else if (x > 9 && x < w - 10 && y > 9 && y < h - 10)
+                {
+                    pixels[y * w + x] = inkFill;
+                }
+                else
+                {
+                    pixels[y * w + x] = Color.clear;
+                }
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f));
+    }
+
+    private Texture2D CreateVignetteTexture()
+    {
+        int size = 256;
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        Color[] pixels = new Color[size * size];
+        Vector2 center = new Vector2(size * 0.5f, size * 0.5f);
+        float maxDist = size * 0.5f;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dist = Vector2.Distance(new Vector2(x, y), center) / maxDist;
+                float alpha = Mathf.Clamp01(Mathf.Pow(dist, 1.8f));
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        tex.SetPixels(pixels);
         tex.Apply();
         return tex;
     }
 
-    // ── Cutscene Execution ─────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════════════════════════════
+    // CUTSCENE CHOREOGRAPHY
+    // ═════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Immediately stops all enemies, active jumpscares, QTEs, puzzles, modals, and interaction prompts.
+    /// </summary>
+    private void SilenceAllThreatsAndPrompts()
+    {
+        // 1. Force-close any open puzzle, minigame, inspection modal, inventory, or dialogue
+        PauseMenu.ForceCloseAllModalsAndPuzzles();
+
+        // 2. Abort any active Proctor struggle QTE or wandering NPC jumpscare
+        ProctorJumpscareQTE.AbortActiveQTE();
+        if (NPCJumpscareManager.Instance != null)
+        {
+            NPCJumpscareManager.Instance.AbortActiveJumpscare();
+        }
+
+        // 3. Despawn all active stalker/blackout entities immediately
+        TheProctorAI.DespawnActiveProctor();
+        WeepingStudentAI.DespawnActiveWeepingStudent();
+        SecurityGuardStalkerAI.DespawnActiveGuardStalker();
+
+        // 4. Stop all wandering student ProctorAI chases
+        var wanderingNPCs = FindObjectsByType<ProctorAI>(FindObjectsInactive.Include);
+        for (int i = 0; i < wanderingNPCs.Length; i++)
+        {
+            if (wanderingNPCs[i] != null && wanderingNPCs[i].isChasing)
+            {
+                wanderingNPCs[i].StopChase();
+            }
+        }
+
+        // 5. Hide any "[E] Pick Up / Talk" prompt text on screen
+        var playerInteract = FindFirstObjectByType<PlayerInteract>();
+        if (playerInteract != null)
+        {
+            if (playerInteract.promptText != null)
+            {
+                playerInteract.promptText.gameObject.SetActive(false);
+            }
+            playerInteract.enabled = false;
+        }
+    }
+
     public void HandleGameOver()
     {
         if (_hasTriggered) return;
         _hasTriggered = true;
         IsCutsceneActive = true;
-        _hasSkipped = false;
 
-        CleanupStaleGameoverObjects();
-        SetupAudioSources();
-        LoadDefaultAssets();
-        BuildCutsceneUI();
+        Time.timeScale = 1f; // Keep timeScale at 1 so physical collapse coroutine runs smoothly!
+
+        // Immediately silence all enemy jumpscares, chases, QTEs, puzzles, and interaction prompts
+        SilenceAllThreatsAndPrompts();
+
+        if (_canvasGO == null) BuildCutsceneUI();
+        _canvasGO.SetActive(true);
 
         StartCoroutine(CutsceneChoreographyRoutine());
     }
 
-    private void FindPlayerReferences()
-    {
-        if (_playerMovement == null)
-            _playerMovement = FindAnyObjectByType<PlayerMovement>();
-
-        if (_playerMovement != null && _playerMovement.playerCamera != null)
-        {
-            _playerCamera = _playerMovement.playerCamera;
-            _originalCamLocalPos = _playerCamera.transform.localPosition;
-            _originalCamLocalRot = _playerCamera.transform.localRotation;
-            _originalCamFOV = _playerCamera.fieldOfView;
-        }
-    }
-
     private IEnumerator CutsceneChoreographyRoutine()
     {
-        FindPlayerReferences();
+        SilenceAllThreatsAndPrompts();
 
-        // 1. Lock controls, close dialogs, despawn active enemies
-        if (_playerMovement != null)
+        // 1. Lock Player Movement & Camera Controls
+        var playerMove = FindFirstObjectByType<PlayerMovement>();
+        Camera mainCam = Camera.main;
+        if (playerMove != null)
         {
-            _playerMovement.SetControlsEnabled(false);
-            _playerMovement.isJumpscareCameraOverride = true;
+            playerMove.isJumpscareCameraOverride = true;
+            playerMove.SetControlsEnabled(false);
+            if (playerMove.playerCamera != null) mainCam = playerMove.playerCamera;
         }
 
-        TheProctorAI.DespawnActiveProctor();
-        var dialogueSystem = NPCDialogueSystem.Instance ?? FindAnyObjectByType<NPCDialogueSystem>();
-        if (dialogueSystem != null) dialogueSystem.EndDialogue();
+        // Turn off flashlight upon collapse or make it flicker out
+        var flashlight = FlashlightController.Instance;
 
-        if (_canvasGO != null) _canvasGO.SetActive(true);
-        if (_autopsySheetBox != null) _autopsySheetBox.SetActive(false);
-        if (_stampBox != null) _stampBox.SetActive(false);
-        if (_skipPromptRoot != null) _skipPromptRoot.SetActive(true);
-
-        // ═════════════════════════════════════════════════════════════════════
-        // PHASE 1: PANIC ATTACK SURGE (~3.4 seconds)
-        // ═════════════════════════════════════════════════════════════════════
+        // 2. Start Panic Audio (Racing Heartbeat + Gasping for Air)
         if (_heartbeatSource != null && fastHeartbeatClip != null)
         {
             _heartbeatSource.clip = fastHeartbeatClip;
-            _heartbeatSource.volume = 1.0f;
+            _heartbeatSource.pitch = 1.35f;
+            _heartbeatSource.volume = 0.95f;
             _heartbeatSource.Play();
         }
 
         if (_breathingSource != null && gaspingClip != null)
         {
             _breathingSource.clip = gaspingClip;
-            _breathingSource.volume = 0.95f;
+            _breathingSource.volume = 0.90f;
             _breathingSource.Play();
         }
 
-        float phase1Duration = 3.4f;
+        if (_droneSource != null && eerieDroneClip != null)
+        {
+            _droneSource.clip = eerieDroneClip;
+            _droneSource.volume = 0.15f;
+            _droneSource.Play();
+        }
+
+        // Record initial camera transform
+        Transform camT = mainCam != null ? mainCam.transform : null;
+        Vector3 startLocalPos = camT != null ? camT.localPosition : new Vector3(0f, 1.52f, 0f);
+        Quaternion startLocalRot = camT != null ? camT.localRotation : Quaternion.identity;
+        float startFOV = mainCam != null ? mainCam.fieldOfView : 60f;
+
+        // ═════════════════════════════════════════════════════════════════════
+        // PHASE 1: VERTIGO & CHEST-CLUTCHING HYPERVENTILATION (0.0s -> 1.8s)
+        // Camera sways violently, FOV constricts/expands, crimson vignette pulses
+        // ═════════════════════════════════════════════════════════════════════
+        float p1Dur = 1.8f;
         float elapsed = 0f;
 
-        while (elapsed < phase1Duration && !_hasSkipped)
+        while (elapsed < p1Dur && !_hasSkipped)
         {
             elapsed += Time.deltaTime;
-            float progress = elapsed / phase1Duration;
+            float t = elapsed / p1Dur;
 
-            // Pulsating vignette darkening
-            float pulse = Mathf.Sin(elapsed * 12.0f) * 0.25f + 0.75f;
+            // Letterbox bars slowly creep in
+            float barH = Mathf.Lerp(0f, 55f, t);
+            if (_letterboxTop != null) _letterboxTop.sizeDelta = new Vector2(0f, barH);
+            if (_letterboxBottom != null) _letterboxBottom.sizeDelta = new Vector2(0f, barH);
+
+            // Crimson tunnel-vision vignette
             if (_vignetteImg != null)
             {
-                _vignetteImg.color = new Color(0.15f, 0.01f, 0.01f, Mathf.Clamp01(progress * pulse * 0.92f));
+                float pulse = 0.55f + Mathf.Sin(elapsed * 14f) * 0.20f;
+                _vignetteImg.color = new Color(0.22f, 0.01f, 0.01f, Mathf.Clamp01(t * pulse));
             }
 
-            // Camera erratic shaking and rapid breathing FOV zoom
-            if (_playerCamera != null)
+            if (camT != null)
             {
-                float fovOsc = Mathf.Sin(elapsed * 9.0f) * 6.5f;
-                _playerCamera.fieldOfView = _originalCamFOV + fovOsc;
+                // Staggering / dizzy head roll and pitch
+                float swayX = Mathf.Sin(elapsed * 6.5f) * 8f * t;
+                float swayZ = Mathf.Cos(elapsed * 5.0f) * 14f * t;
+                camT.localRotation = startLocalRot * Quaternion.Euler(swayX + (t * 12f), 0f, swayZ);
 
-                float pitchShake = (Mathf.PerlinNoise(Time.time * 24f, 0f) - 0.5f) * 5.0f * progress;
-                float rollShake = (Mathf.PerlinNoise(0f, Time.time * 24f) - 0.5f) * 7.0f * progress;
-                _playerCamera.transform.localRotation = _originalCamLocalRot * Quaternion.Euler(pitchShake, 0f, rollShake);
+                // Stumbling camera bob
+                float dropY = Mathf.Lerp(0f, -0.25f, t * t);
+                camT.localPosition = startLocalPos + new Vector3(Mathf.Sin(elapsed * 9f) * 0.06f, dropY, 0f);
             }
 
-            // Animate cinematic letterbox bars expanding
-            if (_letterboxTop != null && _letterboxBottom != null)
+            if (mainCam != null)
             {
-                float barHeight = Mathf.Lerp(0f, 95f, progress);
-                _letterboxTop.sizeDelta = new Vector2(0f, barHeight);
-                _letterboxBottom.sizeDelta = new Vector2(0f, barHeight);
+                mainCam.fieldOfView = startFOV + Mathf.Sin(elapsed * 12f) * 6f * t;
+            }
+
+            if (_droneSource != null)
+            {
+                _droneSource.volume = Mathf.Lerp(0.15f, 0.45f, t);
             }
 
             yield return null;
         }
 
         // ═════════════════════════════════════════════════════════════════════
-        // PHASE 2: PHYSICAL COLLAPSE (~2.2 seconds)
+        // PHASE 2: DROPPING TO KNEES & HITTING THE FLOOR (1.8s -> 3.4s)
+        // First-person camera drops to knee height, then slams sideways onto the floor tiles
         // ═════════════════════════════════════════════════════════════════════
         if (!_hasSkipped)
         {
-            if (_breathingSource != null && breathingClip != null)
-            {
-                _breathingSource.clip = breathingClip;
-                _breathingSource.volume = 0.75f;
-                _breathingSource.Play();
-            }
-
-            if (_sfxSource != null && deathSound != null)
-            {
-                _sfxSource.PlayOneShot(deathSound, 0.85f);
-            }
-
-            float collapseDuration = 2.0f;
+            float p2Dur = 1.6f;
             elapsed = 0f;
-            Vector3 camStartPos = _playerCamera != null ? _playerCamera.transform.localPosition : Vector3.zero;
-            Vector3 camFloorPos = new Vector3(camStartPos.x, 0.22f, camStartPos.z);
-            Quaternion camStartRot = _playerCamera != null ? _playerCamera.transform.localRotation : Quaternion.identity;
-            Quaternion camFloorRot = camStartRot * Quaternion.Euler(18f, 0f, 42f);
 
-            bool playedThud = false;
+            Vector3 p2StartPos = camT != null ? camT.localPosition : startLocalPos;
+            Quaternion p2StartRot = camT != null ? camT.localRotation : startLocalRot;
 
-            while (elapsed < collapseDuration && !_hasSkipped)
+            // Target floor position: head resting sideways just above the floor (y = 0.18m)
+            Vector3 floorPos = new Vector3(startLocalPos.x + 0.15f, 0.18f, startLocalPos.z + 0.10f);
+            // Target floor rotation: tilted 78 degrees sideways on the floor, looking slightly down the hallway
+            Quaternion floorRot = Quaternion.Euler(14f, startLocalRot.eulerAngles.y + 18f, 76f);
+
+            bool playedKneeThud = false;
+            bool playedBodyCollapseThud = false;
+
+            while (elapsed < p2Dur && !_hasSkipped)
             {
                 elapsed += Time.deltaTime;
-                float t = elapsed / collapseDuration;
-                float dropCurve = t * t; // Acceleration downwards
+                float t = Mathf.Clamp01(elapsed / p2Dur);
 
-                if (_playerCamera != null)
-                {
-                    _playerCamera.transform.localPosition = Vector3.Lerp(camStartPos, camFloorPos, dropCurve);
-                    _playerCamera.transform.localRotation = Quaternion.Slerp(camStartRot, camFloorRot, dropCurve);
-                }
+                // Two-stage fall curve (knees at t=0.45, full floor impact at t=0.85)
+                float curve = t * t * (3f - 2f * t);
 
-                // Impact thud when hitting the ground
-                if (t >= 0.75f && !playedThud)
+                if (t >= 0.42f && !playedKneeThud)
                 {
-                    playedThud = true;
+                    playedKneeThud = true;
                     if (_sfxSource != null && bodyThudClip != null)
                     {
-                        _sfxSource.pitch = 0.8f;
-                        _sfxSource.PlayOneShot(bodyThudClip, 1.0f);
+                        _sfxSource.pitch = 0.85f;
+                        _sfxSource.PlayOneShot(bodyThudClip, 0.65f);
                     }
                 }
 
-                // Fade to black beginning to swallow vision
+                if (t >= 0.82f && !playedBodyCollapseThud)
+                {
+                    playedBodyCollapseThud = true;
+                    if (_sfxSource != null && bodyThudClip != null)
+                    {
+                        _sfxSource.pitch = 0.62f;
+                        _sfxSource.PlayOneShot(bodyThudClip, 1.0f);
+                    }
+
+                    // Switch heartbeat from racing to dying slow thumps
+                    if (_heartbeatSource != null && slowHeartbeatClip != null)
+                    {
+                        _heartbeatSource.clip = slowHeartbeatClip;
+                        _heartbeatSource.pitch = 0.85f;
+                        _heartbeatSource.volume = 0.80f;
+                        _heartbeatSource.Play();
+                    }
+
+                    // Flicker flashlight off as it hits the floor
+                    if (flashlight != null && flashlight.IsLightOn)
+                    {
+                        flashlight.ToggleLight();
+                    }
+                }
+
+                if (camT != null)
+                {
+                    camT.localPosition = Vector3.Lerp(p2StartPos, floorPos, curve);
+                    camT.localRotation = Quaternion.Slerp(p2StartRot, floorRot, curve);
+
+                    // Impact jolt at t ~ 0.85
+                    if (t > 0.80f && t < 0.95f)
+                    {
+                        camT.localPosition += new Vector3(Random.Range(-0.03f, 0.03f), Random.Range(-0.03f, 0.03f), 0f);
+                    }
+                }
+
+                // Heavy eyelid blink effect
                 if (_fadeToBlackImg != null)
                 {
-                    _fadeToBlackImg.color = new Color(0.01f, 0.01f, 0.01f, Mathf.Clamp01(t * 0.85f));
+                    float blink = Mathf.Sin(t * Mathf.PI * 2.5f) * 0.5f + 0.35f;
+                    _fadeToBlackImg.color = new Color(0.02f, 0.0f, 0.0f, Mathf.Clamp01(blink * t));
                 }
+
+                if (_letterboxTop != null) _letterboxTop.sizeDelta = new Vector2(0f, Mathf.Lerp(55f, 110f, t));
+                if (_letterboxBottom != null) _letterboxBottom.sizeDelta = new Vector2(0f, Mathf.Lerp(55f, 110f, t));
 
                 yield return null;
             }
         }
 
         // ═════════════════════════════════════════════════════════════════════
-        // PHASE 3: THE VOID & FINAL THOUGHTS (~3.8 seconds)
+        // PHASE 3: DYING CONSCIOUSNESS & SUFFOCATING THOUGHTS (3.4s -> 6.8s)
+        // Eyelids close to pitch black while final haunting thoughts flash
         // ═════════════════════════════════════════════════════════════════════
         if (!_hasSkipped)
         {
-            if (_fadeToBlackImg != null) _fadeToBlackImg.color = new Color(0.01f, 0.01f, 0.01f, 1f);
-
-            // Transition heartbeat from rapid to slow, fading into silence
-            if (_heartbeatSource != null && slowHeartbeatClip != null)
+            if (_breathingSource != null && breathingClip != null)
             {
-                _heartbeatSource.clip = slowHeartbeatClip;
-                _heartbeatSource.volume = 0.6f;
-                _heartbeatSource.Play();
+                _breathingSource.clip = breathingClip;
+                _breathingSource.pitch = 0.72f;
+                _breathingSource.volume = 0.65f;
+                _breathingSource.Play();
             }
 
-            if (_ambienceSource != null && eerieDroneClip != null)
+            // Fade to complete darkness over 1.2s
+            float fadeDur = 1.2f;
+            elapsed = 0f;
+            float startBlackA = _fadeToBlackImg != null ? _fadeToBlackImg.color.a : 0.5f;
+
+            while (elapsed < fadeDur && !_hasSkipped)
             {
-                _ambienceSource.clip = eerieDroneClip;
-                _ambienceSource.Play();
+                elapsed += Time.deltaTime;
+                float t = elapsed / fadeDur;
+                if (_fadeToBlackImg != null)
+                {
+                    _fadeToBlackImg.color = new Color(0.01f, 0.01f, 0.01f, Mathf.Lerp(startBlackA, 0.96f, t));
+                }
+                yield return null;
             }
 
-            // Tagalog final thought strings
+            // Flash haunting final thoughts in typewriter text
             string[] thoughts = new string[]
             {
-                "Hindi na ako makahinga...",
-                "Sobrang sikip sa dibdib... Dumidilim na ang paningin ko...",
-                "Bumigay na ang aking katawan... Hindi ko na matatapos ang clearance..."
+                "\"Hindi ako makahinga... ang sikip ng dibdib ko...\"",
+                "\"Ang clearance ko... kailangan ko pang makalabas ng BCH...\"",
+                "\"Tulong... may nakatingin sa akin sa dilim...\""
             };
 
             for (int i = 0; i < thoughts.Length && !_hasSkipped; i++)
@@ -788,14 +1059,16 @@ public class GameOverUI : MonoBehaviour
 
     private void ShowAutopsyReport()
     {
+        SilenceAllThreatsAndPrompts();
+
         if (_canvasGO != null) _canvasGO.SetActive(true);
 
-        if (_fadeToBlackImg != null) _fadeToBlackImg.color = new Color(0.02f, 0.02f, 0.02f, 0.95f);
+        if (_fadeToBlackImg != null) _fadeToBlackImg.color = new Color(0.02f, 0.02f, 0.02f, 0.96f);
         if (_thoughtsText != null) _thoughtsText.color = new Color(1f, 1f, 1f, 0f);
         if (_skipPromptRoot != null) _skipPromptRoot.SetActive(false);
 
-        if (_letterboxTop != null) _letterboxTop.sizeDelta = new Vector2(0f, 75f);
-        if (_letterboxBottom != null) _letterboxBottom.sizeDelta = new Vector2(0f, 75f);
+        if (_letterboxTop != null) _letterboxTop.sizeDelta = new Vector2(0f, 56f);
+        if (_letterboxBottom != null) _letterboxBottom.sizeDelta = new Vector2(0f, 56f);
 
         // Populate dynamic autopsy and clearance stats
         int sigCount = ClearanceManager.Instance != null ? ClearanceManager.Instance.SignatureCount : 0;
@@ -837,7 +1110,7 @@ public class GameOverUI : MonoBehaviour
 
     private IEnumerator StampSlamRoutine()
     {
-        yield return new WaitForSeconds(0.4f);
+        yield return new WaitForSeconds(0.35f);
 
         if (_stampBox != null)
         {

@@ -129,8 +129,9 @@ public class NPCSitController : MonoBehaviour
         _col = GetComponent<CapsuleCollider>();
         if (_col != null)
         {
-            _standingColHeight = _col.height;
-            _standingColCenter = _col.center;
+            // Ensure standing collider is always full height even if serialized while seated
+            _standingColHeight = Mathf.Max(_col.height, 1.64f);
+            _standingColCenter = new Vector3(_col.center.x, Mathf.Max(_col.center.y, 0.55f), _col.center.z);
             _seatedColHeight = Mathf.Max(0.85f, _standingColHeight * 0.65f);
             _seatedColCenter = new Vector3(_standingColCenter.x, _standingColCenter.y * 0.65f, _standingColCenter.z);
         }
@@ -308,12 +309,36 @@ public class NPCSitController : MonoBehaviour
         return closest;
     }
 
+    private bool IsLocomotionActive()
+    {
+        var staffAI = GetComponent<RoomStaffAI>();
+        return staffAI != null && (staffAI.isRunawayActive || staffAI.isReturningHome);
+    }
+
+    /// <summary>
+    /// Immediately releases sitting posture and restores full standing collider without lerping root position.
+    /// Used when an NPC bolts out of their chair to run or walk.
+    /// </summary>
+    public void ForceStandImmediate()
+    {
+        if (_transitionRoutine != null)
+        {
+            StopCoroutine(_transitionRoutine);
+            _transitionRoutine = null;
+        }
+
+        _sitWeight = 0.0f;
+        _state = SitState.Standing;
+        UpdateCollider(0.0f);
+        ApplySittingPose(0.0f);
+    }
+
     /// <summary>
     /// Called when the player starts interacting with this NPC.
     /// </summary>
     public void OnInteract()
     {
-        if (!_hasChair) return;
+        if (!_hasChair || IsLocomotionActive()) return;
         StandUp();
     }
 
@@ -322,7 +347,7 @@ public class NPCSitController : MonoBehaviour
     /// </summary>
     public void OnEndInteract()
     {
-        if (!_hasChair) return;
+        if (!_hasChair || IsLocomotionActive()) return;
         SitDown();
     }
 
@@ -331,7 +356,7 @@ public class NPCSitController : MonoBehaviour
     /// </summary>
     public void StandUp()
     {
-        if (!_hasChair) return;
+        if (!_hasChair || IsLocomotionActive()) return;
         if (_transitionRoutine != null) StopCoroutine(_transitionRoutine);
         _transitionRoutine = StartCoroutine(TransitionRoutine(0.0f, standUpDuration, SitState.Standing));
     }
@@ -341,7 +366,7 @@ public class NPCSitController : MonoBehaviour
     /// </summary>
     public void SitDown()
     {
-        if (!_hasChair) return;
+        if (!_hasChair || IsLocomotionActive()) return;
         if (_transitionRoutine != null) StopCoroutine(_transitionRoutine);
         _transitionRoutine = StartCoroutine(TransitionRoutine(1.0f, sitDownDuration, SitState.Seated));
     }
@@ -354,7 +379,7 @@ public class NPCSitController : MonoBehaviour
         Vector3 startPos = transform.position;
         Quaternion startRot = transform.rotation;
 
-        Vector3 targetPos = _seatedRootPos;
+        Vector3 targetPos = targetWeight < 0.5f ? (_standingRootPos != Vector3.zero ? _standingRootPos : _seatedRootPos) : _seatedRootPos;
         Quaternion targetRot = _seatedRootRot;
 
         // When standing up to talk, turn body to face the player (front, sides, or behind)
@@ -381,6 +406,12 @@ public class NPCSitController : MonoBehaviour
         float elapsed = 0f;
         while (elapsed < duration)
         {
+            if (IsLocomotionActive())
+            {
+                _transitionRoutine = null;
+                yield break;
+            }
+
             elapsed += Time.deltaTime;
             float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
 
@@ -411,6 +442,16 @@ public class NPCSitController : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (IsLocomotionActive())
+        {
+            if (_sitWeight > 0f)
+            {
+                _sitWeight = 0f;
+                UpdateCollider(0f);
+            }
+            return;
+        }
+
         if (_sitWeight > 0.0001f)
         {
             ApplySittingPose(_sitWeight);

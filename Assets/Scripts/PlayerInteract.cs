@@ -125,7 +125,7 @@ public class PlayerInteract : MonoBehaviour
             {
                 var clr = interactable as ClearanceNPC;
                 var staffAI = clr != null ? clr.GetComponent<RoomStaffAI>() : null;
-                allowedRange = (staffAI != null && staffAI.isRunawayActive) ? 5.50f : 3.85f;
+                allowedRange = (staffAI != null && staffAI.isRunawayActive) ? 5.50f : 4.25f;
             }
             else if (isDoor)
             {
@@ -133,7 +133,15 @@ public class PlayerInteract : MonoBehaviour
             }
             if (h.distance > allowedRange) continue;
 
-            if (h.distance < closestDistance)
+            bool currentIsExitGate = closestInteractable is Klirans.Environment.SchoolExitDoor;
+            bool candidateIsExitGate = interactable is Klirans.Environment.SchoolExitDoor;
+
+            // Always prefer specific NPCs/props/keypads over the broad SchoolExitDoor gate trigger/blocker
+            bool shouldConsider = (closestInteractable == null) ||
+                                  (currentIsExitGate && !candidateIsExitGate) ||
+                                  (currentIsExitGate == candidateIsExitGate && h.distance < closestDistance);
+
+            if (shouldConsider)
             {
                 if (isStaffNPC)
                 {
@@ -186,9 +194,13 @@ public class PlayerInteract : MonoBehaviour
         // Forgiving wide view-cone assist for all Staff NPCs (ClearanceNPCs, Security Guard, Vendor)
         // so looking anywhere near the staff member, their desk, laptop, service counter, or window
         // effortlessly and reliably triggers the interaction prompt!
-        if (closestInteractable == null)
+        if (closestInteractable == null || closestInteractable is Klirans.Environment.SchoolExitDoor)
         {
-            closestInteractable = FindStaffNPCInViewCone(ray);
+            var coneStaff = FindStaffNPCInViewCone(ray);
+            if (coneStaff != null)
+            {
+                closestInteractable = coneStaff;
+            }
         }
 
         if (closestInteractable != null)
@@ -313,8 +325,9 @@ public class PlayerInteract : MonoBehaviour
             float allowedRange = Mathf.Max(guard.interactionRange, 4.25f);
             if (dist <= allowedRange)
             {
-                Vector3 headPos = guard.transform.position + Vector3.up * 1.45f;
-                float angle = Vector3.Angle(ray.direction, headPos - camOrigin);
+                Vector3 chestPos = guard.transform.position + Vector3.up * 1.05f;
+                Vector3 headPos  = guard.transform.position + Vector3.up * 1.45f;
+                float angle = Mathf.Min(Vector3.Angle(ray.direction, chestPos - camOrigin), Vector3.Angle(ray.direction, headPos - camOrigin));
                 if (angle <= 48f && !IsBlockedBySolidRoomWall(camOrigin, headPos, guard.transform.root))
                 {
                     float score = angle + dist * 2.0f;

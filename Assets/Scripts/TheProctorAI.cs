@@ -5,17 +5,17 @@ using UnityEngine.AI;
 using UnityEngine.UI;
 
 /// <summary>
-/// TheProctorAI — The primary horror entity during campus blackouts.
-///
-/// Lore & Mechanics:
-/// - Towering 2.5-meter figure in faded polo & slacks, pale blank face, toothless dark mouth.
-/// - Mindless enforcer of silence with a dripping clipboard.
-/// - Blind, but drawn to vibrations, sprinting, heavy breathing, and flashlight.
-/// - Uncanny, creepy lurching motion (spine hunched, blind head twitches, dragging steps).
-/// - Confined strictly to its assigned floor hallway; CANNOT enter any rooms or cross stairs.
-/// - Blocked from catching the player when hidden in lockers (LockerHideManager.IsPlayerHidden).
-/// - Catching player triggers an in-your-face jumpscare, whiteout, +10 anxiety, and safe-zone reset.
-/// - Despawns immediately when blackout ends (either via timer or catch).
+/// TheProctorAI — Tall, slender, uncanny horror antagonist that spawns during campus blackouts.
+/// 
+/// Features:
+/// - Hunts the player strictly along the assigned hallway of the player's current floor.
+/// - Sensitive acoustic hearing: detects player footsteps when walking or sprinting,
+///   and immediately charges to the sound source!
+/// - Crouching or standing still makes zero noise, allowing stealthy evasion.
+/// - Hiding inside a Hallway Locker conceals the player from sight and sound.
+/// - Creepy procedural animation overrides: forward hunched posture, erratic head twitches,
+///   and a clipboard clutched in his left hand.
+/// - In-your-face 3D screaming jumpscare + whiteout teleport back to safe zone on catch.
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 public class TheProctorAI : MonoBehaviour
@@ -26,118 +26,125 @@ public class TheProctorAI : MonoBehaviour
     {
         Inactive,
         Spawning,
-        Searching,
+        Patrolling,
+        AlertedBySound,
         Chasing,
+        SearchingLockerArea,
         Jumpscare,
         Despawning
     }
 
     [Header("Current State")]
     public ProctorState currentState = ProctorState.Inactive;
+    [HideInInspector] public bool isDevSpawn = false;
 
-    [Header("Movement & Balancing")]
-    [Tooltip("Fast stalking walk speed in hallway.")]
-    public float patrolSpeed = 3.2f;
-
-    [Tooltip("Terrifying pursuit speed when alerted or chasing player.")]
-    public float chaseSpeed = 5.6f;
-
-    [Tooltip("Distance at which Proctor catches the player and triggers jumpscare.")]
-    public float catchDistance = 1.4f;
-
-    [Tooltip("NavMesh stopping distance.")]
-    public float stoppingDistance = 0.5f;
-
-    [Tooltip("NavMesh agent acceleration.")]
-    public float acceleration = 12.0f;
-
-    [Tooltip("Angular turning speed.")]
-    public float angularSpeed = 420.0f;
-
-    [Header("Assigned Hallway & Floor Limits")]
-    [Tooltip("The hallway name/identifier The Proctor is strictly confined to.")]
+    [Header("Assigned Hallway & Floor")]
     public string assignedHallway = "Hallway_1F";
-
-    [Tooltip("Floor index (1, 2, or 3).")]
     public int assignedFloor = 1;
-
-    [Tooltip("Minimum Z coordinate of the assigned hallway.")]
     public float hallwayMinZ = -16.0f;
-
-    [Tooltip("Maximum Z coordinate of the assigned hallway.")]
     public float hallwayMaxZ = 30.0f;
-
-    [Tooltip("Hallway center X position (approx -84 for building corridors).")]
     public float hallwayCenterX = -84.0f;
-
-    [Tooltip("Half-width of the hallway corridor where Proctor is allowed to walk.")]
     public float hallwayHalfWidth = 2.4f;
 
-    [Header("Acoustic Sensitivity (Blind Sound-Hunting Monster)")]
-    [Tooltip("Base distance within which Proctor hears normal walking (14m).")]
-    public float baseHearingRange = 14.0f;
+    [Header("Movement Speeds (Balanced vs Player Walk=2.5, Run=4.0)")]
+    [Tooltip("Slow, menacing stalk speed along the dark hallway.")]
+    public float patrolSpeed = 1.9f;
 
-    [Tooltip("Distance within which Proctor hears sprinting footsteps & heavy floor vibrations (28m).")]
-    public float sprintHearingRange = 28.0f;
+    [Tooltip("Brisk investigation speed when he hears a sound.")]
+    public float investigateSpeed = 2.8f;
 
-    [Tooltip("How long The Proctor actively pursues the origin of a detected sound (seconds).")]
-    public float huntPersistenceDuration = 5.5f;
+    [Tooltip("Aggressive sprint speed when actively chasing the player (slightly slower than player sprint 4.0 so player can narrowly reach a locker!).")]
+    public float chaseSpeed = 3.65f;
 
-    [Header("Audio References")]
+    [Header("Vision & Hearing Detection")]
+    [Tooltip("Direct line-of-sight range down the dark hallway (longer if player's flashlight is ON).")]
+    public float baseVisionRange = 14.0f;
+    public float flashlightVisionBonus = 7.0f;
+    [Range(40f, 160f)]
+    public float visionAngle = 115f;
+
+    [Tooltip("Distance within which walking footsteps are heard by The Proctor.")]
+    public float walkHearingRange = 10.5f;
+
+    [Tooltip("Distance within which sprinting footsteps are heard (almost the entire hallway!).")]
+    public float sprintHearingRange = 22.0f;
+
+    [Tooltip("Base hearing range (alias for threat scaling).")]
+    public float baseHearingRange = 10.5f;
+
+    [Tooltip("How long The Proctor continues hunting before giving up when alert expires.")]
+    public float huntPersistenceDuration = 8.0f;
+
+    [Tooltip("Distance at which The Proctor grabs the player for a jumpscare.")]
+    public float catchDistance = 1.30f;
+
+    [Header("Uncanny Tall Proportions & Procedural Rig")]
+    [Tooltip("Target height in meters (normal NPCs are ~1.6m; The Proctor towers at ~2.12m).")]
+    public float targetHeightMeters = 2.12f;
+
+    [Tooltip("Slender width multiplier for an elongated silhouette.")]
+    public float slenderWidthRatio = 0.86f;
+
+    [Tooltip("Forward spine hunch angle in degrees.")]
+    public float spineHunchAngle = 14.0f;
+
+    [Tooltip("How frequently his head twitches erratically while stalking.")]
+    public float headTwitchInterval = 0.9f;
+
+    [Header("Audio Clips")]
+    public float acceleration = 14f;
+    public float angularSpeed = 420f;
+    public AudioClip spawnStingClip;
     public AudioClip footstepClip;
+    public AudioClip alertScreamClip;
     public AudioClip alertStingClip;
     public AudioClip jumpscareScreamClip;
     public AudioClip staticHissClip;
 
-    [Header("Visual & Creepy Motion Tuning")]
-    [Tooltip("Target height in meters (stands towering Slenderman-like ~2.60m).")]
-    public float targetHeightMeters = 2.60f;
-
-    [Tooltip("Spine hunch angle (degrees).")]
-    public float spineHunchAngle = 10.0f;
-
-    [Tooltip("Frequency of sudden blind head twitches.")]
-    public float headTwitchInterval = 2.2f;
-
-    // ── Internal Runtime ──────────────────────────────────────────────────────
+    // ── Internal Runtime References ──────────────────────────────────────────
     private NavMeshAgent _agent;
     private Animator _animator;
-    private AudioSource _audioSource;
-    private AudioSource _footstepAudio;
-
+    private SkinnedMeshRenderer _smr;
     private Transform _playerTransform;
     private PlayerMovement _playerMovement;
     private Camera _playerCam;
 
-    // Skeleton bone references for creepy procedural poses
+    // Bones for procedural creepy posture & clipboard attachment
     private Transform _headBone;
     private Transform _neckBone;
     private Transform _spineBone;
+    private Transform _leftHandBone;
+    private Transform _rightHandBone;
     private Transform _leftArmBone;
     private Transform _rightArmBone;
-    private Transform _leftHandBone;
-
     private GameObject _clipboardProp;
 
-    private float _nextHeadTwitchTime = 0f;
-    private Quaternion _targetHeadTwitch = Quaternion.identity;
-    private Quaternion _currentHeadTwitch = Quaternion.identity;
+    // Navigation & State Timers
+    private Vector3 _patrolTarget;
+    private Vector3 _lastHeardPosition;
+    private float _stateTimer = 0f;
     private float _footstepTimer = 0f;
-    private float _searchWanderTimer = 0f;
-    private Vector3 _currentWanderTarget;
-    private float _alertHuntTimer = 0f;
-    private Vector3 _lastHeardSoundPosition;
-
-    private bool _wasPlayerHiddenLastFrame = false;
-    private float _lostPlayerSearchTimer = 0f;
-
+    private float _nextHeadTwitchTime = 0f;
+    private Quaternion _currentHeadTwitch = Quaternion.identity;
+    private Quaternion _targetHeadTwitch = Quaternion.identity;
+    private int _patrolDirection = 1; // +1 towards maxZ, -1 towards minZ
+    private int _speedHash;
+    private bool _hasSpeedParam = false;
     private bool _hasCaughtPlayer = false;
-    private bool _isTraversingLink = false;
+    private float _alertHuntTimer = 0f; // Keeps sprinting aggressively after being alerted
+    private float _lastAlertStingTime = -99f;
+    private bool _isTraversingLink = false; // Smooth stair climbing state
+
+    // Audio Sources
+    private AudioSource _audioSource;
+    private AudioSource _footstepAudio;
+
+    // Cached Room Bounds to ensure Proctor never enters side rooms
     private List<Bounds> _cachedRoomBounds = new List<Bounds>();
 
     private void Awake()
     {
-        if (GameModeManager.IsFreeRoamMode || (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive))
+        if (GameModeManager.IsFreeRoamMode)
         {
             Destroy(gameObject);
             return;
@@ -145,70 +152,71 @@ public class TheProctorAI : MonoBehaviour
 
         if (ActiveProctor != null && ActiveProctor != this)
         {
-            Destroy(gameObject);
-            return;
+            Destroy(ActiveProctor.gameObject);
         }
         ActiveProctor = this;
+
+        _agent = GetComponent<NavMeshAgent>();
+        _animator = GetComponentInChildren<Animator>();
+        _smr = GetComponentInChildren<SkinnedMeshRenderer>();
+
+        SetupAudioSources();
+        LoadAudioAssets();
+        CacheRoomBounds();
+    }
+
+    private void Start()
+    {
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            Despawn();
+            return;
+        }
+
+        FindPlayerReferences();
+        ConfigureTallSlenderProportions();
+        FindRigBones();
+        AttachClipboardToLeftHand();
+        ConfigureNavMeshAgent();
 
         // Dynamic threat scaling (FNAF-style progression based on clearance signatures)
         if (CampusThreatDirector.Instance != null)
         {
             CampusThreatDirector.Instance.ApplyStatsToProctor(this);
         }
-        else
+
+        if (_animator != null)
         {
-            if (patrolSpeed < 2.2f) patrolSpeed = 2.4f;
-            if (chaseSpeed < 4.4f) chaseSpeed = 4.8f;
+            _animator.applyRootMotion = false;
+            _speedHash = Animator.StringToHash("Speed");
+            foreach (var p in _animator.parameters)
+            {
+                if (p.nameHash == _speedHash && p.type == AnimatorControllerParameterType.Float)
+                {
+                    _hasSpeedParam = true;
+                    break;
+                }
+            }
         }
 
-        if (targetHeightMeters < 2.50f) targetHeightMeters = 2.60f;
-        if (catchDistance < 1.35f) catchDistance = 1.4f;
-        if (acceleration < 11.0f) acceleration = 12.0f;
-        if (angularSpeed < 400.0f) angularSpeed = 420.0f;
-
-        _agent = GetComponent<NavMeshAgent>();
-        _animator = GetComponentInChildren<Animator>();
-
-        // Audio setup
-        _audioSource = gameObject.AddComponent<AudioSource>();
-        _audioSource.spatialBlend = 1.0f;
-        _audioSource.minDistance = 2.0f;
-        _audioSource.maxDistance = 22.0f;
-        _audioSource.playOnAwake = false;
-
-        _footstepAudio = gameObject.AddComponent<AudioSource>();
-        _footstepAudio.spatialBlend = 1.0f;
-        _footstepAudio.minDistance = 1.2f;
-        _footstepAudio.maxDistance = 11.0f;
-        _footstepAudio.rolloffMode = AudioRolloffMode.Logarithmic;
-        _footstepAudio.playOnAwake = false;
-
-        LoadAudioAssets();
-        ConfigureNavMeshAgent();
-        FindPlayerReferences();
-        FindBones();
-        CacheRoomBounds();
-        EnforceToweringHeight();
-        CreateClipboardProp();
-    }
-
-    [HideInInspector]
-    public bool isDevSpawn = false;
-
-    private void Start()
-    {
-        if (GameModeManager.IsFreeRoamMode && !isDevSpawn)
+        // Play terrifying spawn sting
+        if (_audioSource != null && spawnStingClip != null)
         {
-            Despawn();
-            return;
+            _audioSource.PlayOneShot(spawnStingClip, 0.9f);
         }
-        currentState = ProctorState.Spawning;
-        StartCoroutine(SpawnSequence());
+
+        currentState = ProctorState.Patrolling;
+        PickNextHallwayPatrolPoint(initial: true);
     }
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode && !isDevSpawn)
+        if (GameModeManager.IsFreeRoamMode)
+        {
+            Despawn();
+            return;
+        }
+        if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver))
         {
             Despawn();
             return;
@@ -216,8 +224,8 @@ public class TheProctorAI : MonoBehaviour
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (currentState == ProctorState.Inactive || currentState == ProctorState.Despawning) return;
 
-        // Failsafe: if power is restored by external means, despawn immediately
-        if (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive && !isDevSpawn)
+        // Failsafe: if power is restored by external means, despawn immediately (unless dev-spawned)
+        if (!isDevSpawn && BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive)
         {
             Despawn();
             return;
@@ -225,197 +233,268 @@ public class TheProctorAI : MonoBehaviour
 
         if (currentState == ProctorState.Jumpscare) return;
 
-        // Keep player reference warm
         if (_playerTransform == null) FindPlayerReferences();
+        if (_playerTransform == null) return;
 
-        // Dynamically track and update current floor boundaries based on elevation
+        // Handle smooth traversal across Staircase OffMeshLinks between 1F, 2F, and 3F
+        if (_agent != null && _agent.isOnOffMeshLink && !_isTraversingLink)
+        {
+            StartCoroutine(TraverseStairLinkRoutine());
+        }
+
+        // Dynamically track and update current floor boundaries based on Proctor's actual elevation
+        int currentFloor = GetFloorFromY(transform.position.y);
+        if (currentFloor != assignedFloor)
+        {
+            UpdateFloorBoundaries(currentFloor);
+        }
+
         if (!_isTraversingLink)
         {
-            int currentFloor = GetFloorFromY(transform.position.y);
-            if (currentFloor != assignedFloor)
-            {
-                UpdateFloorBoundaries(currentFloor);
-            }
+            UpdateAIBehavior();
+            ClampPositionToAssignedHallway();
         }
 
-        // Handle stair NavMeshLink traversal
-        if (!_isTraversingLink && _agent != null && _agent.isOnNavMesh && _agent.isOnOffMeshLink)
-        {
-            StartCoroutine(TraverseOffMeshLinkRoutine());
-            return;
-        }
-
-        if (_isTraversingLink)
-        {
-            UpdateFootstepAudio();
-            return;
-        }
-
-        UpdateAIBehavior();
+        UpdateAnimatorSpeed();
         UpdateFootstepAudio();
-        ClampPositionToAssignedHallway();
     }
 
     private void LateUpdate()
     {
-        if (currentState == ProctorState.Inactive || currentState == ProctorState.Despawning || currentState == ProctorState.Jumpscare) return;
+        if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver)) return;
+        if (currentState == ProctorState.Inactive || currentState == ProctorState.Despawning || currentState == ProctorState.Jumpscare)
+            return;
 
-        // Apply creepy procedural poses (spine hunch, blind listening head twitches)
         ApplyCreepyProceduralMotion();
     }
 
-    // ── Setup & Initialization ───────────────────────────────────────────────
+    // ── Initialization & Proportions ─────────────────────────────────────────
+
+    private void FindPlayerReferences()
+    {
+        var playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
+        {
+            _playerTransform = playerObj.transform;
+            _playerMovement = playerObj.GetComponent<PlayerMovement>();
+            if (_playerMovement != null && _playerMovement.playerCamera != null)
+                _playerCam = _playerMovement.playerCamera;
+        }
+        if (_playerCam == null) _playerCam = Camera.main;
+    }
+
+    private void SetupAudioSources()
+    {
+        _audioSource = gameObject.AddComponent<AudioSource>();
+        _audioSource.spatialBlend = 0.35f; // Mostly 2D/3D hybrid for ominous presence
+        _audioSource.minDistance = 3f;
+        _audioSource.maxDistance = 32f;
+        _audioSource.playOnAwake = false;
+
+        _footstepAudio = gameObject.AddComponent<AudioSource>();
+        _footstepAudio.spatialBlend = 1.0f; // Full 3D directional heavy footsteps
+        _footstepAudio.minDistance = 2.0f;
+        _footstepAudio.maxDistance = 24.0f;
+        _footstepAudio.rolloffMode = AudioRolloffMode.Linear;
+        _footstepAudio.playOnAwake = false;
+    }
 
     private void LoadAudioAssets()
     {
 #if UNITY_EDITOR
-        if (alertStingClip == null)
-            alertStingClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/encountering a proctor.mp3");
-
-        if (jumpscareScreamClip == null)
-            jumpscareScreamClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/theProctorJumpscare.mp3");
-
+        if (spawnStingClip == null)
+            spawnStingClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/encountering a proctor.mp3");
         if (footstepClip == null)
             footstepClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/footsteps walking & running.mp3");
-
+        if (alertScreamClip == null)
+            alertScreamClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/theProctorJumpscare.mp3");
+        if (jumpscareScreamClip == null)
+            jumpscareScreamClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/theProctorJumpscare.mp3");
         if (staticHissClip == null)
             staticHissClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/vhs static.mp3");
 #endif
-        // Runtime fallback for standalone builds
-        if (jumpscareScreamClip == null)
-            jumpscareScreamClip = Resources.Load<AudioClip>("Sounds/theProctorJumpscare");
-        if (alertStingClip == null)
-            alertStingClip = Resources.Load<AudioClip>("Sounds/encountering a proctor");
+        if (spawnStingClip == null)
+            spawnStingClip = Resources.Load<AudioClip>("Sounds/encountering a proctor");
         if (footstepClip == null)
             footstepClip = Resources.Load<AudioClip>("Sounds/footsteps walking & running");
+        if (alertScreamClip == null)
+            alertScreamClip = Resources.Load<AudioClip>("Sounds/theProctorJumpscare");
+        if (jumpscareScreamClip == null)
+            jumpscareScreamClip = Resources.Load<AudioClip>("Sounds/theProctorJumpscare");
         if (staticHissClip == null)
             staticHissClip = Resources.Load<AudioClip>("Sounds/vhs static");
+    }
+
+    private void ConfigureTallSlenderProportions()
+    {
+        if (_smr == null) _smr = GetComponentInChildren<SkinnedMeshRenderer>();
+        if (_smr == null) return;
+
+        // Measure current world height and scale up to towering 2.12m height with gaunt width
+        Bounds b = _smr.bounds;
+        float currentHeight = b.size.y;
+        if (currentHeight > 0.1f && currentHeight < 10f)
+        {
+            float scaleY = (targetHeightMeters / currentHeight) * transform.localScale.y;
+            float scaleXZ = scaleY * slenderWidthRatio;
+            transform.localScale = new Vector3(scaleXZ, scaleY, scaleXZ);
+        }
+
+        // Darken his suit/skin slightly for an ominous shadowed appearance in the blackout
+        foreach (var r in GetComponentsInChildren<Renderer>())
+        {
+            if (r == null || r.sharedMaterial == null) continue;
+            Material mat = new Material(r.sharedMaterial);
+            Color darkTint = new Color(0.72f, 0.70f, 0.76f, 1f);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", darkTint);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", darkTint);
+            r.material = mat;
+        }
+    }
+
+    private void FindRigBones()
+    {
+        foreach (var t in GetComponentsInChildren<Transform>())
+        {
+            string n = t.name;
+            if (_headBone == null && (n.EndsWith("Head") || n.Contains(":Head"))) _headBone = t;
+            else if (_neckBone == null && (n.EndsWith("Neck") || n.Contains(":Neck"))) _neckBone = t;
+            else if (_spineBone == null && (n.EndsWith("Spine1") || n.EndsWith("Spine2") || n.Contains(":Spine1"))) _spineBone = t;
+            else if (_leftHandBone == null && (n.EndsWith("LeftHand") || n.Contains(":LeftHand"))) _leftHandBone = t;
+            else if (_rightHandBone == null && (n.EndsWith("RightHand") || n.Contains(":RightHand"))) _rightHandBone = t;
+            else if (_leftArmBone == null && (n.EndsWith("LeftArm") || n.Contains(":LeftArm"))) _leftArmBone = t;
+            else if (_rightArmBone == null && (n.EndsWith("RightArm") || n.Contains(":RightArm"))) _rightArmBone = t;
+        }
+    }
+
+    /// <summary>
+    /// Builds a 3D Proctor Clipboard with a red-marked attendance/violation sheet and attaches it to his left hand.
+    /// </summary>
+    private void AttachClipboardToLeftHand()
+    {
+        if (_leftHandBone == null) return;
+
+        _clipboardProp = new GameObject("Proctor_Clipboard");
+        _clipboardProp.transform.SetParent(_leftHandBone, false);
+        _clipboardProp.transform.localPosition = new Vector3(0.04f, 0.08f, 0.03f);
+        _clipboardProp.transform.localRotation = Quaternion.Euler(15f, 80f, -10f);
+
+        // Normalize scale relative to parent bone
+        Vector3 parentLossy = _leftHandBone.lossyScale;
+        float invScale = parentLossy.y > 0.001f ? (1f / parentLossy.y) : 1f;
+        _clipboardProp.transform.localScale = Vector3.one * invScale;
+
+        Shader litShader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+
+        // Wooden board backing
+        var board = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        board.name = "Board";
+        board.transform.SetParent(_clipboardProp.transform, false);
+        board.transform.localScale = new Vector3(0.24f, 0.34f, 0.012f);
+        Destroy(board.GetComponent<Collider>());
+        if (litShader != null)
+        {
+            var boardMat = new Material(litShader);
+            Color woodCol = new Color(0.28f, 0.16f, 0.08f);
+            if (boardMat.HasProperty("_BaseColor")) boardMat.SetColor("_BaseColor", woodCol);
+            if (boardMat.HasProperty("_Color")) boardMat.SetColor("_Color", woodCol);
+            board.GetComponent<Renderer>().sharedMaterial = boardMat;
+        }
+
+        // White examination sheet
+        var paper = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        paper.name = "ExamSheet";
+        paper.transform.SetParent(_clipboardProp.transform, false);
+        paper.transform.localPosition = new Vector3(0f, -0.01f, 0.008f);
+        paper.transform.localScale = new Vector3(0.21f, 0.29f, 0.004f);
+        Destroy(paper.GetComponent<Collider>());
+        if (litShader != null)
+        {
+            var paperMat = new Material(litShader);
+            Color paperCol = new Color(0.88f, 0.85f, 0.78f);
+            if (paperMat.HasProperty("_BaseColor")) paperMat.SetColor("_BaseColor", paperCol);
+            if (paperMat.HasProperty("_Color")) paperMat.SetColor("_Color", paperCol);
+            paper.GetComponent<Renderer>().sharedMaterial = paperMat;
+        }
+
+        // Metal clip at top
+        var clip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        clip.name = "MetalClip";
+        clip.transform.SetParent(_clipboardProp.transform, false);
+        clip.transform.localPosition = new Vector3(0f, 0.14f, 0.012f);
+        clip.transform.localScale = new Vector3(0.10f, 0.035f, 0.015f);
+        Destroy(clip.GetComponent<Collider>());
+        if (litShader != null)
+        {
+            var clipMat = new Material(litShader);
+            Color metalCol = new Color(0.55f, 0.58f, 0.62f);
+            if (clipMat.HasProperty("_BaseColor")) clipMat.SetColor("_BaseColor", metalCol);
+            if (clipMat.HasProperty("_Color")) clipMat.SetColor("_Color", metalCol);
+            clip.GetComponent<Renderer>().sharedMaterial = clipMat;
+        }
     }
 
     private void ConfigureNavMeshAgent()
     {
         if (_agent == null) return;
-        _agent.speed = chaseSpeed;
-        _agent.stoppingDistance = stoppingDistance;
-        _agent.acceleration = acceleration;
-        _agent.angularSpeed = angularSpeed;
-        _agent.autoBraking = true;
-        _agent.autoTraverseOffMeshLink = false; // STRICT: CANNOT USE STAIRS TO LEAVE FLOOR
-        _agent.height = targetHeightMeters;
-        _agent.radius = 0.45f;
+        _agent.speed = patrolSpeed;
+        _agent.angularSpeed = 420f;
+        _agent.acceleration = 14f;
+        _agent.stoppingDistance = 0.25f;
+        _agent.autoBraking = false;
+        _agent.autoTraverseOffMeshLink = false; // Handled by smooth stair traversal coroutine
+        _agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+        _agent.avoidancePriority = 10; // Highest priority so normal NPCs yield to The Proctor
     }
 
-    private void FindPlayerReferences()
+    private IEnumerator TraverseStairLinkRoutine()
     {
-        var playerGO = GameObject.FindGameObjectWithTag("Player");
-        if (playerGO != null)
-        {
-            _playerTransform = playerGO.transform;
-            _playerMovement = playerGO.GetComponent<PlayerMovement>();
-            if (_playerMovement != null) _playerCam = _playerMovement.playerCamera;
-        }
-        if (_playerCam == null) _playerCam = Camera.main;
-    }
+        _isTraversingLink = true;
+        OffMeshLinkData data = _agent.currentOffMeshLinkData;
+        Vector3 startPos = transform.position;
+        Vector3 endPos = data.endPos + Vector3.up * _agent.baseOffset;
 
-    private void FindBones()
-    {
-        foreach (var t in GetComponentsInChildren<Transform>(true))
-        {
-            string lower = t.name.ToLower();
-            if (lower.Contains("head") && _headBone == null) _headBone = t;
-            else if (lower.Contains("neck") && _neckBone == null) _neckBone = t;
-            else if ((lower.Contains("spine1") || lower.Contains("spine2") || lower.Contains("chest")) && _spineBone == null) _spineBone = t;
-            else if (lower.Contains("leftarm") && _leftArmBone == null) _leftArmBone = t;
-            else if (lower.Contains("rightarm") && _rightArmBone == null) _rightArmBone = t;
-            else if (lower.Contains("lefthand") && _leftHandBone == null) _leftHandBone = t;
-        }
-    }
+        // Climbing speed: fast when chasing or alerted, steady when patrolling
+        float climbSpeed = (currentState == ProctorState.Chasing || _alertHuntTimer > 0f)
+            ? chaseSpeed * 0.92f
+            : patrolSpeed * 1.15f;
 
-    private void EnforceToweringHeight()
-    {
-        transform.localScale = Vector3.one;
-        if (_agent != null)
+        float dist = Vector3.Distance(startPos, endPos);
+        float duration = Mathf.Max(0.25f, dist / Mathf.Max(1.0f, climbSpeed));
+        float elapsed = 0f;
+
+        while (elapsed < duration)
         {
-            _agent.height = targetHeightMeters;
-        }
-        var cap = GetComponent<CapsuleCollider>();
-        if (cap != null)
-        {
-            cap.height = targetHeightMeters;
-            cap.center = new Vector3(0f, targetHeightMeters * 0.5f, 0f);
+            if (_agent == null || !gameObject.activeInHierarchy) yield break;
+
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+
+            transform.position = Vector3.Lerp(startPos, endPos, t);
+
+            // Face the direction of the stairs while ascending/descending
+            Vector3 lookDir = (endPos - startPos);
+            lookDir.y = 0f;
+            if (lookDir.sqrMagnitude > 0.001f)
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(lookDir.normalized), Time.deltaTime * 10f);
+            }
+
+            yield return null;
         }
 
-        // Scale Armature so height matches targetHeightMeters without clipping ceilings or doorframes
-        Transform armature = transform.Find("Armature");
-        if (armature != null)
+        if (_agent != null && _agent.isOnNavMesh)
         {
-            float scale = (targetHeightMeters / 2.18f) * 49.745f;
-            armature.localScale = Vector3.one * scale;
+            transform.position = endPos;
+            _agent.CompleteOffMeshLink();
+            _agent.isStopped = false;
         }
 
-        Debug.Log($"[TheProctorAI] Height enforced to {targetHeightMeters:F2}m (near ceiling, no clipping).");
-    }
+        // Update floor boundaries upon arriving on the new floor
+        int newFloor = GetFloorFromY(transform.position.y);
+        UpdateFloorBoundaries(newFloor);
 
-    private void CreateClipboardProp()
-    {
-        // Attach dripping clipboard prop to left hand
-        Transform parentTransform = _leftHandBone != null ? _leftHandBone : transform;
-
-        _clipboardProp = new GameObject("DrippingClipboard");
-        _clipboardProp.transform.SetParent(parentTransform, false);
-
-        if (_leftHandBone != null)
-        {
-            Vector3 ls = _leftHandBone.lossyScale;
-            _clipboardProp.transform.localScale = new Vector3(
-                ls.x > 0.0001f ? 1f / ls.x : 1f,
-                ls.y > 0.0001f ? 1f / ls.y : 1f,
-                ls.z > 0.0001f ? 1f / ls.z : 1f
-            );
-            _clipboardProp.transform.localPosition = Vector3.zero;
-            _clipboardProp.transform.localRotation = Quaternion.Euler(20f, 40f, -10f);
-        }
-        else
-        {
-            _clipboardProp.transform.localPosition = new Vector3(-0.35f, 1.4f, 0.35f);
-            _clipboardProp.transform.localScale = Vector3.one;
-        }
-
-        // Visual board (A4 size: ~22cm wide, ~32cm tall, ~1.2cm thick)
-        var boardGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        boardGO.name = "BoardMesh";
-        boardGO.transform.SetParent(_clipboardProp.transform, false);
-        boardGO.transform.localPosition = new Vector3(0.02f, -0.04f, 0.06f);
-        boardGO.transform.localScale = new Vector3(0.22f, 0.32f, 0.012f);
-
-        var col = boardGO.GetComponent<Collider>();
-        if (col != null) Destroy(col);
-
-        var renderer = boardGO.GetComponent<MeshRenderer>();
-        if (renderer != null)
-        {
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            mat.color = new Color(0.14f, 0.10f, 0.08f, 1f); // Aged dark mahogany clipboard
-            renderer.sharedMaterial = mat;
-        }
-
-        // White paper clamped on board
-        var paperGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        paperGO.name = "PaperSlip";
-        paperGO.transform.SetParent(boardGO.transform, false);
-        paperGO.transform.localPosition = new Vector3(0f, -0.01f, 0.55f);
-        paperGO.transform.localScale = new Vector3(0.85f, 0.85f, 0.1f);
-
-        var paperCol = paperGO.GetComponent<Collider>();
-        if (paperCol != null) Destroy(paperCol);
-
-        var paperRend = paperGO.GetComponent<MeshRenderer>();
-        if (paperRend != null)
-        {
-            var pMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            pMat.color = new Color(0.85f, 0.82f, 0.76f, 1f); // Yellowed bureaucracy paper
-            paperRend.sharedMaterial = pMat;
-        }
+        _isTraversingLink = false;
     }
 
     private void CacheRoomBounds()
@@ -436,52 +515,345 @@ public class TheProctorAI : MonoBehaviour
                 foreach (var c in cols)
                 {
                     if (c.isTrigger) continue;
-                    if (c.gameObject.name.Contains("ReceptionServiceWindow")) continue;
                     if (first) { b = c.bounds; first = false; }
                     else b.Encapsulate(c.bounds);
                 }
                 if (!first)
                 {
+                    // Shrink slightly inward so hallway walls don't count as inside a room
+                    b.Expand(new Vector3(-0.6f, 0f, -0.6f));
                     _cachedRoomBounds.Add(b);
                 }
             }
         }
     }
 
-    // ── Spawning & State Machine ──────────────────────────────────────────────
+    // ── AI Sensory & State Machine ───────────────────────────────────────────
 
-    private IEnumerator SpawnSequence()
+    private void UpdateAIBehavior()
     {
-        _agent.enabled = false;
+        Vector3 playerPos = _playerTransform.position;
+        float yDiff = Mathf.Abs(playerPos.y - transform.position.y);
+        bool sameFloor = (yDiff < 2.2f);
+        float distToPlayer = Vector3.Distance(transform.position, playerPos);
 
-        // Play alert sting to announce the entity's arrival in the blackout corridor
-        if (alertStingClip != null && _audioSource != null)
+        // Check if player is hidden inside a locker or inside a side classroom/office
+        bool playerHidden = LockerHideManager.IsPlayerHidden;
+        bool playerInsideRoom = IsPositionInsideAnyRoom(playerPos);
+
+        // Force-close any open puzzle/minigame/modal when The Proctor is about to catch/jumpscare the player!
+        if (!playerHidden && sameFloor && distToPlayer <= catchDistance + 2.2f && PauseMenu.IsAnyActivePuzzleOrModalOpen)
         {
-            _audioSource.PlayOneShot(alertStingClip, 0.9f);
+            PauseMenu.ForceCloseAllModalsAndPuzzles();
         }
 
-        yield return new WaitForSeconds(0.4f);
-
-        // Snap to valid NavMesh position on assigned floor
-        NavMeshHit hit;
-        if (NavMesh.SamplePosition(transform.position, out hit, 4.0f, NavMesh.AllAreas))
+        // 1. Check for immediate Catch / Jumpscare (only if player is NOT hidden in a locker and NOT inside a side room)
+        if (!playerHidden && !playerInsideRoom && sameFloor)
         {
-            transform.position = hit.position;
+            if (distToPlayer <= catchDistance)
+            {
+                TriggerCatchJumpscare();
+                return;
+            }
         }
 
-        if (currentState != ProctorState.Jumpscare)
+        // 2. Sensory Checks: Can The Proctor SEE or HEAR the player?
+        //     Vision works on the same floor; Hearing works across floors via stairwells (attenuated by vertical distance)!
+        bool canSeePlayer = false;
+        bool canHearPlayer = false;
+
+        if (!playerHidden && !playerInsideRoom)
         {
-            _agent.enabled = true;
-            _agent.isStopped = false;
-            currentState = ProctorState.Searching;
-            Debug.Log($"[TheProctorAI] Spawned and patrolling in {assignedHallway} at {transform.position}");
+            if (sameFloor)
+            {
+                canSeePlayer = CheckVisionToPlayer(playerPos, distToPlayer);
+            }
+            canHearPlayer = CheckHearingPlayer(playerPos, distToPlayer, yDiff);
+        }
+
+        // Decay aggressive hunt timer
+        if (_alertHuntTimer > 0f)
+        {
+            _alertHuntTimer -= Time.deltaTime;
+        }
+
+        // 3. State Transitions based on Senses
+        if (canSeePlayer)
+        {
+            if (currentState != ProctorState.Chasing)
+            {
+                EnterChaseState(playerPos, playSting: true);
+            }
+            else
+            {
+                _lastHeardPosition = GetHallwayClampedTarget(playerPos);
+                _stateTimer = 4.5f; // Keep chasing for 4.5s after losing sight
+                _alertHuntTimer = 8.0f;
+            }
+        }
+        else if (canHearPlayer)
+        {
+            // Player made noise (walking/sprinting)!
+            // Immediately trigger full-speed sprint toward the sound and keep sprinting while hunting!
+            _lastHeardPosition = GetHallwayClampedTarget(playerPos);
+            _alertHuntTimer = 9.0f; // Sprint continuously for 9 seconds after hearing footsteps
+
+            if (currentState != ProctorState.Chasing)
+            {
+                // Play terrifying alert scream with a short cooldown so it doesn't spam every step
+                bool shouldSting = (Time.time - _lastAlertStingTime > 5.0f);
+                EnterChaseState(playerPos, playSting: shouldSting);
+            }
+            else
+            {
+                _stateTimer = 5.0f;
+            }
+        }
+
+        // 4. Execute Current State
+        switch (currentState)
+        {
+            case ProctorState.Patrolling:
+                UpdatePatrolState();
+                break;
+
+            case ProctorState.AlertedBySound:
+                UpdateAlertedState();
+                break;
+
+            case ProctorState.Chasing:
+                UpdateChaseState(canSeePlayer, playerHidden, playerInsideRoom);
+                break;
+
+            case ProctorState.SearchingLockerArea:
+                UpdateSearchingAreaState();
+                break;
         }
     }
 
-    public int GetFloorFromY(float y)
+    private bool CheckVisionToPlayer(Vector3 playerPos, float distToPlayer)
     {
-        if (y < 5.5f) return 1;
-        if (y < 11.5f) return 2;
+        bool flashlightOn = (FlashlightController.Instance != null && FlashlightController.Instance.IsLightOn);
+        float effectiveVisionRange = baseVisionRange + (flashlightOn ? flashlightVisionBonus : 0f);
+
+        if (distToPlayer > effectiveVisionRange) return false;
+
+        // Close proximity sense (within 2.2m in the hallway)
+        if (distToPlayer > 2.2f)
+        {
+            Vector3 toPlayer = (playerPos - transform.position);
+            toPlayer.y = 0f;
+            float angle = Vector3.Angle(transform.forward, toPlayer.normalized);
+            if (angle > visionAngle * 0.5f) return false;
+        }
+
+        // Raycast line of sight
+        Vector3 eyePos = transform.position + Vector3.up * 1.85f;
+        Vector3 targetPos = playerPos + Vector3.up * 1.3f;
+        Vector3 dir = targetPos - eyePos;
+
+        if (Physics.Raycast(eyePos, dir.normalized, out RaycastHit hit, dir.magnitude, ~0, QueryTriggerInteraction.Ignore))
+        {
+            if (hit.transform == _playerTransform || hit.transform.IsChildOf(_playerTransform))
+                return true;
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Acoustic Detection:
+    /// - Sprinting: Loud footsteps heard from 22m away (even across floors via stairwells!).
+    /// - Walking (not crouched): Audible footsteps heard from 10.5m away.
+    /// - Crouching or Standing Still: Silent (0m).
+    /// </summary>
+    private bool CheckHearingPlayer(Vector3 playerPos, float distToPlayer, float yDiff)
+    {
+        if (_playerMovement == null) return false;
+
+        // Standing still or crouch-walking is completely silent!
+        if (!_playerMovement.IsMoving || _playerMovement.IsCrouching)
+            return false;
+
+        float hearingRadius = _playerMovement.IsRunning ? sprintHearingRange : walkHearingRange;
+
+        // Attenuate slightly if the sound has to travel up/down the stairwell from another floor
+        if (yDiff >= 2.2f)
+        {
+            hearingRadius *= 0.75f;
+        }
+
+        return distToPlayer <= hearingRadius;
+    }
+
+    private void EnterChaseState(Vector3 targetPos, bool playSting)
+    {
+        currentState = ProctorState.Chasing;
+        _lastHeardPosition = GetHallwayClampedTarget(targetPos);
+        _stateTimer = 5.0f;
+        _alertHuntTimer = 9.0f;
+
+        // If the player has a puzzle/minigame/modal open when The Proctor spots them and charges, exit it immediately!
+        if (PauseMenu.IsAnyActivePuzzleOrModalOpen)
+        {
+            PauseMenu.ForceCloseAllModalsAndPuzzles();
+        }
+
+        if (_agent != null && _agent.isOnNavMesh)
+        {
+            _agent.speed = chaseSpeed;
+            _agent.acceleration = 22f;
+            _agent.SetDestination(_lastHeardPosition);
+        }
+
+        if (playSting && _audioSource != null && alertScreamClip != null)
+        {
+            _lastAlertStingTime = Time.time;
+            _audioSource.PlayOneShot(alertScreamClip, 0.75f);
+        }
+    }
+
+    private void EnterAlertedState(Vector3 soundPos)
+    {
+        // Directly escalate to full-speed sprinting chase towards the sound!
+        EnterChaseState(soundPos, playSting: (Time.time - _lastAlertStingTime > 5.0f));
+    }
+
+    private void UpdatePatrolState()
+    {
+        if (_agent == null || !_agent.isOnNavMesh) return;
+
+        // If still agitated from a recent sound/chase, keep sprinting along the hallway!
+        _agent.speed = (_alertHuntTimer > 0f) ? chaseSpeed : patrolSpeed;
+
+        if (!_agent.pathPending && _agent.remainingDistance <= 1.2f)
+        {
+            PickNextHallwayPatrolPoint(initial: false);
+        }
+    }
+
+    private void UpdateAlertedState()
+    {
+        if (_agent == null || !_agent.isOnNavMesh) return;
+
+        _agent.speed = chaseSpeed;
+        _stateTimer -= Time.deltaTime;
+
+        if ((!_agent.pathPending && _agent.remainingDistance <= 1.0f) || _stateTimer <= 0f)
+        {
+            // Reached the sound source — linger and search nearby (especially if a locker is here)
+            currentState = ProctorState.SearchingLockerArea;
+            _stateTimer = 3.5f;
+        }
+    }
+
+    private void UpdateChaseState(bool canSeePlayer, bool playerHidden, bool playerInsideRoom)
+    {
+        if (_agent == null || !_agent.isOnNavMesh) return;
+
+        _agent.speed = chaseSpeed;
+
+        if (canSeePlayer && !playerHidden && !playerInsideRoom)
+        {
+            _lastHeardPosition = GetHallwayClampedTarget(_playerTransform.position);
+            _agent.SetDestination(_lastHeardPosition);
+            _stateTimer = 4.0f;
+        }
+        else
+        {
+            // Move to last known hallway position
+            _agent.SetDestination(_lastHeardPosition);
+            _stateTimer -= Time.deltaTime;
+
+            if (_stateTimer <= 0f || (!_agent.pathPending && _agent.remainingDistance <= 1.0f))
+            {
+                // Lost the player (e.g. they ducked into a locker or side room) -> pace around the spot briefly
+                currentState = ProctorState.SearchingLockerArea;
+                _stateTimer = 4.0f;
+            }
+        }
+    }
+
+    private void UpdateSearchingAreaState()
+    {
+        if (_agent == null || !_agent.isOnNavMesh) return;
+
+        // Keep running/pacing rapidly while searching the area after an alert!
+        _agent.speed = (_alertHuntTimer > 0f) ? (chaseSpeed * 0.85f) : (patrolSpeed * 1.15f);
+        _stateTimer -= Time.deltaTime;
+
+        if (!_agent.pathPending && _agent.remainingDistance <= 0.8f)
+        {
+            // Pick a nearby point within 5m in the hallway to pace back and forth outside the locker/room
+            float offsetZ = Random.Range(-5.0f, 5.0f);
+            Vector3 searchPt = new Vector3(
+                hallwayCenterX + Random.Range(-0.8f, 0.8f),
+                transform.position.y,
+                Mathf.Clamp(_lastHeardPosition.z + offsetZ, hallwayMinZ + 1.5f, hallwayMaxZ - 1.5f)
+            );
+
+            if (NavMesh.SamplePosition(searchPt, out NavMeshHit hit, 3.0f, NavMesh.AllAreas))
+            {
+                _agent.SetDestination(hit.position);
+            }
+        }
+
+        if (_stateTimer <= 0f)
+        {
+            currentState = ProctorState.Patrolling;
+            PickNextHallwayPatrolPoint(initial: false);
+        }
+    }
+
+    private void PickNextHallwayPatrolPoint(bool initial)
+    {
+        if (_agent == null || !_agent.isOnNavMesh) return;
+
+        if (initial)
+        {
+            // Head toward the player's general Z direction first
+            if (_playerTransform != null)
+            {
+                _patrolDirection = (_playerTransform.position.z >= transform.position.z) ? 1 : -1;
+            }
+        }
+        else
+        {
+            // Sweep back and forth along the full hallway length
+            if (transform.position.z >= hallwayMaxZ - 4.0f) _patrolDirection = -1;
+            else if (transform.position.z <= hallwayMinZ + 4.0f) _patrolDirection = 1;
+            else if (Random.value < 0.25f) _patrolDirection = -_patrolDirection;
+        }
+
+        // Occasionally (or if the player is on another floor while hunting), patrol to another floor via the stairs!
+        float targetY = transform.position.y;
+        if (!initial && _playerTransform != null)
+        {
+            int playerFloor = GetFloorFromY(_playerTransform.position.y);
+            if (playerFloor != assignedFloor && Random.value < 0.55f)
+            {
+                targetY = _playerTransform.position.y;
+            }
+        }
+
+        float stepZ = Random.Range(10.0f, 22.0f) * _patrolDirection;
+        float targetZ = Mathf.Clamp(transform.position.z + stepZ, hallwayMinZ + 1.5f, hallwayMaxZ - 1.5f);
+        float targetX = hallwayCenterX + Random.Range(-0.9f, 0.9f);
+
+        Vector3 candidate = new Vector3(targetX, targetY, targetZ);
+        if (NavMesh.SamplePosition(candidate, out NavMeshHit hit, 4.0f, NavMesh.AllAreas))
+        {
+            _patrolTarget = hit.position;
+            _agent.SetDestination(_patrolTarget);
+        }
+    }
+
+    // ── Floor & Staircase Helpers ─────────────────────────────────────────────
+
+    private int GetFloorFromY(float y)
+    {
+        if (y < 5.2f) return 1;
+        if (y < 11.2f) return 2;
         return 3;
     }
 
@@ -495,7 +867,7 @@ public class TheProctorAI : MonoBehaviour
                 assignedHallway = "Hallway_1F";
                 hallwayMinZ = -22.0f;
                 hallwayMaxZ = 55.0f;
-                hallwayHalfWidth = 3.6f; // Lobby area on 1F is wider
+                hallwayHalfWidth = 3.6f;
                 break;
             case 2:
                 assignedHallway = "Hallway_2F";
@@ -512,289 +884,51 @@ public class TheProctorAI : MonoBehaviour
         }
     }
 
-    public bool IsInStairZone(Vector3 pos)
+    private bool IsInStairZone(Vector3 pos)
     {
-        // Covers all 3 staircase enclosures (MainStairs, RightStairs, LeftStairs) across all floors
+        // Covers all 3 staircase enclosures (MainStairs Z:12..21, RightStairs Z:46..53, LeftStairs Z:-20..-13)
         if (pos.x < -94.0f || pos.x > -83.0f) return false;
 
-        // MainStairs (center)
-        if (pos.z >= 11.0f && pos.z <= 22.0f) return true;
-        // RightStairs (north wing)
-        if (pos.z >= 45.0f && pos.z <= 54.0f) return true;
-        // LeftStairs (south wing)
-        if (pos.z >= -21.0f && pos.z <= -12.0f) return true;
+        if (pos.z >= 11.0f && pos.z <= 22.0f) return true;  // MainStairs
+        if (pos.z >= 45.0f && pos.z <= 54.0f) return true;  // RightStairs
+        if (pos.z >= -21.0f && pos.z <= -12.0f) return true; // LeftStairs
 
         return false;
     }
 
-    /// <summary>
-    /// Smoothly walks/runs The Proctor along the stair NavMeshLinks between floors.
-    /// Faces along the flight and maintains menacing posture without awkward snapping.
-    /// </summary>
-    private IEnumerator TraverseOffMeshLinkRoutine()
+    private void UpdateAnimatorSpeed()
     {
-        _isTraversingLink = true;
-        OffMeshLinkData linkData = _agent.currentOffMeshLinkData;
-        Vector3 startPos = transform.position;
-        Vector3 endPos = linkData.endPos + Vector3.up * _agent.baseOffset;
+        if (_animator == null) return;
 
-        float dist = Vector3.Distance(startPos, endPos);
-        bool isChasing = (currentState == ProctorState.Chasing || _alertHuntTimer > 0f);
-        float speed = isChasing ? chaseSpeed : patrolSpeed;
-        float duration = dist / Mathf.Max(speed, 0.5f);
-        float elapsed = 0f;
+        // Keep running legs moving during stair traversal as well
+        float vel = _isTraversingLink
+            ? ((currentState == ProctorState.Chasing || _alertHuntTimer > 0f) ? chaseSpeed : patrolSpeed)
+            : ((_agent != null) ? _agent.velocity.magnitude : 0f);
 
-        Vector3 flatDir = endPos - startPos;
-        flatDir.y = 0;
-        Quaternion targetRot = flatDir.sqrMagnitude > 0.01f ? Quaternion.LookRotation(flatDir) : transform.rotation;
+        bool isSprintingNow = (currentState == ProctorState.Chasing || _alertHuntTimer > 0f);
 
-        if (_animator != null)
+        if (_hasSpeedParam)
         {
-            _animator.SetFloat("Speed", isChasing ? 2.0f : 1.0f);
-            _animator.SetBool("Chasing", isChasing);
-            _animator.speed = isChasing ? 1.30f : 1.0f;
-        }
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / duration);
-
-            transform.position = Vector3.Lerp(startPos, endPos, t);
-
-            if (flatDir.sqrMagnitude > 0.01f)
+            float animSpeed = 0f;
+            if (vel > 0.1f)
             {
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 10f);
+                animSpeed = isSprintingNow ? 2.0f : 1.0f;
             }
-
-            yield return null;
+            _animator.SetFloat(_speedHash, animSpeed);
         }
 
-        transform.position = endPos;
-        if (_agent != null && _agent.isOnNavMesh && _agent.isOnOffMeshLink)
-        {
-            _agent.CompleteOffMeshLink();
-        }
-
-        int newFloor = GetFloorFromY(transform.position.y);
-        UpdateFloorBoundaries(newFloor);
-        _isTraversingLink = false;
-    }
-
-    private void UpdateAIBehavior()
-    {
-        if (_playerTransform == null) return;
-
-        float distToPlayer = Vector3.Distance(transform.position, _playerTransform.position);
-        float dy = Mathf.Abs(_playerTransform.position.y - transform.position.y);
-        bool sameFloor = dy < 3.2f;
-
-        bool playerHidden = LockerHideManager.IsPlayerHidden;
-        if (playerHidden && !_wasPlayerHiddenLastFrame)
-        {
-            // Player just ducked into a locker! Search the corridor near where they were last heard
-            _lostPlayerSearchTimer = 12.0f;
-        }
-        _wasPlayerHiddenLastFrame = playerHidden;
-
-        if (playerHidden && _lostPlayerSearchTimer > 0f)
-        {
-            _lostPlayerSearchTimer -= Time.deltaTime;
-        }
-
-        bool playerInRoom = IsPositionInsideAnyRoom(_playerTransform.position);
-
-        // 1. CATCH CHECK: Can only catch if player is in hallway/stairs, NOT hidden, NOT in room, close distance and similar elevation
-        if (!playerHidden && !playerInRoom && distToPlayer <= catchDistance && dy < 1.9f)
-        {
-            if (DevDemoPanel.IsGodModeActive) return;
-            TriggerCatchJumpscare();
-            return;
-        }
-
-        // 2. DETECTION / ACOUSTIC SENSING (STRICTLY AUDITORY ONLY):
-        // The Proctor is completely blind and deaf to sight, flashlight, or ambient proximity.
-        // It strictly hunts based on sound and floor vibration:
-        // - Sprinting: heavy running footsteps vibrate the building -> heard up to sprintHearingRange (28m).
-        // - Normal un-crouched walking: audible up to baseHearingRange (14m).
-        // - Crouching (IsCrouching) or standing still: produces 0 sound! The Proctor will pass right by.
-        // - Locker hiding: player is enclosed, producing 0 external sound.
-        bool isSprinting = _playerMovement != null && _playerMovement.IsRunning;
-        bool isWalking = _playerMovement != null && _playerMovement.IsMoving && !_playerMovement.IsCrouching;
-
-        bool heardSoundNow = false;
-
-        if (!playerHidden)
-        {
-            if (sameFloor)
-            {
-                if (isSprinting && distToPlayer <= sprintHearingRange)
-                {
-                    heardSoundNow = true;
-                }
-                else if (isWalking && distToPlayer <= baseHearingRange)
-                {
-                    heardSoundNow = true;
-                }
-            }
-            else
-            {
-                // Cross-floor acoustic detection:
-                // Heavy sprinting vibrations reverberate through the floor slabs and stairwells!
-                if (isSprinting && distToPlayer <= sprintHearingRange * 0.75f)
-                {
-                    heardSoundNow = true;
-                }
-                // Walking is audible across floors only if close to or in the open stairwell
-                else if (isWalking && distToPlayer <= baseHearingRange * 0.65f && (IsInStairZone(transform.position) || IsInStairZone(_playerTransform.position)))
-                {
-                    heardSoundNow = true;
-                }
-            }
-        }
-
-        if (heardSoundNow)
-        {
-            // Fresh sound heard! Alert and hunt toward sound source for huntPersistenceDuration seconds
-            if (_alertHuntTimer <= 0f && alertStingClip != null && _audioSource != null)
-            {
-                _audioSource.PlayOneShot(alertStingClip, 0.75f);
-            }
-            _alertHuntTimer = huntPersistenceDuration;
-            _lastHeardSoundPosition = _playerTransform.position;
-        }
-
-        // Count down hunt timer if not actively hearing fresh sound
-        if (_alertHuntTimer > 0f)
-        {
-            _alertHuntTimer -= Time.deltaTime;
-        }
-
-        bool isHunting = (_alertHuntTimer > 0f);
-
-        // 3. BEHAVIOR EXECUTION:
-        if (isHunting)
-        {
-            currentState = ProctorState.Chasing;
-            _agent.speed = chaseSpeed;
-
-            Vector3 huntTarget = GetHallwayOrStairTarget(_lastHeardSoundPosition);
-            if (_agent.isOnNavMesh)
-            {
-                _agent.SetDestination(huntTarget);
-            }
-        }
+        // Speed up stride cycle when sprinting
+        if (isSprintingNow && vel > 0.2f)
+            _animator.speed = 1.65f;
         else
-        {
-            // Searching/Patrolling the current floor hallway:
-            currentState = ProctorState.Searching;
-            _agent.speed = patrolSpeed;
-
-            _searchWanderTimer -= Time.deltaTime;
-            if (_searchWanderTimer <= 0f || (_agent.isOnNavMesh && _agent.remainingDistance < 0.6f))
-            {
-                _searchWanderTimer = Random.Range(3.5f, 6.0f);
-                if (playerHidden)
-                {
-                    if (_lostPlayerSearchTimer > 0f && _lastHeardSoundPosition != Vector3.zero)
-                    {
-                        PickSuspiciousPatrolTargetNearLastHeard();
-                    }
-                    else
-                    {
-                        PickRandomHallwayPatrolTarget();
-                    }
-                }
-                else
-                {
-                    PickHallwayPatrolTargetTowardsPlayer();
-                }
-            }
-        }
-
-        // Sync Animator speed parameter for walking / sprinting leg locomotion (never glides)
-        if (_animator != null)
-        {
-            bool isChasing = (currentState == ProctorState.Chasing);
-            float currentSpeed = (_agent != null && _agent.isOnNavMesh) ? _agent.velocity.magnitude : 0f;
-            float normSpeed = 0f;
-
-            if (isChasing)
-            {
-                // Full sprint chase animation: BlendTree threshold 2.0 (Runningdrei_InPlace)
-                normSpeed = Mathf.Clamp(1.6f + (currentSpeed / chaseSpeed) * 0.6f, 1.5f, 2.3f);
-                _animator.speed = 1.30f; // Frantic, aggressive running pace
-            }
-            else
-            {
-                if (currentSpeed > 0.08f)
-                {
-                    normSpeed = Mathf.Clamp(currentSpeed / patrolSpeed, 0.4f, 1.15f);
-                }
-                _animator.speed = 1.0f;
-            }
-
-            _animator.SetFloat("Speed", normSpeed);
-            _animator.SetBool("Chasing", isChasing);
-        }
+            _animator.speed = 1.0f;
     }
 
-    private void PickSuspiciousPatrolTargetNearLastHeard()
+    // ── Hallway Clamping (Supports Multi-Floor & Stairwells) ─────────────────
+
+    private Vector3 GetHallwayClampedTarget(Vector3 desiredPos)
     {
-        // Player vanished into a locker! Paces suspiciously around the last-heard corridor location
-        float centerZ = (_lastHeardSoundPosition != Vector3.zero) ? _lastHeardSoundPosition.z : (hallwayMinZ + hallwayMaxZ) * 0.5f;
-        float offsetZ = Random.Range(-4.5f, 4.5f);
-        float targetZ = Mathf.Clamp(centerZ + offsetZ, hallwayMinZ + 2f, hallwayMaxZ - 2f);
-        float targetX = hallwayCenterX + Random.Range(-hallwayHalfWidth * 0.35f, hallwayHalfWidth * 0.35f);
-        Vector3 rawTarget = new Vector3(targetX, transform.position.y, targetZ);
-
-        NavMeshHit hit;
-        if (NavMesh.SamplePosition(rawTarget, out hit, 3.0f, NavMesh.AllAreas))
-        {
-            _currentWanderTarget = hit.position;
-            if (_agent.isOnNavMesh) _agent.SetDestination(_currentWanderTarget);
-        }
-    }
-
-    private void PickRandomHallwayPatrolTarget()
-    {
-        float targetZ = Random.Range(hallwayMinZ + 2f, hallwayMaxZ - 2f);
-        float targetX = hallwayCenterX + Random.Range(-hallwayHalfWidth * 0.35f, hallwayHalfWidth * 0.35f);
-        Vector3 rawTarget = new Vector3(targetX, transform.position.y, targetZ);
-
-        NavMeshHit hit;
-        if (NavMesh.SamplePosition(rawTarget, out hit, 3.0f, NavMesh.AllAreas))
-        {
-            _currentWanderTarget = hit.position;
-            if (_agent.isOnNavMesh) _agent.SetDestination(_currentWanderTarget);
-        }
-    }
-
-    private void PickHallwayPatrolTargetTowardsPlayer()
-    {
-        // Patrol along current floor corridor biased towards player's Z location to maintain suspense
-        float playerZ = (_playerTransform != null) ? _playerTransform.position.z : (hallwayMinZ + hallwayMaxZ) * 0.5f;
-
-        // Step 6-12m in the general direction of the player, clamped within the hallway
-        float currentZ = transform.position.z;
-        float dirZ = Mathf.Sign(playerZ - currentZ);
-        float step = Random.Range(6.0f, 12.0f);
-        float targetZ = Mathf.Clamp(currentZ + dirZ * step, hallwayMinZ + 2f, hallwayMaxZ - 2f);
-
-        float targetX = hallwayCenterX + Random.Range(-hallwayHalfWidth * 0.4f, hallwayHalfWidth * 0.4f);
-        Vector3 rawTarget = new Vector3(targetX, transform.position.y, targetZ);
-
-        NavMeshHit hit;
-        if (NavMesh.SamplePosition(rawTarget, out hit, 3.0f, NavMesh.AllAreas))
-        {
-            _currentWanderTarget = hit.position;
-            if (_agent.isOnNavMesh) _agent.SetDestination(_currentWanderTarget);
-        }
-    }
-
-    private Vector3 GetHallwayOrStairTarget(Vector3 desiredPos)
-    {
-        // If the position is within the staircase zone, allow direct stair routing!
+        // Allow targets inside staircase zones so The Proctor can chase the player onto stairs
         if (IsInStairZone(desiredPos))
         {
             return desiredPos;
@@ -946,9 +1080,17 @@ public class TheProctorAI : MonoBehaviour
         if (GameModeManager.IsFreeRoamMode) return;
         if (DevDemoPanel.IsGodModeActive) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
+        if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver))
+        {
+            Despawn();
+            return;
+        }
         if (_hasCaughtPlayer) return;
         _hasCaughtPlayer = true;
         currentState = ProctorState.Jumpscare;
+
+        // Immediately exit any open puzzle, minigame, inspection modal, or dialogue!
+        PauseMenu.ForceCloseAllModalsAndPuzzles();
 
         StartCoroutine(CatchJumpscareSequence());
     }
@@ -956,6 +1098,9 @@ public class TheProctorAI : MonoBehaviour
     private IEnumerator CatchJumpscareSequence()
     {
         Debug.Log("[TheProctorAI] PLAYER CAUGHT! Initiating Jumpscare Sequence.");
+
+        // Ensure all puzzles and modals are closed so nothing covers the jumpscare or blocks [Q]
+        PauseMenu.ForceCloseAllModalsAndPuzzles();
 
         // 1. Disable NavMeshAgent so it does NOT clamp transform.position.y to floor during 3D camera scare
         if (_agent != null)
@@ -1020,6 +1165,12 @@ public class TheProctorAI : MonoBehaviour
 
         while (elapsed < initialLungeDuration)
         {
+            if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver))
+            {
+                Despawn();
+                yield break;
+            }
+
             elapsed += Time.deltaTime;
             float t = elapsed / initialLungeDuration;
             float ease = Mathf.Pow(t, 0.35f);
@@ -1068,9 +1219,10 @@ public class TheProctorAI : MonoBehaviour
 
         if (_playerCam != null) _playerCam.transform.localPosition = camBaseLocalPos;
 
-        // If player failed (Anxiety reached 100% -> Game Over), halt routine
-        if (!playerEscaped || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver))
+        // If player failed (Anxiety reached 100% -> Game Over), despawn immediately so Proctor does not block Game Over cutscene!
+        if (!playerEscaped || GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver))
         {
+            Despawn();
             yield break;
         }
 

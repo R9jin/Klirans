@@ -309,6 +309,16 @@ public class SecurityGuardStalkerAI : MonoBehaviour
             return;
         }
 
+        if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver))
+        {
+            if (_agent != null && _agent.isOnNavMesh)
+            {
+                _agent.isStopped = true;
+                _agent.velocity = Vector3.zero;
+            }
+            return;
+        }
+
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (currentState == GuardState.Inactive || currentState == GuardState.Jumpscare) return;
 
@@ -368,6 +378,12 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         float distToPlayer = Vector3.Distance(transform.position, _playerTransform.position);
         float dy = Mathf.Abs(_playerTransform.position.y - transform.position.y);
         bool sameFloor = dy < 3.2f;
+
+        // Force-close any open puzzle/modal if the Guard is about to catch the player
+        if (!isPlayerHidden && dy < 1.9f && distToPlayer <= catchDistance + 1.2f && PauseMenu.IsAnyActivePuzzleOrModalOpen)
+        {
+            PauseMenu.ForceCloseAllModalsAndPuzzles();
+        }
 
         // Catch Check: close contact when player is not hidden in a locker
         if (!isPlayerHidden && distToPlayer <= catchDistance && dy < 1.9f && !_hasCaughtPlayer)
@@ -736,15 +752,21 @@ public class SecurityGuardStalkerAI : MonoBehaviour
     {
         if (DevDemoPanel.IsGodModeActive) return;
         if (GameModeManager.IsFreeRoamMode || OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
+        if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver)) return;
         if (_hasCaughtPlayer) return;
         _hasCaughtPlayer = true;
         currentState = GuardState.Jumpscare;
+
+        // Immediately close any open puzzle or modal!
+        PauseMenu.ForceCloseAllModalsAndPuzzles();
 
         StartCoroutine(GuardCatchRoutine());
     }
 
     private IEnumerator GuardCatchRoutine()
     {
+        PauseMenu.ForceCloseAllModalsAndPuzzles();
+
         if (_agent != null && _agent.isOnNavMesh)
         {
             _agent.isStopped = true;
@@ -781,7 +803,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         else
         {
             // Fallback: drain stamina & anxiety surge
-            if (AnxietyManager.Instance != null) AnxietyManager.Instance.AddAnxiety(50f);
+            if (AnxietyManager.Instance != null) AnxietyManager.Instance.AddAnxiety(25f);
             if (_playerMovement != null && _playerMovement.staminaSystem != null)
             {
                 _playerMovement.staminaSystem.currentStamina = Mathf.Max(0f, _playerMovement.staminaSystem.currentStamina - 50f);
@@ -793,7 +815,7 @@ public class SecurityGuardStalkerAI : MonoBehaviour
         yield return new WaitForSeconds(2.6f);
 
         // If player succumbed (Anxiety reached 100% -> Game Over), halt routine
-        if (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver)
+        if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver))
         {
             yield break;
         }

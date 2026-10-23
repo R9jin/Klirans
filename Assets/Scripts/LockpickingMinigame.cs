@@ -557,6 +557,13 @@ public class LockpickingMinigame : MonoBehaviour
         }
     }
 
+    public void ForceClose()
+    {
+        if (!isMinigameActive && !isVictoryAnimating) return;
+        StopAllCoroutines();
+        EndLockpicking(false, "Force closed.");
+    }
+
     private void EndLockpicking(bool success, string message)
     {
         isMinigameActive = false;

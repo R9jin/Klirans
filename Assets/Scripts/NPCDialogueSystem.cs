@@ -329,6 +329,38 @@ public class NPCDialogueSystem : MonoBehaviour
         if (_promptIndicator != null) _promptIndicator.gameObject.SetActive(true);
     }
 
+    public void ForceCloseImmediate()
+    {
+        if (!_isDialogueActive && (_dialoguePanel == null || !_dialoguePanel.activeSelf)) return;
+
+        _isDialogueActive = false;
+        _isTyping = false;
+        _onDialogueClosedCallback = null;
+
+        if (_typewriterCoroutine != null) StopCoroutine(_typewriterCoroutine);
+        if (_cameraZoomCoroutine != null) StopCoroutine(_cameraZoomCoroutine);
+        if (_dialoguePanel != null) _dialoguePanel.SetActive(false);
+
+        if (_activeNPC != null)
+        {
+            _activeNPC.StopVoiceAudio();
+        }
+
+        if (_playerCam != null && _savedFOV > 0f)
+        {
+            _playerCam.fieldOfView = _savedFOV;
+        }
+
+        if (_playerMovement != null)
+        {
+            _playerMovement.isDialogueCameraOverride = false;
+            if (!PauseMenu.GameIsPaused && !LockerHideManager.IsPlayerHidden)
+            {
+                _playerMovement.SetControlsEnabled(true);
+            }
+        }
+    }
+
     public void EndDialogue()
     {
         _isDialogueActive = false;

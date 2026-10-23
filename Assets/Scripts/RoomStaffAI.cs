@@ -7,6 +7,7 @@ using UnityEngine;
 /// - Smoothly and naturally tracks the student with their gaze/torso when within awareness range.
 /// - Returns to their default desk/window orientation when the student leaves.
 /// - Bridges talking animation state with ClearanceNPC dialogue.
+/// - Handles the University Registrar's panicked runaway sequence out of Room 104 and down the hallway.
 /// </summary>
 public class RoomStaffAI : MonoBehaviour
 {
@@ -29,6 +30,7 @@ public class RoomStaffAI : MonoBehaviour
     [Header("Runaway Chase Feature")]
     public bool isRunawayActive = false;
     public bool isReturningHome = false;
+    public bool isCaughtTalkingInHallway = false;
     private UnityEngine.AI.NavMeshAgent _navAgent;
 
     // Runtime state
@@ -38,9 +40,26 @@ public class RoomStaffAI : MonoBehaviour
     private bool _isTalking = false;
     private Quaternion _homeRotation;
     private Vector3 _homePosition;
+    private Vector3 _initialArmatureLocalPos;
+    private Quaternion _initialArmatureLocalRot;
 
     private int _speedHash;
     private int _talkingHash;
+
+    // Room 104 & Ground Floor Hallway obstacle-free path nodes
+    private static readonly Vector3 Room104AisleNorth = new Vector3(-80.85f, 2.35f, 4.86f);
+    private static readonly Vector3 Room104AisleDoor  = new Vector3(-80.85f, 2.35f, 1.35f);
+    private static readonly Vector3 Room104DoorInner  = new Vector3(-82.30f, 2.35f, 1.35f);
+    private static readonly Vector3 Room104DoorOuter  = new Vector3(-84.45f, 2.35f, 1.35f);
+
+    private static readonly Vector3[] HallwayChaseNodes = new Vector3[]
+    {
+        new Vector3(-84.45f, 2.35f, 6.50f),   // Outside Room 104 windows
+        new Vector3(-83.40f, 2.35f, 13.50f),  // South of Lobby RoundTable (clear east lane)
+        new Vector3(-83.40f, 2.35f, 19.80f),  // North of Lobby RoundTable (clear east lane)
+        new Vector3(-84.45f, 2.35f, 25.50f),  // North corridor past stairs
+        new Vector3(-84.45f, 2.35f, 31.50f)   // North corridor by ComLab 1 / Room 105
+    };
 
     private void Awake()
     {
@@ -48,6 +67,13 @@ public class RoomStaffAI : MonoBehaviour
         _sitController = GetComponent<NPCSitController>();
         _homeRotation = transform.rotation;
         _homePosition = transform.position;
+
+        if (_animator != null)
+        {
+            _initialArmatureLocalPos = _animator.transform.localPosition;
+            _initialArmatureLocalRot = _animator.transform.localRotation;
+            _animator.applyRootMotion = false;
+        }
 
         _speedHash = Animator.StringToHash(speedParameter);
         _talkingHash = Animator.StringToHash(talkingParameter);
@@ -69,18 +95,27 @@ public class RoomStaffAI : MonoBehaviour
             transform.position = _homePosition;
             transform.rotation = _homeRotation;
         }
+        else if (_sitController.SeatedRootPos != Vector3.zero)
+        {
+            _homePosition = _sitController.SeatedRootPos;
+            _homeRotation = _sitController.SeatedRootRot;
+        }
+    }
+
+    private void LateUpdate()
+    {
+        // Keep child Armature locked to root so any residual root motion never drifts the mesh off the collider
+        if (_animator != null && _animator.transform != transform)
+        {
+            _animator.transform.localPosition = _initialArmatureLocalPos;
+            _animator.transform.localRotation = _initialArmatureLocalRot;
+        }
     }
 
     private void Update()
     {
         if (isRunawayActive)
         {
-            if (_navAgent != null && _navAgent.isOnNavMesh)
-            {
-                float spd = _navAgent.velocity.magnitude > 0.1f ? 2.0f : 0f;
-                UpdateAnimator(spd, false);
-            }
-
             if (Time.time >= _nextPanicScreamTime)
             {
                 PlayPanicScream();
@@ -91,6 +126,11 @@ public class RoomStaffAI : MonoBehaviour
 
         if (isReturningHome)
         {
+            if (isCaughtTalkingInHallway)
+            {
+                FacePlayer();
+                UpdateAnimator(0f, true);
+            }
             return;
         }
 
@@ -155,6 +195,7 @@ public class RoomStaffAI : MonoBehaviour
 
     private void UpdateAnimator(float speed, bool talking)
     {
+        if (_animator == null) _animator = GetComponentInChildren<Animator>();
         if (_animator == null) return;
         _animator.SetFloat(_speedHash, speed);
         _animator.SetBool(_talkingHash, talking);
@@ -162,8 +203,14 @@ public class RoomStaffAI : MonoBehaviour
 
     public void SetTalkingState(bool talking)
     {
+        // Never override locomotion with stationary desk talking state during runaway or return home
+        if (isRunawayActive) return;
+        if (isReturningHome && !isCaughtTalkingInHallway) return;
+
         _isTalking = talking;
         UpdateAnimator(0f, talking);
+
+        if (isReturningHome) return;
 
         if (_sitController == null) _sitController = GetComponent<NPCSitController>();
         if (_sitController != null && _sitController.HasChair)
@@ -194,99 +241,118 @@ public class RoomStaffAI : MonoBehaviour
     public void TriggerRunaway(Vector3 hallwayTarget)
     {
         if (isRunawayActive) return;
-        isRunawayActive = true;
-        isReturningHome = false;
 
         if (_sitController == null) _sitController = GetComponent<NPCSitController>();
-        if (_sitController != null && _sitController.HasChair)
+        if (_sitController != null && _sitController.SeatedRootPos != Vector3.zero)
         {
-            _sitController.StandUp();
+            _homePosition = _sitController.SeatedRootPos;
+            _homeRotation = _sitController.SeatedRootRot;
         }
 
-        // Auto-open nearby doors so runaway is completely unobstructed
+        isRunawayActive = true;
+        isReturningHome = false;
+        isCaughtTalkingInHallway = false;
+        _isTalking = false;
+
+        // Immediately release sitting bone overrides and restore full standing capsule collider
+        if (_sitController != null)
+        {
+            _sitController.ForceStandImmediate();
+        }
+
+        // Disable any NavMeshAgent so deterministic corridor steering controls root transform smoothly
+        _navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        if (_navAgent != null) _navAgent.enabled = false;
+
+        ForceOpenRoom104Doors();
+
+        StopAllCoroutines();
+        StartCoroutine(RunawaySequenceRoutine());
+    }
+
+    private void ForceOpenRoom104Doors()
+    {
         foreach (var door in FindObjectsByType<DoorInteract>(FindObjectsInactive.Exclude))
         {
-            if (Vector3.Distance(door.transform.position, transform.position) < 8.5f)
+            if (door == null) continue;
+            if (door.gameObject.name.Contains("104") || Vector3.Distance(door.transform.position, Room104DoorInner) < 6.0f)
             {
                 door.ForceOpen();
             }
         }
-
-        StopAllCoroutines();
-        StartCoroutine(RunawaySequenceRoutine(hallwayTarget));
     }
 
-    private IEnumerator MoveToPoint(Vector3 target, float speed, float arriveDist = 0.35f)
+    private IEnumerator MoveToPoint(Vector3 target, float speed, float animSpeedValue, float arriveDist = 0.25f, float maxTime = 8.0f)
     {
-        float timeout = 4.5f;
-        while (timeout > 0f)
+        float elapsed = 0f;
+        while (elapsed < maxTime)
         {
-            timeout -= Time.deltaTime;
-            Vector3 diff = target - transform.position;
-            diff.y = 0f;
-            if (diff.magnitude <= arriveDist) break;
+            elapsed += Time.deltaTime;
+            Vector3 currentPos = transform.position;
+            Vector3 diff = new Vector3(target.x - currentPos.x, 0f, target.z - currentPos.z);
+            float dist = diff.magnitude;
+            if (dist <= arriveDist) break;
 
-            Vector3 dir = diff.normalized;
-            if (dir.sqrMagnitude > 0.001f)
+            Vector3 dir = diff / dist;
+            if (dir.sqrMagnitude > 0.0001f)
             {
                 Quaternion look = Quaternion.LookRotation(dir);
-                transform.rotation = Quaternion.Slerp(transform.rotation, look, Time.deltaTime * 12f);
+                transform.rotation = Quaternion.Slerp(transform.rotation, look, Time.deltaTime * 14f);
             }
-            transform.position += dir * speed * Time.deltaTime;
-            UpdateAnimator(speed > 2.2f ? 2.0f : 1.0f, false);
+
+            float step = Mathf.Min(speed * Time.deltaTime, dist);
+            transform.position = new Vector3(currentPos.x + dir.x * step, target.y, currentPos.z + dir.z * step);
+            UpdateAnimator(animSpeedValue, false);
             yield return null;
         }
     }
 
-    private IEnumerator RunawaySequenceRoutine(Vector3 hallwayTarget)
+    private IEnumerator RunawaySequenceRoutine()
     {
-        // Panic screams
         EnsurePanicAudioSource();
         PlayPanicScream();
         _nextPanicScreamTime = Time.time + 3.0f;
 
-        // Ensure NavAgent is disabled during door threshold transition
-        _navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
-        if (_navAgent != null) _navAgent.enabled = false;
-
-        // Step 1: Move from desk to inner doorway threshold
-        Vector3 doorInner = new Vector3(-82.4f, 2.35f, 0.53f);
-        yield return StartCoroutine(MoveToPoint(doorInner, 2.8f));
-
-        // Step 2: Step through doorway into the hallway corridor
-        Vector3 doorOuter = new Vector3(-84.6f, 2.35f, 0.53f);
-        yield return StartCoroutine(MoveToPoint(doorOuter, 3.2f));
-
-        // Step 3: Now out in the main hallway, activate NavMeshAgent for smooth corridor navigation
-        if (_navAgent == null)
-        {
-            _navAgent = gameObject.AddComponent<UnityEngine.AI.NavMeshAgent>();
-            _navAgent.radius = 0.35f;
-            _navAgent.height = 1.8f;
-            _navAgent.baseOffset = 0f;
-            _navAgent.acceleration = 14f;
-            _navAgent.angularSpeed = 380f;
-        }
-
-        _navAgent.enabled = true;
-        _navAgent.speed = 3.3f;
-        _navAgent.stoppingDistance = 0.5f;
-
-        if (UnityEngine.AI.NavMesh.SamplePosition(transform.position, out UnityEngine.AI.NavMeshHit startHit, 3.0f, UnityEngine.AI.NavMesh.AllAreas))
-        {
-            _navAgent.Warp(startHit.position);
-        }
-
-        if (UnityEngine.AI.NavMesh.SamplePosition(hallwayTarget, out UnityEngine.AI.NavMeshHit hit, 6.0f, UnityEngine.AI.NavMesh.AllAreas))
-        {
-            _navAgent.SetDestination(hit.position);
-        }
-        else
-        {
-            _navAgent.SetDestination(hallwayTarget);
-        }
-
+        // Immediately enter running animation state
         UpdateAnimator(2.0f, false);
+
+        // Step 1: Step back from Window 2 chair into the clear Room 104 aisle
+        yield return StartCoroutine(MoveToPoint(Room104AisleNorth, 3.6f, 2.0f, 0.20f, 2.5f));
+
+        // Step 2: Sprint south down the Room 104 aisle (in full view of the service windows!)
+        yield return StartCoroutine(MoveToPoint(Room104AisleDoor, 4.0f, 2.0f, 0.22f, 3.0f));
+
+        // Step 3: Turn toward Door_104A threshold and ensure the door is wide open
+        ForceOpenRoom104Doors();
+        yield return StartCoroutine(MoveToPoint(Room104DoorInner, 4.0f, 2.0f, 0.22f, 2.5f));
+
+        // Step 4: Burst through Door_104A out into the Ground Floor Hallway
+        yield return StartCoroutine(MoveToPoint(Room104DoorOuter, 4.2f, 2.0f, 0.25f, 2.5f));
+
+        // Step 5: Continuous panicked hallway chase loop!
+        // She runs North and South along the Ground Floor corridor at a catchable pace (3.55 m/s)
+        // so the player actively chases her down the hallway.
+        int index = 0;
+        int direction = 1;
+        while (isRunawayActive)
+        {
+            Vector3 targetNode = HallwayChaseNodes[index];
+            yield return StartCoroutine(MoveToPoint(targetNode, 3.55f, 2.0f, 0.30f, 6.0f));
+
+            if (!isRunawayActive) yield break;
+
+            index += direction;
+            if (index >= HallwayChaseNodes.Length)
+            {
+                index = HallwayChaseNodes.Length - 2;
+                direction = -1;
+            }
+            else if (index < 0)
+            {
+                index = 1;
+                direction = 1;
+            }
+        }
     }
 
     private void EnsurePanicAudioSource()
@@ -318,63 +384,111 @@ public class RoomStaffAI : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Called when the player catches up to the fleeing Registrar in the hallway and presses [E].
+    /// Stops her running in place so she can face the player during the catch dialogue, then walks home when dialogue closes.
+    /// </summary>
     public void CatchStaff()
     {
         if (!isRunawayActive) return;
 
         isRunawayActive = false;
         isReturningHome = true;
+        isCaughtTalkingInHallway = true;
 
         if (_panicAudioSource != null && _panicAudioSource.isPlaying)
         {
             _panicAudioSource.Stop();
         }
 
-        if (_navAgent != null && _navAgent.isOnNavMesh)
+        if (_navAgent != null && _navAgent.enabled)
         {
-            _navAgent.isStopped = true;
-            _navAgent.velocity = Vector3.zero;
-        }
-
-        StartCoroutine(ReturnHomeRoutine());
-    }
-
-    private IEnumerator ReturnHomeRoutine()
-    {
-        yield return new WaitForSeconds(0.6f);
-
-        Vector3 doorOuter = new Vector3(-84.6f, 2.35f, 0.53f);
-        Vector3 doorInner = new Vector3(-82.4f, 2.35f, 0.53f);
-
-        // Step 1: Walk to hallway door threshold using NavAgent
-        if (_navAgent != null && _navAgent.isOnNavMesh)
-        {
-            _navAgent.isStopped = false;
-            _navAgent.speed = 1.8f;
-            _navAgent.SetDestination(doorOuter);
-
-            float navTimeout = 8f;
-            while (_navAgent != null && _navAgent.enabled && Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z), new Vector3(doorOuter.x, 0, doorOuter.z)) > 0.8f && navTimeout > 0f)
-            {
-                navTimeout -= Time.deltaTime;
-                UpdateAnimator(1.0f, false);
-                yield return null;
-            }
-
             _navAgent.isStopped = true;
             _navAgent.enabled = false;
         }
 
-        // Step 2: Step through doorway into Room 104
-        yield return StartCoroutine(MoveToPoint(doorInner, 1.6f));
+        StopAllCoroutines();
+        FacePlayer();
+        UpdateAnimator(0f, true);
+    }
 
-        // Step 3: Walk back to home desk
-        yield return StartCoroutine(MoveToPoint(_homePosition, 1.5f, 0.2f));
+    /// <summary>
+    /// Triggered when the hallway catch dialogue closes so the Registrar walks back into Room 104.
+    /// </summary>
+    public void BeginReturnHomeAfterCatch()
+    {
+        if (!isReturningHome) return;
+        isCaughtTalkingInHallway = false;
+        _isTalking = false;
+        StopAllCoroutines();
+        StartCoroutine(ReturnHomeRoutine());
+    }
+
+    /// <summary>
+    /// If the player sprints back to Window 2 before the Registrar finishes walking back,
+    /// snap her cleanly to her desk seat so the sorting puzzle can begin immediately.
+    /// </summary>
+    public void CompleteReturnHomeImmediate()
+    {
+        if (!isReturningHome) return;
+        StopAllCoroutines();
+        isRunawayActive = false;
+        isReturningHome = false;
+        isCaughtTalkingInHallway = false;
+        _isTalking = false;
+
+        transform.position = _homePosition;
+        transform.rotation = _homeRotation;
+
+        if (_sitController == null) _sitController = GetComponent<NPCSitController>();
+        if (_sitController != null && _sitController.HasChair)
+        {
+            _sitController.SitDown();
+        }
+
+        UpdateAnimator(0f, false);
+    }
+
+    private IEnumerator ReturnHomeRoutine()
+    {
+        UpdateAnimator(1.0f, false);
+
+        // Find closest hallway node to walk back south along the clear corridor lane
+        int closestIdx = 0;
+        float bestDist = float.MaxValue;
+        for (int i = 0; i < HallwayChaseNodes.Length; i++)
+        {
+            float d = Vector3.Distance(transform.position, HallwayChaseNodes[i]);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                closestIdx = i;
+            }
+        }
+
+        for (int i = closestIdx; i >= 0; i--)
+        {
+            if (HallwayChaseNodes[i].z <= transform.position.z + 1.0f)
+            {
+                yield return StartCoroutine(MoveToPoint(HallwayChaseNodes[i], 2.4f, 1.0f, 0.30f, 6.0f));
+            }
+        }
+
+        ForceOpenRoom104Doors();
+
+        // Walk to hallway door threshold, through Door_104A, up the aisle, and back to Window 2 chair
+        yield return StartCoroutine(MoveToPoint(Room104DoorOuter, 2.4f, 1.0f, 0.25f, 6.0f));
+        yield return StartCoroutine(MoveToPoint(Room104DoorInner, 2.2f, 1.0f, 0.22f, 3.0f));
+        yield return StartCoroutine(MoveToPoint(Room104AisleDoor, 2.2f, 1.0f, 0.22f, 3.0f));
+        yield return StartCoroutine(MoveToPoint(Room104AisleNorth, 2.2f, 1.0f, 0.22f, 3.5f));
+        yield return StartCoroutine(MoveToPoint(_homePosition, 2.0f, 1.0f, 0.15f, 2.5f));
 
         transform.position = _homePosition;
         transform.rotation = _homeRotation;
         isReturningHome = false;
+        isCaughtTalkingInHallway = false;
 
+        if (_sitController == null) _sitController = GetComponent<NPCSitController>();
         if (_sitController != null && _sitController.HasChair)
         {
             _sitController.SitDown();
