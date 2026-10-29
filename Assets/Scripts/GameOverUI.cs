@@ -111,6 +111,16 @@ public class GameOverUI : MonoBehaviour
         {
             gameOverPanel.SetActive(false);
         }
+
+        // Failsafe: Ensure all scene-level QTE containers are hidden
+        var existingQTEs = Resources.FindObjectsOfTypeAll<GameObject>();
+        for (int i = 0; i < existingQTEs.Length; i++)
+        {
+            if (existingQTEs[i] != null && (existingQTEs[i].name == "ProctorQTEContainer" || existingQTEs[i].name == "QTEBanner") && existingQTEs[i].scene.isLoaded)
+            {
+                existingQTEs[i].SetActive(false);
+            }
+        }
     }
 
     private bool _isSubscribed = false;
@@ -267,7 +277,7 @@ public class GameOverUI : MonoBehaviour
         if (_canvasGO != null) Destroy(_canvasGO);
 
         _canvasGO = new GameObject("GameOverCutsceneCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        _canvasGO.transform.SetParent(transform, false);
+        _canvasGO.transform.SetParent(null, false); // Standalone root canvas so HudCanvas elements never clip or interfere
 
         if (UnityEngine.EventSystems.EventSystem.current == null && FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
         {
@@ -277,7 +287,7 @@ public class GameOverUI : MonoBehaviour
 
         var canvas = _canvasGO.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 3000; // Above all HUDs, puzzles, jumpscares, and interaction prompts
+        canvas.sortingOrder = 9999; // Topmost above everything in the entire game
 
         var scaler = _canvasGO.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -590,8 +600,8 @@ public class GameOverUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Creates a clean, high-resolution aged official paper sprite with subtle section boxes and borders,
-    /// containing ZERO baked-in text so there is never any text overlap with the dynamic report fields.
+    /// Creates a clean, high-resolution aged official Manila document sprite with formal border rules,
+    /// with ZERO dark/gray shaded boxes so the document looks pristine, authentic, and official.
     /// </summary>
     private Sprite CreateCleanAutopsyPaperSprite()
     {
@@ -601,11 +611,9 @@ public class GameOverUI : MonoBehaviour
         tex.wrapMode = TextureWrapMode.Clamp;
         tex.filterMode = FilterMode.Bilinear;
 
-        Color basePaper = new Color(0.925f, 0.898f, 0.835f, 1f);
-        Color borderDark = new Color(0.28f, 0.23f, 0.18f, 0.92f);
-        Color sectionHeaderBg = new Color(0.855f, 0.820f, 0.750f, 1f);
-        Color sectionBoxBg = new Color(0.895f, 0.868f, 0.805f, 1f);
-        Color boxBorder = new Color(0.55f, 0.49f, 0.42f, 0.75f);
+        Color basePaper = new Color(0.938f, 0.912f, 0.852f, 1f); // Authentic Manila cardstock
+        Color borderDark = new Color(0.24f, 0.18f, 0.14f, 0.92f); // Deep official ink border
+        Color dividerLine = new Color(0.50f, 0.42f, 0.35f, 0.65f); // Subtle section divider rule
 
         Color[] pixels = new Color[w * h];
 
@@ -613,12 +621,12 @@ public class GameOverUI : MonoBehaviour
         {
             for (int x = 0; x < w; x++)
             {
-                // Subtle aged vignette toward edges + fine paper grain
+                // Subtle aged vignette toward edges + fine organic paper grain
                 float nx = (x / (float)w) * 2f - 1f;
                 float ny = (y / (float)h) * 2f - 1f;
                 float edgeDist = Mathf.Max(Mathf.Abs(nx), Mathf.Abs(ny));
-                float edgeDarken = Mathf.Clamp01((edgeDist - 0.75f) * 0.22f);
-                float grain = (Mathf.PerlinNoise(x * 0.18f, y * 0.18f) - 0.5f) * 0.018f;
+                float edgeDarken = Mathf.Clamp01((edgeDist - 0.72f) * 0.18f);
+                float grain = (Mathf.PerlinNoise(x * 0.22f, y * 0.22f) - 0.5f) * 0.015f;
 
                 Color c = new Color(
                     Mathf.Clamp01(basePaper.r - edgeDarken + grain),
@@ -627,16 +635,16 @@ public class GameOverUI : MonoBehaviour
                     1f
                 );
 
-                // Outer double frame border (14px and 19px from edges)
-                bool outerBorder = (x >= 12 && x <= 15 && y >= 12 && y <= h - 13) ||
-                                   (x >= w - 16 && x <= w - 13 && y >= 12 && y <= h - 13) ||
-                                   (y >= 12 && y <= 15 && x >= 12 && x <= w - 13) ||
-                                   (y >= h - 16 && y <= h - 13 && x >= 12 && x <= w - 13);
+                // Formal double outer frame (12-14px and 18-19px from edge)
+                bool outerBorder = (x >= 12 && x <= 14 && y >= 12 && y <= h - 13) ||
+                                   (x >= w - 15 && x <= w - 13 && y >= 12 && y <= h - 13) ||
+                                   (y >= 12 && y <= 14 && x >= 12 && x <= w - 13) ||
+                                   (y >= h - 15 && y <= h - 13 && x >= 12 && x <= w - 13);
 
-                bool innerBorder = (x == 19 && y >= 19 && y <= h - 20) ||
-                                   (x == w - 20 && y >= 19 && y <= h - 20) ||
-                                   (y == 19 && x >= 19 && x <= w - 20) ||
-                                   (y == h - 20 && x >= 19 && x <= w - 20);
+                bool innerBorder = (x == 18 && y >= 18 && y <= h - 19) ||
+                                   (x == w - 19 && y >= 18 && y <= h - 19) ||
+                                   (y == 18 && x >= 18 && x <= w - 19) ||
+                                   (y == h - 19 && x >= 18 && x <= w - 19);
 
                 if (outerBorder || innerBorder)
                 {
@@ -644,53 +652,21 @@ public class GameOverUI : MonoBehaviour
                     continue;
                 }
 
-                // Header divider double line (at y = h - 124 and y = h - 127)
-                if (x >= 34 && x <= w - 35 && (y == h - 124 || y == h - 125 || y == h - 128))
+                // Crisp divider double lines between header and Section I
+                if (x >= 28 && x <= w - 29 && (y == h - 124 || y == h - 127))
                 {
                     pixels[y * w + x] = borderDark;
                     continue;
                 }
 
-                // Section I Header Bar (top offset 134..158 -> y in [h-158 .. h-134])
-                int s1Top = h - 134;
-                int s1Bot = h - 158;
-                if (x >= 40 && x <= w - 41 && y >= s1Bot && y <= s1Top)
+                // Crisp divider line between Section I and Section II
+                if (x >= 28 && x <= w - 29 && y == h - 368)
                 {
-                    bool barBorder = (x == 40 || x == w - 41 || y == s1Bot || y == s1Top);
-                    pixels[y * w + x] = barBorder ? boxBorder : sectionHeaderBg;
+                    pixels[y * w + x] = dividerLine;
                     continue;
                 }
 
-                // Section I Body Box (top offset 162..362 -> y in [h-362 .. h-162])
-                int b1Top = h - 162;
-                int b1Bot = h - 362;
-                if (x >= 40 && x <= w - 41 && y >= b1Bot && y <= b1Top)
-                {
-                    bool bBorder = (x == 40 || x == w - 41 || y == b1Bot || y == b1Top);
-                    pixels[y * w + x] = bBorder ? boxBorder : sectionBoxBg;
-                    continue;
-                }
-
-                // Section II Header Bar (top offset 372..396 -> y in [h-396 .. h-372])
-                int s2Top = h - 372;
-                int s2Bot = h - 396;
-                if (x >= 40 && x <= w - 41 && y >= s2Bot && y <= s2Top)
-                {
-                    bool barBorder = (x == 40 || x == w - 41 || y == s2Bot || y == s2Top);
-                    pixels[y * w + x] = barBorder ? boxBorder : sectionHeaderBg;
-                    continue;
-                }
-
-                // Section II Stats Box (top offset 400..502 -> y in [h-502 .. h-400])
-                int b2Top = h - 400;
-                int b2Bot = h - 502;
-                if (x >= 40 && x <= w - 41 && y >= b2Bot && y <= b2Top)
-                {
-                    bool bBorder = (x == 40 || x == w - 41 || y == b2Bot || y == b2Top);
-                    pixels[y * w + x] = bBorder ? boxBorder : sectionBoxBg;
-                    continue;
-                }
-
+                // Zero dark/gray shaded boxes: clean Manila paper throughout
                 pixels[y * w + x] = c;
             }
         }
@@ -780,12 +756,39 @@ public class GameOverUI : MonoBehaviour
     // ═════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Immediately stops all enemies, active jumpscares, QTEs, puzzles, modals, and interaction prompts.
+    /// Immediately stops all enemies, active jumpscares, QTEs, puzzles, modals, and interaction prompts,
+    /// and hides all gameplay HUD elements (hotbar, objective cards, QTE bars) so the cutscene is cinematic.
     /// </summary>
     private void SilenceAllThreatsAndPrompts()
     {
         // 1. Force-close any open puzzle, minigame, inspection modal, inventory, or dialogue
         PauseMenu.ForceCloseAllModalsAndPuzzles();
+
+        // 2. Hide all other gameplay Canvases and HUD elements
+        var slotCanvas = GameObject.Find("SlotCanvas");
+        if (slotCanvas != null) slotCanvas.SetActive(false);
+
+        var hudCanvas = GameObject.Find("HudCanvas");
+        if (hudCanvas != null)
+        {
+            foreach (Transform child in hudCanvas.transform)
+            {
+                if (child != null && child.gameObject != _canvasGO)
+                {
+                    child.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        // Failsafe: Unconditionally deactivate all ProctorQTEContainers and QTEBanners across the scene
+        var allQTEs = Resources.FindObjectsOfTypeAll<GameObject>();
+        for (int i = 0; i < allQTEs.Length; i++)
+        {
+            if (allQTEs[i] != null && (allQTEs[i].name.Contains("QTEContainer") || allQTEs[i].name == "QTEBanner") && allQTEs[i].scene.isLoaded)
+            {
+                allQTEs[i].SetActive(false);
+            }
+        }
 
         // Extra defensive sweep: unconditionally hide any remaining puzzle panels or backdrops
         var allGuidance = FindObjectsByType<GuidanceWordPuzzle>(FindObjectsInactive.Include);
@@ -930,7 +933,7 @@ public class GameOverUI : MonoBehaviour
         // PHASE 1: VERTIGO & CHEST-CLUTCHING HYPERVENTILATION (0.0s -> 1.8s)
         // Camera sways violently, FOV constricts/expands, crimson vignette pulses
         // ═════════════════════════════════════════════════════════════════════
-        float p1Dur = 1.8f;
+        float p1Dur = 1.4f;
         float elapsed = 0f;
 
         while (elapsed < p1Dur && !_hasSkipped)
@@ -938,58 +941,56 @@ public class GameOverUI : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = elapsed / p1Dur;
 
-            // Letterbox bars slowly creep in
-            float barH = Mathf.Lerp(0f, 55f, t);
+            // Letterbox bars smoothly glide in
+            float barH = Mathf.Lerp(0f, 60f, t);
             if (_letterboxTop != null) _letterboxTop.sizeDelta = new Vector2(0f, barH);
             if (_letterboxBottom != null) _letterboxBottom.sizeDelta = new Vector2(0f, barH);
 
-            // Crimson tunnel-vision vignette
+            // Crimson tunnel-vision vignette pulse
             if (_vignetteImg != null)
             {
                 float pulse = 0.55f + Mathf.Sin(elapsed * 14f) * 0.20f;
-                _vignetteImg.color = new Color(0.22f, 0.01f, 0.01f, Mathf.Clamp01(t * pulse));
+                _vignetteImg.color = new Color(0.24f, 0.01f, 0.01f, Mathf.Clamp01(t * pulse));
             }
 
             if (camT != null)
             {
-                // Staggering / dizzy head roll and pitch
-                float swayX = Mathf.Sin(elapsed * 6.5f) * 8f * t;
-                float swayZ = Mathf.Cos(elapsed * 5.0f) * 14f * t;
-                camT.localRotation = startLocalRot * Quaternion.Euler(swayX + (t * 12f), 0f, swayZ);
+                // Dizzy head sway
+                float swayX = Mathf.Sin(elapsed * 7f) * 7f * t;
+                float swayZ = Mathf.Cos(elapsed * 5.5f) * 12f * t;
+                camT.localRotation = startLocalRot * Quaternion.Euler(swayX + (t * 10f), 0f, swayZ);
 
-                // Stumbling camera bob
-                float dropY = Mathf.Lerp(0f, -0.25f, t * t);
-                camT.localPosition = startLocalPos + new Vector3(Mathf.Sin(elapsed * 9f) * 0.06f, dropY, 0f);
+                // Stumbling bob
+                float dropY = Mathf.Lerp(0f, -0.20f, t * t);
+                camT.localPosition = startLocalPos + new Vector3(Mathf.Sin(elapsed * 9f) * 0.05f, dropY, 0f);
             }
 
             if (mainCam != null)
             {
-                mainCam.fieldOfView = startFOV + Mathf.Sin(elapsed * 12f) * 6f * t;
+                mainCam.fieldOfView = startFOV + Mathf.Sin(elapsed * 12f) * 5f * t;
             }
 
             if (_droneSource != null)
             {
-                _droneSource.volume = Mathf.Lerp(0.15f, 0.45f, t);
+                _droneSource.volume = Mathf.Lerp(0.15f, 0.40f, t);
             }
 
             yield return null;
         }
 
         // ═════════════════════════════════════════════════════════════════════
-        // PHASE 2: DROPPING TO KNEES & HITTING THE FLOOR (1.8s -> 3.4s)
-        // First-person camera drops to knee height, then slams sideways onto the floor tiles
+        // PHASE 2: DROPPING TO KNEES & HITTING THE FLOOR (1.4s -> 2.8s)
+        // First-person camera drops to knee height, then slams sideways onto floor tiles
         // ═════════════════════════════════════════════════════════════════════
         if (!_hasSkipped)
         {
-            float p2Dur = 1.6f;
+            float p2Dur = 1.4f;
             elapsed = 0f;
 
             Vector3 p2StartPos = camT != null ? camT.localPosition : startLocalPos;
             Quaternion p2StartRot = camT != null ? camT.localRotation : startLocalRot;
 
-            // Target floor position: head resting sideways just above the floor (y = 0.18m)
             Vector3 floorPos = new Vector3(startLocalPos.x + 0.15f, 0.18f, startLocalPos.z + 0.10f);
-            // Target floor rotation: tilted 78 degrees sideways on the floor, looking slightly down the hallway
             Quaternion floorRot = Quaternion.Euler(14f, startLocalRot.eulerAngles.y + 18f, 76f);
 
             bool playedKneeThud = false;
@@ -999,11 +1000,9 @@ public class GameOverUI : MonoBehaviour
             {
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / p2Dur);
-
-                // Two-stage fall curve (knees at t=0.45, full floor impact at t=0.85)
                 float curve = t * t * (3f - 2f * t);
 
-                if (t >= 0.42f && !playedKneeThud)
+                if (t >= 0.38f && !playedKneeThud)
                 {
                     playedKneeThud = true;
                     if (_sfxSource != null && bodyThudClip != null)
@@ -1013,7 +1012,7 @@ public class GameOverUI : MonoBehaviour
                     }
                 }
 
-                if (t >= 0.82f && !playedBodyCollapseThud)
+                if (t >= 0.80f && !playedBodyCollapseThud)
                 {
                     playedBodyCollapseThud = true;
                     if (_sfxSource != null && bodyThudClip != null)
@@ -1022,16 +1021,14 @@ public class GameOverUI : MonoBehaviour
                         _sfxSource.PlayOneShot(bodyThudClip, 1.0f);
                     }
 
-                    // Switch heartbeat from racing to dying slow thumps
                     if (_heartbeatSource != null && slowHeartbeatClip != null)
                     {
                         _heartbeatSource.clip = slowHeartbeatClip;
-                        _heartbeatSource.pitch = 0.85f;
-                        _heartbeatSource.volume = 0.80f;
+                        _heartbeatSource.pitch = 0.82f;
+                        _heartbeatSource.volume = 0.85f;
                         _heartbeatSource.Play();
                     }
 
-                    // Flicker flashlight off as it hits the floor
                     if (flashlight != null && flashlight.IsLightOn)
                     {
                         flashlight.ToggleLight();
@@ -1043,30 +1040,29 @@ public class GameOverUI : MonoBehaviour
                     camT.localPosition = Vector3.Lerp(p2StartPos, floorPos, curve);
                     camT.localRotation = Quaternion.Slerp(p2StartRot, floorRot, curve);
 
-                    // Impact jolt at t ~ 0.85
-                    if (t > 0.80f && t < 0.95f)
+                    if (t > 0.78f && t < 0.95f)
                     {
-                        camT.localPosition += new Vector3(Random.Range(-0.03f, 0.03f), Random.Range(-0.03f, 0.03f), 0f);
+                        camT.localPosition += new Vector3(Random.Range(-0.025f, 0.025f), Random.Range(-0.025f, 0.025f), 0f);
                     }
                 }
 
-                // Heavy eyelid blink effect
+                // Eyelid blink
                 if (_fadeToBlackImg != null)
                 {
                     float blink = Mathf.Sin(t * Mathf.PI * 2.5f) * 0.5f + 0.35f;
-                    _fadeToBlackImg.color = new Color(0.02f, 0.0f, 0.0f, Mathf.Clamp01(blink * t));
+                    _fadeToBlackImg.color = new Color(0.01f, 0.01f, 0.01f, Mathf.Clamp01(blink * t));
                 }
 
-                if (_letterboxTop != null) _letterboxTop.sizeDelta = new Vector2(0f, Mathf.Lerp(55f, 110f, t));
-                if (_letterboxBottom != null) _letterboxBottom.sizeDelta = new Vector2(0f, Mathf.Lerp(55f, 110f, t));
+                if (_letterboxTop != null) _letterboxTop.sizeDelta = new Vector2(0f, Mathf.Lerp(60f, 100f, t));
+                if (_letterboxBottom != null) _letterboxBottom.sizeDelta = new Vector2(0f, Mathf.Lerp(60f, 100f, t));
 
                 yield return null;
             }
         }
 
         // ═════════════════════════════════════════════════════════════════════
-        // PHASE 3: DYING CONSCIOUSNESS & SUFFOCATING THOUGHTS (3.4s -> 6.8s)
-        // Eyelids close to pitch black while final haunting thoughts flash
+        // PHASE 3: DYING CONSCIOUSNESS & SUFFOCATING THOUGHTS (2.8s -> 5.0s)
+        // Eyelids close to pitch black while final haunting thought echoes
         // ═════════════════════════════════════════════════════════════════════
         if (!_hasSkipped)
         {
@@ -1078,8 +1074,8 @@ public class GameOverUI : MonoBehaviour
                 _breathingSource.Play();
             }
 
-            // Fade to complete darkness over 1.2s
-            float fadeDur = 1.2f;
+            // Smooth fade to complete darkness over 0.7s
+            float fadeDur = 0.7f;
             elapsed = 0f;
             float startBlackA = _fadeToBlackImg != null ? _fadeToBlackImg.color.a : 0.5f;
 
@@ -1089,51 +1085,40 @@ public class GameOverUI : MonoBehaviour
                 float t = elapsed / fadeDur;
                 if (_fadeToBlackImg != null)
                 {
-                    _fadeToBlackImg.color = new Color(0.01f, 0.01f, 0.01f, Mathf.Lerp(startBlackA, 0.96f, t));
+                    _fadeToBlackImg.color = new Color(0.01f, 0.01f, 0.01f, Mathf.Lerp(startBlackA, 1.0f, t));
                 }
                 yield return null;
             }
 
-            // Flash haunting final thoughts in typewriter text
-            string[] thoughts = new string[]
+            // Single poignant, suffocating final thought
+            if (_thoughtsText != null && !_hasSkipped)
             {
-                "\"Hindi ako makahinga... ang sikip ng dibdib ko...\"",
-                "\"Ang clearance ko... kailangan ko pang makalabas ng BCH...\"",
-                "\"Tulong... may nakatingin sa akin sa dilim...\""
-            };
+                _thoughtsText.text = "\"Hindi ako makahinga... ang dilim... kailangan kong makalabas ng BCH...\"";
 
-            for (int i = 0; i < thoughts.Length && !_hasSkipped; i++)
-            {
-                if (_thoughtsText != null)
+                float t = 0f;
+                while (t < 0.45f && !_hasSkipped)
                 {
-                    _thoughtsText.text = thoughts[i];
-                    // Fade text in
-                    float t = 0f;
-                    while (t < 0.4f && !_hasSkipped)
-                    {
-                        t += Time.deltaTime;
-                        _thoughtsText.color = new Color(0.90f, 0.85f, 0.85f, t / 0.4f);
-                        yield return null;
-                    }
+                    t += Time.deltaTime;
+                    _thoughtsText.color = new Color(0.92f, 0.88f, 0.86f, t / 0.45f);
+                    yield return null;
+                }
 
-                    yield return new WaitForSeconds(0.9f);
+                yield return new WaitForSeconds(1.15f);
 
-                    // Fade text out
-                    t = 0f;
-                    while (t < 0.35f && !_hasSkipped)
-                    {
-                        t += Time.deltaTime;
-                        _thoughtsText.color = new Color(0.90f, 0.85f, 0.85f, 1f - (t / 0.35f));
-                        yield return null;
-                    }
+                t = 0f;
+                while (t < 0.40f && !_hasSkipped)
+                {
+                    t += Time.deltaTime;
+                    _thoughtsText.color = new Color(0.92f, 0.88f, 0.86f, 1f - (t / 0.40f));
+                    yield return null;
                 }
             }
 
-            // Fade heartbeat out into flatline
+            // Heartbeat flatline
             float hbFade = 1.0f;
             while (hbFade > 0f && !_hasSkipped)
             {
-                hbFade -= Time.deltaTime * 0.8f;
+                hbFade -= Time.deltaTime * 1.2f;
                 if (_heartbeatSource != null) _heartbeatSource.volume = Mathf.Clamp01(hbFade * 0.5f);
                 yield return null;
             }
@@ -1206,43 +1191,65 @@ public class GameOverUI : MonoBehaviour
         if (_autopsySheetBox != null)
         {
             _autopsySheetBox.SetActive(true);
+            StartCoroutine(SlideInReportRoutine());
         }
-
-        // Completely freeze the game world now that the collapse cutscene is finished and report is visible!
-        Time.timeScale = 0f;
-
-        StartCoroutine(StampSlamRoutine());
 
         // Unlock mouse cursor
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
 
+    private IEnumerator SlideInReportRoutine()
+    {
+        var rt = _autopsySheetBox.GetComponent<RectTransform>();
+        Vector3 baseScale = Vector3.one;
+        rt.localScale = baseScale * 0.94f;
+
+        float elapsed = 0f;
+        float dur = 0.25f;
+        while (elapsed < dur)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / dur);
+            float ease = Mathf.SmoothStep(0f, 1f, t);
+            rt.localScale = Vector3.Lerp(baseScale * 0.94f, baseScale, ease);
+            yield return null;
+        }
+        rt.localScale = baseScale;
+
+        // Completely freeze the game world now that the collapse cutscene is finished and report is visible!
+        Time.timeScale = 0f;
+
+        StartCoroutine(StampSlamRoutine());
+    }
+
     private IEnumerator StampSlamRoutine()
     {
-        yield return new WaitForSecondsRealtime(0.35f);
+        yield return new WaitForSecondsRealtime(0.18f);
 
         if (_stampBox != null)
         {
             _stampBox.SetActive(true);
             var rt = _stampBox.GetComponent<RectTransform>();
             Vector3 originalScale = Vector3.one;
-            rt.localScale = originalScale * 2.2f;
+            rt.localScale = originalScale * 2.6f;
+
+            float t = 0f;
+            float dur = 0.16f;
+            while (t < dur)
+            {
+                t += Time.unscaledDeltaTime;
+                float ease = Mathf.Pow(t / dur, 2.5f);
+                rt.localScale = Vector3.Lerp(originalScale * 2.6f, originalScale, ease);
+                yield return null;
+            }
+            rt.localScale = originalScale;
 
             if (_sfxSource != null && stampClip != null)
             {
                 _sfxSource.pitch = 0.9f;
                 _sfxSource.PlayOneShot(stampClip, 1.0f);
             }
-
-            float t = 0f;
-            while (t < 0.18f)
-            {
-                t += Time.unscaledDeltaTime;
-                rt.localScale = Vector3.Lerp(originalScale * 2.2f, originalScale, t / 0.18f);
-                yield return null;
-            }
-            rt.localScale = originalScale;
         }
     }
 

@@ -417,7 +417,7 @@ public class InventoryEquipController : MonoBehaviour
 
         {
 
-            if (Input.GetMouseButtonDown(0) || GameSettingsManager.GetKeyDown(GameAction.Flashlight))
+            if (!DevDemoPanel.IsOpen && (Input.GetMouseButtonDown(0) || GameSettingsManager.GetKeyDown(GameAction.Flashlight)))
 
             {
 

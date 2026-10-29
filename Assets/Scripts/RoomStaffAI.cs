@@ -146,10 +146,17 @@ public class RoomStaffAI : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (_animator != null && _animator.transform != transform)
+        // Only pin the Armature root transform when staff is standing at their station.
+        // During sit/stand transitions (NPCSitController IK) and runaway movement,
+        // root motion is driven by the coroutine - don't override it here.
+        if (_animator != null && _animator.transform != transform && !isRunawayActive && !isReturningHome)
         {
-            _animator.transform.localPosition = _initialArmatureLocalPos;
-            _animator.transform.localRotation = _initialArmatureLocalRot;
+            bool sitActive = _sitController != null && _sitController.IsLocomotionActive();
+            if (!sitActive)
+            {
+                _animator.transform.localPosition = _initialArmatureLocalPos;
+                _animator.transform.localRotation = _initialArmatureLocalRot;
+            }
         }
     }
 
@@ -344,6 +351,8 @@ public class RoomStaffAI : MonoBehaviour
 
         while (isRunawayActive)
         {
+            // Ensure animator is at idle while picking next destination (prevents run-blend stutter)
+            UpdateAnimator(0f, false);
             Vector3 fleeTarget = PickBestEscapeDestination();
             _lastDestination = fleeTarget;
 
@@ -370,7 +379,7 @@ public class RoomStaffAI : MonoBehaviour
             float playerGap = _playerTransform != null ? Vector3.Distance(transform.position, _playerTransform.position) : 30f;
             if (playerGap > 22.0f)
             {
-                UpdateAnimator(0.5f, false);
+                UpdateAnimator(0f, false);
                 yield return new WaitForSeconds(Random.Range(0.8f, 1.4f));
             }
             else
@@ -626,13 +635,27 @@ public class RoomStaffAI : MonoBehaviour
 
     private void PlayFootstepAudio()
     {
-        if (Time.time < _nextFootstepTime) return;
         EnsureAudioSources();
-        if (_footstepAudioSource != null && _runningFootstepsClip != null)
+        if (_footstepAudioSource == null || _runningFootstepsClip == null) return;
+
+        bool isMoving = _navAgent != null && _navAgent.isOnNavMesh && !_navAgent.isStopped && _navAgent.velocity.magnitude > 0.2f;
+        if (isMoving)
         {
-            _footstepAudioSource.pitch = Random.Range(1.25f, 1.45f);
-            _footstepAudioSource.PlayOneShot(_runningFootstepsClip, 0.45f);
-            _nextFootstepTime = Time.time + 0.32f;
+            if (!_footstepAudioSource.isPlaying)
+            {
+                _footstepAudioSource.clip = _runningFootstepsClip;
+                _footstepAudioSource.loop = true;
+                _footstepAudioSource.pitch = 1.15f;
+                _footstepAudioSource.volume = 0.25f;
+                _footstepAudioSource.Play();
+            }
+        }
+        else
+        {
+            if (_footstepAudioSource.isPlaying)
+            {
+                _footstepAudioSource.Pause();
+            }
         }
     }
 

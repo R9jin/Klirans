@@ -105739,7 +105739,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &189454450
 RectTransform:
   m_ObjectHideFlags: 0
@@ -126061,15 +126061,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1140500893071259129, guid: 1e7bd28492679524fbae8e4e36cd1dc6, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -88.98
+      value: -89.5
       objectReference: {fileID: 0}
     - target: {fileID: 1140500893071259129, guid: 1e7bd28492679524fbae8e4e36cd1dc6, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 9.091
+      value: 9.42
       objectReference: {fileID: 0}
     - target: {fileID: 1140500893071259129, guid: 1e7bd28492679524fbae8e4e36cd1dc6, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 41.25
+      value: 29.0
       objectReference: {fileID: 0}
     - target: {fileID: 1140500893071259129, guid: 1e7bd28492679524fbae8e4e36cd1dc6, type: 3}
       propertyPath: m_LocalRotation.w
@@ -426806,8 +426806,16 @@ PrefabInstance:
       value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 7807208498080117556, guid: b865c17aa148b6c4190b2ce0d61dca7c, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 157.67831
+      objectReference: {fileID: 0}
+    - target: {fileID: 7807208498080117556, guid: b865c17aa148b6c4190b2ce0d61dca7c, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 173.90785
+      objectReference: {fileID: 0}
+    - target: {fileID: 7807208498080117556, guid: b865c17aa148b6c4190b2ce0d61dca7c, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -84.5
+      value: -83.827
       objectReference: {fileID: 0}
     - target: {fileID: 7807208498080117556, guid: b865c17aa148b6c4190b2ce0d61dca7c, type: 3}
       propertyPath: m_LocalPosition.y
@@ -496161,127 +496169,103 @@ MonoBehaviour:
     goingUp: 1
     normalDestination: 2
     forceLoop: 0
-    normalProbability: 0.75
-    alternateOutcomes:
-    - destinationFloor: 1
-      weight: 0.25
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: MainStairs
     fromFloor: 2
     goingUp: 1
     normalDestination: 3
     forceLoop: 0
-    normalProbability: 0.7
-    alternateOutcomes:
-    - destinationFloor: 1
-      weight: 0.3
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: MainStairs
     fromFloor: 3
     goingUp: 0
     normalDestination: 2
     forceLoop: 0
-    normalProbability: 0.7
-    alternateOutcomes:
-    - destinationFloor: 3
-      weight: 0.3
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: MainStairs
     fromFloor: 2
     goingUp: 0
     normalDestination: 1
     forceLoop: 0
-    normalProbability: 0.75
-    alternateOutcomes:
-    - destinationFloor: 3
-      weight: 0.25
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: RightStairs
     fromFloor: 1
     goingUp: 1
     normalDestination: 2
     forceLoop: 0
-    normalProbability: 0.75
-    alternateOutcomes:
-    - destinationFloor: 1
-      weight: 0.25
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: RightStairs
     fromFloor: 2
     goingUp: 1
     normalDestination: 3
     forceLoop: 0
-    normalProbability: 0.7
-    alternateOutcomes:
-    - destinationFloor: 1
-      weight: 0.3
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: RightStairs
     fromFloor: 3
     goingUp: 0
     normalDestination: 2
     forceLoop: 0
-    normalProbability: 0.7
-    alternateOutcomes:
-    - destinationFloor: 3
-      weight: 0.3
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: RightStairs
     fromFloor: 2
     goingUp: 0
     normalDestination: 1
     forceLoop: 0
-    normalProbability: 0.75
-    alternateOutcomes:
-    - destinationFloor: 3
-      weight: 0.25
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: LeftStairs
     fromFloor: 1
     goingUp: 1
     normalDestination: 2
     forceLoop: 0
-    normalProbability: 0.75
-    alternateOutcomes:
-    - destinationFloor: 1
-      weight: 0.25
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: LeftStairs
     fromFloor: 2
     goingUp: 1
     normalDestination: 3
     forceLoop: 0
-    normalProbability: 0.7
-    alternateOutcomes:
-    - destinationFloor: 1
-      weight: 0.3
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: LeftStairs
     fromFloor: 3
     goingUp: 0
     normalDestination: 2
     forceLoop: 0
-    normalProbability: 0.7
-    alternateOutcomes:
-    - destinationFloor: 3
-      weight: 0.3
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: LeftStairs
     fromFloor: 2
     goingUp: 0
     normalDestination: 1
     forceLoop: 0
-    normalProbability: 0.75
-    alternateOutcomes:
-    - destinationFloor: 3
-      weight: 0.25
+    normalProbability: 1
+    alternateOutcomes: []
   - stairwellID: MainStairs
     fromFloor: 3
     goingUp: 1
-    normalDestination: 1
+    normalDestination: 3
     forceLoop: 1
     normalProbability: 1
     alternateOutcomes: []
   - stairwellID: RightStairs
     fromFloor: 3
     goingUp: 1
-    normalDestination: 1
+    normalDestination: 3
     forceLoop: 1
     normalProbability: 1
     alternateOutcomes: []
   - stairwellID: LeftStairs
     fromFloor: 3
     goingUp: 1
-    normalDestination: 1
+    normalDestination: 3
     forceLoop: 1
     normalProbability: 1
     alternateOutcomes: []
@@ -518870,7 +518854,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ForcedLoopTrigger
   stairwellID: MainStairs
   fromFloor: 3
-  destinationFloor: 1
+  destinationFloor: 3
   showGizmo: 1
 --- !u!65 &914768927
 BoxCollider:
@@ -745749,7 +745733,7 @@ MonoBehaviour:
   m_Text: "<color=#b71c1c><b>[\u25CF IN PROGRESS]</b></color> <b>1. 3F LIBRARY (Room
     308)</b> \u2014 Return Archive Book to study table (Librarian Signature)\r\n<color=#777777>[\u25CB
     PENDING]</color> <b>2. 2F GUIDANCE (Room 207)</b> \u2014 Audio Cassette Clue
-    & Wall Safe 4-1-9 (Counselor Signature)\r\n<color=#777777>[\u25CB PENDING]</color>
+    & Guidance Wall Safe (Counselor Signature)\r\n<color=#777777>[\u25CB PENDING]</color>
     <b>3. 2F CCS DEAN (Room 202)</b> \u2014 Dean's Lockpin, 15A Fuse at Breaker,
     ComLab Form (Dean Signature)\r\n<color=#777777>[\u25CB PENDING]</color> <b>4.
     1F REGISTRAR (Room 104)</b> \u2014 Clinic Medical Record & Grade Sorting (Registrar
@@ -886327,12 +886311,24 @@ PrefabInstance:
       value: Flashlight
       objectReference: {fileID: 0}
     - target: {fileID: 4392669331009134715, guid: a2a1079d713bde54c98a72f8f5011e74, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.154158
+      objectReference: {fileID: 0}
+    - target: {fileID: 4392669331009134715, guid: a2a1079d713bde54c98a72f8f5011e74, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.154158
+      objectReference: {fileID: 0}
+    - target: {fileID: 4392669331009134715, guid: a2a1079d713bde54c98a72f8f5011e74, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.154158
+      objectReference: {fileID: 0}
+    - target: {fileID: 4392669331009134715, guid: a2a1079d713bde54c98a72f8f5011e74, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -84.6
+      value: -83.472
       objectReference: {fileID: 0}
     - target: {fileID: 4392669331009134715, guid: a2a1079d713bde54c98a72f8f5011e74, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 3.14
+      value: 3.177
       objectReference: {fileID: 0}
     - target: {fileID: 4392669331009134715, guid: a2a1079d713bde54c98a72f8f5011e74, type: 3}
       propertyPath: m_LocalPosition.z
@@ -907633,7 +907629,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ForcedLoopTrigger
   stairwellID: RightStairs
   fromFloor: 3
-  destinationFloor: 1
+  destinationFloor: 3
   showGizmo: 1
 --- !u!65 &1584397411
 BoxCollider:
@@ -919423,7 +919419,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ForcedLoopTrigger
   stairwellID: RightStairs
   fromFloor: 3
-  destinationFloor: 1
+  destinationFloor: 3
   showGizmo: 1
 --- !u!65 &1606989729
 BoxCollider:
@@ -999423,7 +999419,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ForcedLoopTrigger
   stairwellID: LeftStairs
   fromFloor: 3
-  destinationFloor: 1
+  destinationFloor: 3
   showGizmo: 1
 --- !u!65 &1741349313
 BoxCollider:
@@ -1060270,7 +1060266,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ForcedLoopTrigger
   stairwellID: MainStairs
   fromFloor: 3
-  destinationFloor: 1
+  destinationFloor: 3
   showGizmo: 1
 --- !u!65 &1847079173
 BoxCollider:
@@ -1145882,7 +1145878,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ForcedLoopTrigger
   stairwellID: LeftStairs
   fromFloor: 3
-  destinationFloor: 1
+  destinationFloor: 3
   showGizmo: 1
 --- !u!65 &1979033190
 BoxCollider:

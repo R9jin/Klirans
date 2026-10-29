@@ -83,7 +83,7 @@ public class PlayerInteract : MonoBehaviour
 
     private void Update()
     {
-        if (playerCamera == null || PauseMenu.GameIsPaused || LockerHideManager.IsPlayerHidden || PauseMenu.IsAnyModalOrPuzzleOpen || (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive))
+        if (playerCamera == null || PauseMenu.GameIsPaused || LockerHideManager.IsPlayerHidden || PauseMenu.IsAnyModalOrPuzzleOpen || DevDemoPanel.IsOpen || (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive))
         {
             if (promptText != null) promptText.gameObject.SetActive(false);
             return;

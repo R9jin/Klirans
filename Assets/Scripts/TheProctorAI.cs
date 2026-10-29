@@ -144,7 +144,8 @@ public class TheProctorAI : MonoBehaviour
 
     private void Awake()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        // Destroy in free roam ONLY when calm mode is on (no active horror mode)
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode)
         {
             Destroy(gameObject);
             return;
@@ -167,7 +168,7 @@ public class TheProctorAI : MonoBehaviour
 
     private void Start()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode)
         {
             Despawn();
             return;
@@ -211,7 +212,7 @@ public class TheProctorAI : MonoBehaviour
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode)
         {
             Despawn();
             return;
@@ -305,7 +306,7 @@ public class TheProctorAI : MonoBehaviour
         if (spawnStingClip == null)
             spawnStingClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/encountering a proctor.mp3");
         if (footstepClip == null)
-            footstepClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/footsteps walking & running.mp3");
+            footstepClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/single_footstep.wav");
         if (alertScreamClip == null)
             alertScreamClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/theProctorJumpscare.mp3");
         if (jumpscareScreamClip == null)
@@ -316,7 +317,7 @@ public class TheProctorAI : MonoBehaviour
         if (spawnStingClip == null)
             spawnStingClip = Resources.Load<AudioClip>("Sounds/encountering a proctor");
         if (footstepClip == null)
-            footstepClip = Resources.Load<AudioClip>("Sounds/footsteps walking & running");
+            footstepClip = Resources.Load<AudioClip>("Sounds/single_footstep");
         if (alertScreamClip == null)
             alertScreamClip = Resources.Load<AudioClip>("Sounds/theProctorJumpscare");
         if (jumpscareScreamClip == null)
@@ -1047,18 +1048,20 @@ public class TheProctorAI : MonoBehaviour
         if (_footstepAudio == null || footstepClip == null) return;
 
         bool isMoving = _isTraversingLink || (_agent != null && _agent.isOnNavMesh && !_agent.isStopped && _agent.velocity.magnitude > 0.15f);
-        if (!isMoving) return;
+        if (!isMoving)
+        {
+            if (_footstepAudio.isPlaying) _footstepAudio.Stop();
+            return;
+        }
 
         _footstepTimer -= Time.deltaTime;
         if (_footstepTimer <= 0f)
         {
-            // Rapid terrifying stomping footsteps when sprinting, heavy dragging when patrolling
             bool isChasing = (currentState == ProctorState.Chasing || _alertHuntTimer > 0f);
-            _footstepTimer = isChasing ? 0.28f : 0.85f;
-            _footstepAudio.pitch = isChasing ? Random.Range(0.95f, 1.15f) : Random.Range(0.75f, 0.90f);
-            float vol = isChasing ? 0.90f : 0.65f;
+            _footstepTimer = isChasing ? 0.70f : 1.30f; // Non-spammy footstep cadence
+            _footstepAudio.pitch = isChasing ? Random.Range(1.05f, 1.18f) : Random.Range(0.80f, 0.92f);
+            float vol = isChasing ? 0.80f : 0.60f;
 
-            // Muffle footsteps heavily if player is on a different floor (through thick concrete floor slabs)
             if (_playerTransform != null)
             {
                 float dy = Mathf.Abs(_playerTransform.position.y - transform.position.y);
@@ -1068,6 +1071,7 @@ public class TheProctorAI : MonoBehaviour
                 }
             }
 
+            _footstepAudio.Stop(); // Stop previous clip so footsteps do not overlap or stack
             _footstepAudio.PlayOneShot(footstepClip, vol);
         }
     }
@@ -1077,7 +1081,7 @@ public class TheProctorAI : MonoBehaviour
     [ContextMenu("Test Catch Jumpscare")]
     public void TriggerCatchJumpscare()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
         if (DevDemoPanel.IsGodModeActive) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver))

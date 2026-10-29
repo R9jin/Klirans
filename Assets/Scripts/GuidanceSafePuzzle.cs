@@ -11,7 +11,7 @@ using UnityEngine.UI;
 /// - Authentic Sargent & Greenleaf style 3-wheel mechanical vault safe.
 /// - Heavy brushed gunmetal steel door plate with rivet studs and brass engraving.
 /// - 3 smooth rotary dial wheels with chrome bezels, numbers 0-9, and knurled hubs.
-/// - Correct combination: 4 - 1 - 9 (discovered on the Counseling Audio Cassette Tape in 3D inspection).
+/// - Correct combination: discovered by inspecting the Counseling Audio Cassette Tape in 3D ([V]).
 /// - Dynamic mechanical ratchet click and heavy multi-bolt unlatching sound effects.
 /// - Full mouse and keyboard controls (A/D to select tumbler, W/S or ▲/▼ to rotate, 1-3 direct select).
 /// - Active dial selection indicator and status LED (Red when locked, Emerald Green when opened).
@@ -25,7 +25,7 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
     [Header("Safe State")]
     public bool isSafeUnlocked = false;
     private int[] currentTumblers = new int[3] { 0, 0, 0 };
-    private readonly int[] correctCombination = new int[3] { 4, 1, 9 };
+    private readonly int[] correctCombination = new int[3] { 6, 2, 8 };
     private int selectedTumblerIndex = 0;
 
     [Header("Audio")]
@@ -401,7 +401,7 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
         ctRT.anchorMax = Vector2.one;
         ctRT.sizeDelta = Vector2.zero;
         var ctxt = chamberTextGO.GetComponent<Text>();
-        ctxt.text = "<size=22><color=#55FF88>★ COMBINATION 4-1-9 ACCEPTED ★</color></size>\n\n<size=16><color=#FFEE77>GUIDANCE EVALUATION SEAL ACQUIRED</color></size>\n<size=13><color=#C0C0C0>Standing verified by Office of Guidance and Counseling.</color></size>";
+        ctxt.text = "<size=22><color=#55FF88>★ COMBINATION ACCEPTED ★</color></size>\n\n<size=16><color=#FFEE77>GUIDANCE EVALUATION SEAL ACQUIRED</color></size>\n<size=13><color=#C0C0C0>Standing verified by Office of Guidance and Counseling.</color></size>";
         ctxt.fontSize = 18;
         ctxt.fontStyle = FontStyle.Bold;
         ctxt.alignment = TextAnchor.MiddleCenter;
@@ -622,7 +622,7 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
 
         bool knowsCode = ItemInspectionViewer3D.DiscoveredClueIDs.Contains("CassetteSafeCode");
         return knowsCode
-            ? "[E] Buksan ang Guidance Safe gamit ang Code 4-1-9"
+            ? "[E] I-align ang Rotary Tumblers ng Guidance Safe"
             : "[E] Suriin ang Guidance Wall Safe (Naka-lock - 3 Tumblers)";
     }
 
@@ -637,6 +637,17 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
         EnsureUIBuilt();
         _isUIOpen = true;
         _openedFrame = Time.frameCount;
+        if (!isSafeUnlocked && currentTumblers[0] == 0 && currentTumblers[1] == 0 && currentTumblers[2] == 0)
+        {
+            currentTumblers[0] = Random.Range(2, 8);
+            currentTumblers[1] = Random.Range(2, 8);
+            currentTumblers[2] = Random.Range(2, 8);
+            for (int i = 0; i < 3; i++)
+            {
+                _targetDialAngles[i] = currentTumblers[i] * 36f;
+                _currentDialAngles[i] = _targetDialAngles[i];
+            }
+        }
         SetUIVisible(true);
         UpdateSelectionVisuals();
 
@@ -644,7 +655,7 @@ public class GuidanceSafePuzzle : MonoBehaviour, IInteractable
         if (_statusBannerText != null)
         {
             _statusBannerText.text = knowsCode
-                ? "<color=#FFE066>DISCOVERED CODE: 4 - 1 - 9 (From Audio Cassette Tape)</color>"
+                ? "ALIGN 3 ROTARY TUMBLERS TO THE RECORDED COMBINATION"
                 : "ALIGN 3 ROTARY TUMBLERS TO THE RECORDED COMBINATION";
         }
 

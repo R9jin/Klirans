@@ -484,7 +484,7 @@ public static class Item3DModelFactory
         var clue = root.AddComponent<InspectableClueMarker>();
         clue.clueID = "LockerKeyCode";
         clue.clueTitle = "Nakatagong Numero sa Key Tag";
-        clue.clueDescription = "May nakaukit na red ink code sa likod ng key tag: 'CAB-04 // CODE: 7-3-2' para sa 2nd Floor Faculty Records Locker!";
+        clue.clueDescription = "May nakaukit na red ink code sa likod ng key tag: 'CAB-04 // CODE: 8-4-1' para sa 2nd Floor Faculty Records Locker!";
         clue.revealDirection = -Vector3.forward;
         clue.detectionAngle = 48.0f;
 
@@ -516,7 +516,7 @@ public static class Item3DModelFactory
                     if (y % 18 < 6) c = inkNavy;
                 }
 
-                // Reverse Red Code Stamp: CAB-04 // CODE: 7-3-2
+                // Reverse Red Code Stamp: CAB-04 // CODE: 8-4-1
                 if (y > 140 && y < 240 && x > 28 && x < w - 28)
                 {
                     if (y % 22 < 8) c = redStamp;
@@ -1783,7 +1783,7 @@ public static class Item3DModelFactory
         var clue = root.AddComponent<InspectableClueMarker>();
         clue.clueID = "CassetteSafeCode";
         clue.clueTitle = "Lihim na Code sa Tape Reel";
-        clue.clueDescription = "May sulat-kamay gamit ang ballpen sa likod ng cassette label: 'SAFE CODE: 4-1-9'. Ito ang combination sa Guidance Wall Safe sa likod ng frame sa Room 207!";
+        clue.clueDescription = "May sulat-kamay gamit ang ballpen sa likod ng cassette label: 'SAFE CODE: 6-2-8'. Ito ang combination sa Guidance Wall Safe sa likod ng frame sa Room 207!";
         clue.revealDirection = Vector3.forward;
         clue.detectionAngle = 48.0f;
 

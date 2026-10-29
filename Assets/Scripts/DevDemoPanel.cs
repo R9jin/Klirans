@@ -103,6 +103,19 @@ public class DevDemoPanel : MonoBehaviour
         set => _isGateUnlocked = value;
     }
 
+    // ── Anxiety / Calm Mode Toggle ───────────────────────────────────────────
+    /// <summary>
+    /// When true (Calm Mode), Free Roam suppresses all anxiety gain and enemy spawns.
+    /// When false (Active Mode), anxiety accumulates normally and enemies can spawn during blackouts.
+    /// Only meaningful during Free Roam — ignored in normal game mode.
+    /// </summary>
+    private static bool _isCalmMode = true;
+    public static bool IsCalmMode
+    {
+        get => !GameModeManager.IsFreeRoamMode || _isCalmMode;  // Always calm outside free roam (normal game handles its own anxiety)
+        set => _isCalmMode = value;
+    }
+
     private static EnemyFilter _currentEnemyFilter = EnemyFilter.All;
     public static EnemyFilter CurrentEnemyFilter
     {
@@ -215,10 +228,15 @@ public class DevDemoPanel : MonoBehaviour
             TogglePanel();
         }
 
-        // Close on Escape if open
-        if (IsOpen && Input.GetKeyDown(KeyCode.Escape))
+        // Free cursor while DevDemoPanel is open
+        if (IsOpen)
         {
-            ClosePanel();
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                ClosePanel();
+            }
         }
 
         // Keep player references updated across scene transitions
@@ -493,6 +511,42 @@ public class DevDemoPanel : MonoBehaviour
 
     private void DrawThreatsAndBlackoutTab()
     {
+        // ── ANXIETY MODE TOGGLE (Free Roam only) ─────────────────────────────
+        GUILayout.Label("FREE ROAM ANXIETY MODE", _sectionHeaderStyle);
+        GUILayout.Label("Controls whether anxiety accumulates and enemies can actively spawn during blackouts:", _subLabelStyle);
+
+        GUILayout.BeginHorizontal();
+        bool calmActive = IsCalmMode;
+        GUIStyle calmBtnStyle  = calmActive  ? _activeToggleStyle : _actionButtonStyle;
+        GUIStyle activBtnStyle = !calmActive ? _activeToggleStyle : _actionButtonStyle;
+
+        if (GUILayout.Button(calmActive
+                ? "😌 CALM MODE [ON] — No anxiety, no spawns"
+                : "😌 CALM MODE [OFF]",
+            calmBtnStyle, GUILayout.Height(34)))
+        {
+            IsCalmMode = true;
+            // Reset anxiety when switching to calm
+            AnxietyManager.Instance?.ResetAnxiety();
+            Debug.Log("[DevDemoPanel] Free Roam: CALM MODE activated — anxiety suppressed.");
+        }
+        if (GUILayout.Button(!calmActive
+                ? "😰 ACTIVE MODE [ON] — Real anxiety + enemy spawns"
+                : "😰 ACTIVE MODE [OFF]",
+            activBtnStyle, GUILayout.Height(34)))
+        {
+            IsCalmMode = false;
+            Debug.Log("[DevDemoPanel] Free Roam: ACTIVE MODE activated — anxiety and spawns enabled.");
+        }
+        GUILayout.EndHorizontal();
+        GUILayout.Label(calmActive
+            ? "<color=#44FF88>● CALM: Anxiety frozen at 0. Enemies skip free-roam spawning.</color>"
+            : "<color=#FF9944>● ACTIVE: Real anxiety accumulation. Enemies spawn normally in blackout.</color>",
+            _labelStyle);
+
+        GUILayout.Space(16);
+
+        // ── BLACKOUT CONTROL ─────────────────────────────────────────────────
         GUILayout.Label("CAMPUS POWER & BLACKOUT CONTROL", _sectionHeaderStyle);
 
         bool isBlackout = (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive);
@@ -573,7 +627,10 @@ public class DevDemoPanel : MonoBehaviour
         if (GUILayout.Button("Spawn Guard Stalker", _actionButtonStyle, GUILayout.Height(28)))
         {
             IsDevSpawning = true;
-            SecurityGuardEndgameManager.Instance?.TriggerEndgame();
+            var mgr = SecurityGuardEndgameManager.Instance;
+            if (mgr != null) mgr.TriggerEndgame();
+            // Reset AFTER TriggerEndgame returns — the dev fast-path calls
+            // CompleteEndgameActivation synchronously so the flag is still true during spawn.
             IsDevSpawning = false;
         }
         if (GUILayout.Button("Dismiss All Enemies", _dangerButtonStyle, GUILayout.Height(28)))

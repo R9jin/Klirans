@@ -164,7 +164,8 @@ public class AnxietyManager : MonoBehaviour
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        // In Free Roam, only suppress anxiety update when Calm Mode is ON
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
         if (IsGameOver) return;
         if (PauseMenu.GameIsPaused) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
@@ -278,7 +279,8 @@ public class AnxietyManager : MonoBehaviour
     /// </summary>
     public void AddAnxiety(float amount)
     {
-        if (GameModeManager.IsFreeRoamMode && amount > 0f) return;
+        // In Free Roam, block anxiety gain only in Calm Mode
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode && amount > 0f) return;
         if (DevDemoPanel.IsGodModeActive && amount > 0f) return;
         if (IsGameOver) return;
         ModifyAnxiety(amount);
@@ -330,7 +332,8 @@ public class AnxietyManager : MonoBehaviour
 
     private void ModifyAnxiety(float delta)
     {
-        if (GameModeManager.IsFreeRoamMode && delta > 0f) return;
+        // In Free Roam, suppress anxiety gain only in Calm Mode
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode && delta > 0f) return;
         if (DevDemoPanel.IsGodModeActive && delta > 0f) return;
         if (IsGameOver) return;
 

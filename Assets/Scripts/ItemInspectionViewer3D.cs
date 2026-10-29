@@ -1368,7 +1368,7 @@ public class ItemInspectionViewer3D : MonoBehaviour
         return tex;
     }
 
-    // ── 3. COUNSELING AUDIO CASSETTE TAPE (Detailed Shell, Head Shield, Twin Reels, Side A & Side B 4-1-9 Label) ──
+    // ── 3. COUNSELING AUDIO CASSETTE TAPE (Detailed Shell, Head Shield, Twin Reels, Side A & Side B 6-2-8 Label) ──
     private void BuildDetailedCassetteTape3D(GameObject root, Shader shader)
     {
         ClearModelChildren(root);
@@ -1407,7 +1407,7 @@ public class ItemInspectionViewer3D : MonoBehaviour
                 new Vector3(holeX[i], -0.082f, 0f), Quaternion.Euler(90f, 0f, 0f), new Vector3(0.014f, 0.023f, 0.014f), windowMat);
         }
 
-        // 3. Side A Label (Front -Z) & Side B Label with SAFE CODE: 4-1-9 (Back +Z)
+        // 3. Side A Label (Front -Z) & Side B Label with SAFE CODE: 6-2-8 (Back +Z)
         AddPartPrimitive(root.transform, "Label_SideA", PrimitiveType.Quad,
             new Vector3(0f, 0.018f, -0.0186f), Quaternion.identity, new Vector3(0.285f, 0.132f, 1f), matSideA);
 
@@ -1483,7 +1483,7 @@ public class ItemInspectionViewer3D : MonoBehaviour
                 if ((y == h - 76 || y == h - 96 || y == 36 || y == 56) && x > 24 && x < w - 24)
                     c = new Color(0.72f, 0.74f, 0.78f, 1f);
 
-                // Simulated handwritten title on top line: "SESSION #04 - ANXIETY" (Side A) or "SAFE CODE: 4 - 1 - 9" (Side B)
+                // Simulated handwritten title on top line: "SESSION #04 - ANXIETY" (Side A) or "SAFE CODE: 6-2-8" (Side B)
                 if (!isSideB)
                 {
                     if (y > h - 92 && y < h - 78 && x > 45 && x < w - 65 && ((x * 3 + y) % 9 < 6))
@@ -1504,10 +1504,10 @@ public class ItemInspectionViewer3D : MonoBehaviour
             }
         }
 
-        // Draw crisp pixel-art digits "SAFE CODE: 4-1-9" on Side B and "SESSION #04" on Side A
+        // Draw crisp pixel-art digits "SAFE CODE: 6-2-8" on Side B and "SESSION #04" on Side A
         if (isSideB)
         {
-            DrawPixelString(tex, "SAFE CODE: 4-1-9", 105, 16, 3, redClueInk);
+            DrawPixelString(tex, "SAFE CODE: 6-2-8", 105, 16, 3, redClueInk);
         }
         else
         {
@@ -2157,8 +2157,8 @@ public class ItemInspectionViewer3D : MonoBehaviour
         {
             case "LockerKeyCode":
                 ObjectiveHUD.Instance.SetObjective(
-                    "Records Locker Code (CAB-04 // 7-3-2)",
-                    "Na-decode ang code sa key tag: Gamitin ang 7-3-2 sa 2nd Floor Faculty Records Locker!"
+                    "Records Locker Code (CAB-04 // 8-4-1)",
+                    "Na-decode ang code sa key tag: Gamitin ang 8-4-1 sa Executive Vault Safe sa Room 103!"
                 );
                 break;
 
@@ -2213,8 +2213,8 @@ public class ItemInspectionViewer3D : MonoBehaviour
 
             case "CassetteSafeCode":
                 ObjectiveHUD.Instance.SetObjective(
-                    "Guidance Safe Combination (4-1-9)",
-                    "Gamitin ang code 4-1-9 sa Wall Safe sa likod ng certificate frame sa Room 207!"
+                    "Guidance Safe Combination (6-2-8)",
+                    "Gamitin ang code 6-2-8 sa Wall Safe sa likod ng certificate frame sa Room 207!"
                 );
                 break;
 

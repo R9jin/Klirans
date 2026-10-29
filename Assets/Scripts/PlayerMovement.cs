@@ -463,13 +463,13 @@ public class PlayerMovement : MonoBehaviour
     private void HandleMouseLook()
     {
         // Re-lock cursor on left mouse click during normal gameplay if unlocked in editor
-        if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked && canMove && !PauseMenu.GameIsPaused && !PauseMenu.IsAnyModalOrPuzzleOpen)
+        if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked && canMove && !PauseMenu.GameIsPaused && !PauseMenu.IsAnyModalOrPuzzleOpen && !DevDemoPanel.IsOpen)
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
 
-        if (!canMove || PauseMenu.GameIsPaused || isDialogueCameraOverride || isJumpscareCameraOverride) return;
+        if (!canMove || PauseMenu.GameIsPaused || isDialogueCameraOverride || isJumpscareCameraOverride || DevDemoPanel.IsOpen) return;
 
         float sens = GameSettingsManager.Instance != null ? GameSettingsManager.Instance.MouseSensitivity : lookSpeed;
         if (sens <= 0.05f) sens = 1.8f; // Safety clamp against corrupted zero sensitivity

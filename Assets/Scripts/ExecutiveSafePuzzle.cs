@@ -11,7 +11,7 @@ using UnityEngine.UI;
 /// - Heavy Sargent & Greenleaf 3-wheel mechanical rotary vault safe securing the Official University Seal Stamp.
 /// - Brushed steel door plate with rich dark mahogany and brass executive borders.
 /// - 3 smooth rotary dial wheels with chrome bezels, numbers 0-9.
-/// - Correct combination: 7 - 3 - 2 (discovered on the Faculty Records Key Tag in 3D inspection).
+/// - Correct combination: discovered by inspecting the Faculty Records Key Tag in 3D ([V]).
 /// - Dynamic mechanical ratchet click and heavy vault multi-bolt unlatching sound effects.
 /// - Full mouse and keyboard controls (A/D to select tumbler, W/S or ▲/▼ to rotate, 1-3 direct select).
 /// - Active dial selection indicator and status LED (Red when locked, Emerald Green when opened).
@@ -25,7 +25,7 @@ public class ExecutiveSafePuzzle : MonoBehaviour, IInteractable
     [Header("Safe State")]
     public bool isSafeUnlocked = false;
     private int[] currentTumblers = new int[3] { 0, 0, 0 };
-    private readonly int[] correctCombination = new int[3] { 7, 3, 2 };
+    private readonly int[] correctCombination = new int[3] { 8, 4, 1 };
     private int selectedTumblerIndex = 0;
 
     [Header("Reward Item")]
@@ -260,7 +260,7 @@ public class ExecutiveSafePuzzle : MonoBehaviour, IInteractable
         brt.anchoredPosition = new Vector2(0f, -86f);
         brt.sizeDelta = new Vector2(580f, 30f);
         _statusBannerText = bannerGO.GetComponent<Text>();
-        _statusBannerText.text = "ENTER 3-TUMBLER MASTER FACULTY COMBINATION (CODE: 7-3-2)";
+        _statusBannerText.text = "ALIGN 3 ROTARY TUMBLERS TO MASTER FACULTY COMBINATION";
         _statusBannerText.fontSize = 13;
         _statusBannerText.fontStyle = FontStyle.Bold;
         _statusBannerText.alignment = TextAnchor.MiddleCenter;
@@ -380,7 +380,7 @@ public class ExecutiveSafePuzzle : MonoBehaviour, IInteractable
         ctRT.anchorMax = Vector2.one;
         ctRT.sizeDelta = Vector2.zero;
         var ctxt = chamberTextGO.GetComponent<Text>();
-        ctxt.text = "<size=22><color=#55FF88>★ COMBINATION 7-3-2 ACCEPTED ★</color></size>\n\n<size=17><color=#FFEE77>OFFICIAL UNIVERSITY SEAL STAMP ACQUIRED</color></size>\n<size=13><color=#C0C0C0>Executive dry seal released from secure chamber for final clearance.</color></size>";
+        ctxt.text = "<size=22><color=#55FF88>★ COMBINATION ACCEPTED ★</color></size>\n\n<size=17><color=#FFEE77>OFFICIAL UNIVERSITY SEAL STAMP ACQUIRED</color></size>\n<size=13><color=#C0C0C0>Executive dry seal released from secure chamber for final clearance.</color></size>";
         ctxt.fontSize = 18;
         ctxt.fontStyle = FontStyle.Bold;
         ctxt.alignment = TextAnchor.MiddleCenter;
@@ -607,7 +607,7 @@ public class ExecutiveSafePuzzle : MonoBehaviour, IInteractable
 
         bool knowsCode = ItemInspectionViewer3D.DiscoveredClueIDs.Contains("LockerKeyCode");
         return knowsCode
-            ? "[E] Buksan ang Executive Safe gamit ang Code 7-3-2"
+            ? "[E] I-align ang Rotary Tumblers ng Executive Safe"
             : "[E] Suriin ang Executive Vault Safe (Naka-lock — 3 Tumblers)";
     }
 
@@ -622,6 +622,17 @@ public class ExecutiveSafePuzzle : MonoBehaviour, IInteractable
         EnsureUIBuilt();
         _isUIOpen = true;
         _openedFrame = Time.frameCount;
+        if (!isSafeUnlocked && currentTumblers[0] == 0 && currentTumblers[1] == 0 && currentTumblers[2] == 0)
+        {
+            currentTumblers[0] = Random.Range(2, 8);
+            currentTumblers[1] = Random.Range(2, 8);
+            currentTumblers[2] = Random.Range(2, 8);
+            for (int i = 0; i < 3; i++)
+            {
+                _targetDialAngles[i] = currentTumblers[i] * 36f;
+                _currentDialAngles[i] = _targetDialAngles[i];
+            }
+        }
         SetUIVisible(true);
         UpdateSelectionVisuals();
 

@@ -104,11 +104,7 @@ public class DoorInteract : MonoBehaviour, IInteractable
             isLocked = true;
         }
 
-        // If spawned while blackout is already active, lock immediately
-        if (BlackoutManager.Instance != null && BlackoutManager.Instance.IsBlackoutActive)
-        {
-            LockForBlackout();
-        }
+        // Blackout door locking disabled: rooms remain accessible during blackout so players can reach lockers
     }
 
     private void Update()
@@ -155,21 +151,7 @@ public class DoorInteract : MonoBehaviour, IInteractable
                 return;
             }
 
-            if (isBlackoutLocked)
-            {
-                // Play locked handle jiggle rattling sound
-                if (audioSource == null) audioSource = GetComponent<AudioSource>();
-                if (audioSource != null && closeSound != null)
-                {
-                    audioSource.pitch = 1.35f;
-                    audioSource.PlayOneShot(closeSound, 0.45f);
-                }
-                if (ObjectiveHUD.Instance != null)
-                {
-                    ObjectiveHUD.Instance.SetObjective("Emergency Lockdown", "Naka-lockdown ang pinto dahil sa blackout. Gamitin ang Lockpin para buksan ang mechanical lock.");
-                }
-                return;
-            }
+
 
             // Play locked handle jiggle rattling sound
             if (audioSource == null) audioSource = GetComponent<AudioSource>();
@@ -208,8 +190,7 @@ public class DoorInteract : MonoBehaviour, IInteractable
 
     private void HandleBlackoutStart()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
-        LockForBlackout();
+        // Rooms remain accessible during blackout
     }
 
     private void HandleBlackoutEnd()
@@ -223,18 +204,7 @@ public class DoorInteract : MonoBehaviour, IInteractable
     /// </summary>
     public void LockForBlackout()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
-        if (isBlackoutLocked) return;
-
-        _wasLockedBeforeBlackout = isLocked;
-        isLocked = true;
-        isBlackoutLocked = true;
-
-        // If door was currently open, slam it shut!
-        if (isOpen)
-        {
-            ToggleDoor();
-        }
+        // Disabled by design: rooms remain accessible during blackout so players can reach lockers to hide!
     }
 
     /// <summary>
@@ -253,11 +223,7 @@ public class DoorInteract : MonoBehaviour, IInteractable
     /// </summary>
     public static void LockAllDoorsForBlackout()
     {
-        var doors = Object.FindObjectsByType<DoorInteract>(FindObjectsInactive.Include);
-        foreach (var d in doors)
-        {
-            if (d != null) d.LockForBlackout();
-        }
+        // Disabled by design: rooms remain accessible during blackout so players can reach lockers to hide!
     }
 
     /// <summary>
@@ -341,10 +307,7 @@ public class DoorInteract : MonoBehaviour, IInteractable
                 return "Press [E] to Pick Lock";
             }
 
-            if (isBlackoutLocked)
-            {
-                return "[Locked — Emergency Lockdown Active (Requires Lockpin)]";
-            }
+
 
             bool isComLab = gameObject.name.ToLowerInvariant().Contains("105") || gameObject.name.ToLowerInvariant().Contains("106") || gameObject.name.ToLowerInvariant().Contains("comlab");
             return isComLab ? "Locked (Requires Lockpin from CCS Dean in Room 202)" : "Locked (Requires Lockpin)";

@@ -627,8 +627,11 @@ public class SaveManager : MonoBehaviour
     }
 
     // ═════════════════════════════════════════════════════════════════════════
-    // PROCEDURAL TOAST NOTIFICATION UI
+    // PROCEDURAL AUTOSAVE SPINNER UI (BOTTOM-RIGHT)
     // ═════════════════════════════════════════════════════════════════════════
+
+    private RectTransform _spinnerRT;
+    private Sprite _spinnerSprite;
 
     private void BuildToastUI()
     {
@@ -647,14 +650,16 @@ public class SaveManager : MonoBehaviour
         scaler.referenceResolution = new Vector2(1920, 1080);
         scaler.matchWidthOrHeight = 0.5f;
 
-        var panelGO = new GameObject("ToastPanel", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
+        // Bottom-Right Corner Container
+        var panelGO = new GameObject("AutosaveCornerPanel", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
         panelGO.transform.SetParent(_toastCanvasGO.transform, false);
 
         _toastPanelRT = panelGO.GetComponent<RectTransform>();
-        _toastPanelRT.anchorMin = new Vector2(0.5f, 0.94f);
-        _toastPanelRT.anchorMax = new Vector2(0.5f, 0.94f);
-        _toastPanelRT.pivot = new Vector2(0.5f, 0.5f);
-        _toastPanelRT.sizeDelta = new Vector2(420f, 48f);
+        _toastPanelRT.anchorMin = new Vector2(1f, 0f);
+        _toastPanelRT.anchorMax = new Vector2(1f, 0f);
+        _toastPanelRT.pivot = new Vector2(1f, 0f);
+        _toastPanelRT.anchoredPosition = new Vector2(-20f, 20f);
+        _toastPanelRT.sizeDelta = new Vector2(50f, 50f);
 
         _toastCanvasGroup = panelGO.GetComponent<CanvasGroup>();
         _toastCanvasGroup.alpha = 0f;
@@ -662,31 +667,77 @@ public class SaveManager : MonoBehaviour
         _toastCanvasGroup.interactable = false;
 
         var bgImg = panelGO.GetComponent<Image>();
-        bgImg.color = new Color(0.04f, 0.04f, 0.05f, 0.92f);
+        bgImg.color = new Color(0.03f, 0.03f, 0.04f, 0.72f);
         bgImg.raycastTarget = false;
 
-        var outline = panelGO.AddComponent<Outline>();
-        outline.effectColor = new Color(0.85f, 0.20f, 0.15f, 0.85f);
-        outline.effectDistance = new Vector2(1.5f, -1.5f);
+        // Clean loading spinner circle on right
+        var spinnerGO = new GameObject("LoadingSpinner", typeof(RectTransform), typeof(Image));
+        spinnerGO.transform.SetParent(panelGO.transform, false);
 
-        // Toast Text
-        var txtGO = new GameObject("ToastText", typeof(RectTransform), typeof(Text));
+        _spinnerRT = spinnerGO.GetComponent<RectTransform>();
+        _spinnerRT.anchorMin = new Vector2(0.5f, 0.5f);
+        _spinnerRT.anchorMax = new Vector2(0.5f, 0.5f);
+        _spinnerRT.pivot = new Vector2(0.5f, 0.5f);
+        _spinnerRT.anchoredPosition = new Vector2(0f, 0f);
+        _spinnerRT.sizeDelta = new Vector2(36f, 36f);
+
+        var spinnerImg = spinnerGO.GetComponent<Image>();
+        if (_spinnerSprite == null) _spinnerSprite = CreateSpinnerSprite();
+        spinnerImg.sprite = _spinnerSprite;
+        spinnerImg.color = new Color(0.92f, 0.88f, 0.78f, 0.95f);
+        spinnerImg.raycastTarget = false;
+
+        // Text label hidden — spinner-only UI
+        var txtGO = new GameObject("AutosaveText", typeof(RectTransform), typeof(Text));
         txtGO.transform.SetParent(panelGO.transform, false);
+        txtGO.SetActive(false); // Hidden: autosave indicator is spinner-only
 
         var txtRT = txtGO.GetComponent<RectTransform>();
-        txtRT.anchorMin = Vector2.zero;
-        txtRT.anchorMax = Vector2.one;
-        txtRT.offsetMin = new Vector2(10f, 2f);
-        txtRT.offsetMax = new Vector2(-10f, -2f);
+        txtRT.anchorMin = new Vector2(0f, 0f);
+        txtRT.anchorMax = new Vector2(1f, 1f);
+        txtRT.offsetMin = new Vector2(14f, 0f);
+        txtRT.offsetMax = new Vector2(-42f, 0f);
 
         _toastText = txtGO.GetComponent<Text>();
         Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
         _toastText.font = font;
-        _toastText.fontSize = 18;
+        _toastText.fontSize = 13;
         _toastText.fontStyle = FontStyle.Bold;
-        _toastText.alignment = TextAnchor.MiddleCenter;
-        _toastText.color = new Color(0.95f, 0.92f, 0.85f, 1f);
+        _toastText.alignment = TextAnchor.MiddleRight;
+        _toastText.color = new Color(0.90f, 0.86f, 0.76f, 0.95f);
         _toastText.raycastTarget = false;
+    }
+
+    private Sprite CreateSpinnerSprite()
+    {
+        int size = 64;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        float center = size * 0.5f;
+        float rOuter = size * 0.46f;
+        float rInner = size * 0.28f;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x - center;
+                float dy = y - center;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                if (dist >= rInner && dist <= rOuter)
+                {
+                    float angle = (Mathf.Atan2(dy, dx) * Mathf.Rad2Deg + 360f) % 360f;
+                    float alpha = angle < 280f ? Mathf.Clamp01(angle / 280f) : 0f;
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+                else
+                {
+                    tex.SetPixel(x, y, Color.clear);
+                }
+            }
+        }
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
     }
 
     public void ShowToast(string message, bool isSuccess = true)
@@ -694,31 +745,45 @@ public class SaveManager : MonoBehaviour
         if (_toastText == null || _toastCanvasGroup == null) BuildToastUI();
         if (_toastText == null || _toastCanvasGroup == null) return;
 
-        _toastText.text = isSuccess ? $"<color=#55FF88>●</color> {message}" : $"<color=#FF5555>▲</color> {message}";
+        // Format clean, concise game-style message
+        string cleanMsg = message.ToUpperInvariant();
+        if (cleanMsg.Contains("AUTOSAVED:")) cleanMsg = "AUTOSAVING...";
+        else if (cleanMsg.Contains("GAME SAVED")) cleanMsg = "GAME SAVED";
+        else if (cleanMsg.Contains("GAME LOADED")) cleanMsg = "GAME LOADED";
+
+        _toastText.text = cleanMsg;
         if (_toastCoroutine != null) StopCoroutine(_toastCoroutine);
         _toastCoroutine = StartCoroutine(ToastAnimationRoutine());
     }
 
     private IEnumerator ToastAnimationRoutine()
     {
-        // Fade in
+        // Fade in while spinning
         float elapsed = 0f;
         while (elapsed < 0.20f)
         {
             elapsed += Time.unscaledDeltaTime;
+            if (_spinnerRT != null) _spinnerRT.Rotate(0f, 0f, -480f * Time.unscaledDeltaTime);
             _toastCanvasGroup.alpha = Mathf.Clamp01(elapsed / 0.20f);
             yield return null;
         }
         _toastCanvasGroup.alpha = 1f;
 
-        // Hold
-        yield return new WaitForSecondsRealtime(1.8f);
+        // Hold while spinning smoothly
+        float holdTimer = 1.4f;
+        while (holdTimer > 0f)
+        {
+            holdTimer -= Time.unscaledDeltaTime;
+            if (_spinnerRT != null) _spinnerRT.Rotate(0f, 0f, -480f * Time.unscaledDeltaTime);
+            yield return null;
+        }
 
         // Fade out
         elapsed = 0f;
         while (elapsed < 0.35f)
         {
             elapsed += Time.unscaledDeltaTime;
+            if (_spinnerRT != null) _spinnerRT.Rotate(0f, 0f, -480f * Time.unscaledDeltaTime);
             _toastCanvasGroup.alpha = Mathf.Clamp01(1f - (elapsed / 0.35f));
             yield return null;
         }

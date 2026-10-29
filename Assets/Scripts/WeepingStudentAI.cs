@@ -148,7 +148,8 @@ public class WeepingStudentAI : MonoBehaviour
 
     private void Awake()
     {
-        if (GameModeManager.IsFreeRoamMode || (BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive))
+        // In Active Mode free roam during a blackout: allow spawning
+        if ((GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) || (!GameModeManager.IsFreeRoamMode && BlackoutManager.Instance != null && !BlackoutManager.Instance.IsBlackoutActive))
         {
             Destroy(gameObject);
             return;
@@ -198,7 +199,7 @@ public class WeepingStudentAI : MonoBehaviour
 
     private void Start()
     {
-        if (GameModeManager.IsFreeRoamMode && !isDevSpawn)
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode && !isDevSpawn)
         {
             Despawn();
             return;
@@ -236,7 +237,7 @@ public class WeepingStudentAI : MonoBehaviour
 
     private void Update()
     {
-        if (GameModeManager.IsFreeRoamMode && !isDevSpawn)
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode && !isDevSpawn)
         {
             Despawn();
             return;
@@ -315,7 +316,7 @@ public class WeepingStudentAI : MonoBehaviour
             jumpscareScreamClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/you died (lobotomy sound).mp3");
 
         if (footstepClip == null)
-            footstepClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/footsteps walking & running.mp3");
+            footstepClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/single_footstep.wav");
 
         if (staticHissClip == null)
             staticHissClip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/vhs static.mp3");
@@ -328,7 +329,7 @@ public class WeepingStudentAI : MonoBehaviour
         if (alertStingClip == null)
             alertStingClip = Resources.Load<AudioClip>("Sounds/encountering a proctor");
         if (footstepClip == null)
-            footstepClip = Resources.Load<AudioClip>("Sounds/footsteps walking & running");
+            footstepClip = Resources.Load<AudioClip>("Sounds/single_footstep");
         if (staticHissClip == null)
             staticHissClip = Resources.Load<AudioClip>("Sounds/vhs static");
         if (weepingSoundClip == null)
@@ -784,14 +785,19 @@ public class WeepingStudentAI : MonoBehaviour
         if (!enableFootsteps || _footstepAudio == null || footstepClip == null) return;
 
         bool isMoving = (_agent != null && _agent.isOnNavMesh && !_agent.isStopped && _agent.velocity.magnitude > 0.2f);
-        if (!isMoving) return;
+        if (!isMoving)
+        {
+            if (_footstepAudio.isPlaying) _footstepAudio.Stop();
+            return;
+        }
 
         _footstepTimer -= Time.deltaTime;
         if (_footstepTimer <= 0f)
         {
-            _footstepTimer = 0.22f; // Rapid stealth scurrying footsteps
-            _footstepAudio.pitch = UnityEngine.Random.Range(1.10f, 1.35f);
-            _footstepAudio.PlayOneShot(footstepClip, 0.70f);
+            _footstepTimer = 0.75f; // Non-spammy scurrying cadence
+            _footstepAudio.pitch = UnityEngine.Random.Range(1.05f, 1.22f);
+            _footstepAudio.Stop(); // Stop previous clip to eliminate machine-gun overlapping audio
+            _footstepAudio.PlayOneShot(footstepClip, 0.65f);
         }
     }
 
@@ -883,7 +889,7 @@ public class WeepingStudentAI : MonoBehaviour
     public void TriggerCatchJumpscare()
     {
         if (DevDemoPanel.IsGodModeActive) return;
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver))
         {

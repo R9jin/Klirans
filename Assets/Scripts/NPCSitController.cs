@@ -309,7 +309,7 @@ public class NPCSitController : MonoBehaviour
         return closest;
     }
 
-    private bool IsLocomotionActive()
+    public bool IsLocomotionActive()
     {
         var staffAI = GetComponent<RoomStaffAI>();
         return staffAI != null && (staffAI.isRunawayActive || staffAI.isReturningHome);

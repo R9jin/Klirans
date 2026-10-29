@@ -280,7 +280,7 @@ public class FlashlightController : MonoBehaviour
 
         isEquipped = true;
 
-        if (PauseMenu.GameIsPaused || LockerHideManager.IsPlayerHidden || PauseMenu.IsAnyModalOrPuzzleOpen) return;
+        if (PauseMenu.GameIsPaused || LockerHideManager.IsPlayerHidden || PauseMenu.IsAnyModalOrPuzzleOpen || DevDemoPanel.IsOpen) return;
         if (UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
 
         // Left Click (Mouse 0) or [F] toggles the flashlight ON/OFF at any time!

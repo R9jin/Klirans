@@ -353,9 +353,9 @@ public class LockpickingMinigame : MonoBehaviour
             List<Vector2> combo = new List<Vector2>();
             for (int i = 0; i < totalPins; i++)
             {
-                // Generous, fair shear line target windows (0.28 to 0.40 height)
-                float size = UnityEngine.Random.Range(0.28f, 0.38f);
-                float min = UnityEngine.Random.Range(0.26f, 0.56f);
+                // Precision shear line target window (0.11 to 0.16 height)
+                float size = UnityEngine.Random.Range(0.05f, 0.08f); // Precision: narrow green zone
+                float min = UnityEngine.Random.Range(0.28f, 0.70f);
                 combo.Add(new Vector2(min, Mathf.Clamp01(min + size)));
             }
             doorCombinations[door] = combo;
@@ -378,14 +378,14 @@ public class LockpickingMinigame : MonoBehaviour
         PinData pin = pins[selectedPinIndex];
         if (pin.isLocked) return;
 
-        // Smoothly accelerate pin upward against spring resistance
-        pin.velocity = Mathf.MoveTowards(pin.velocity, 2.5f, Time.deltaTime * 18f);
+        // Controllable featherable pin lift against spring tension
+        pin.velocity = Mathf.MoveTowards(pin.velocity, 0.9f, Time.deltaTime * 6.0f); // Precision: lower lift cap
 
         // Pick physical lifting tilt
         _pickTiltAngle = Mathf.MoveTowards(_pickTiltAngle, 14.0f, Time.deltaTime * 60f);
 
-        // Check alignment with forgiving margin
-        bool inShear = pin.currentHeight >= (pin.greenMin - 0.04f) && pin.currentHeight <= (pin.greenMax + 0.04f);
+        // Check alignment with tight precision margin
+        bool inShear = pin.currentHeight >= (pin.greenMin - 0.008f) && pin.currentHeight <= (pin.greenMax + 0.008f);
         if (inShear && statusBannerText != null)
         {
             statusBannerText.text = $"PIN {selectedPinIndex + 1} ALIGNED AT SHEAR LINE! PRESS [SPACE / E / RIGHT CLICK] TO SET";
@@ -405,8 +405,8 @@ public class LockpickingMinigame : MonoBehaviour
             tensionWrenchTransform.localRotation = Quaternion.Euler(0, 0, -5f);
         }
 
-        // Check if current height is inside the green target zone (with generous 0.04 margin)
-        if (pin.currentHeight >= (pin.greenMin - 0.04f) && pin.currentHeight <= (pin.greenMax + 0.04f))
+        // Check if current height is inside the green target zone (precise 0.008 margin — requires skill)
+        if (pin.currentHeight >= (pin.greenMin - 0.008f) && pin.currentHeight <= (pin.greenMax + 0.008f))
         {
             // Successfully locked pin at shear line!
             pin.isLocked = true;
@@ -439,17 +439,33 @@ public class LockpickingMinigame : MonoBehaviour
         }
         else
         {
-            // Missed green zone -> pin bounces down
-            pin.velocity = -2.0f;
+            // Missed green zone -> pin bounces down and tension wrench slips!
+            pin.velocity = -2.2f;
             if (_audioSource != null && _pinDropClip != null)
             {
-                _audioSource.PlayOneShot(_pinDropClip, 0.55f);
+                _audioSource.pitch = 0.85f;
+                _audioSource.PlayOneShot(_pinDropClip, 0.90f);
+            }
+
+            // Anti-brute force: Slipped tension releases a previously set pin!
+            bool droppedPrev = false;
+            for (int i = pins.Count - 1; i >= 0; i--)
+            {
+                if (i != selectedPinIndex && pins[i].isLocked)
+                {
+                    pins[i].isLocked = false;
+                    pins[i].velocity = -1.8f;
+                    droppedPrev = true;
+                    break;
+                }
             }
 
             if (statusBannerText != null)
             {
-                statusBannerText.text = "NOT ALIGNED AT SHEAR LINE — LIFT AND RETRY";
-                statusBannerText.color = new Color(0.95f, 0.35f, 0.35f, 1f);
+                statusBannerText.text = droppedPrev
+                    ? "TENSION SLIPPED! A PREVIOUS PIN DROPPED — FEATHER LIFT WITH PRECISION"
+                    : "NOT ALIGNED AT SHEAR LINE — FEATHER [W] OR MOUSE TO HOVER IN GREEN ZONE";
+                statusBannerText.color = new Color(1.0f, 0.30f, 0.30f, 1f);
             }
         }
     }
@@ -535,7 +551,7 @@ public class LockpickingMinigame : MonoBehaviour
             {
                 pin.currentHeight += pin.velocity * Time.deltaTime;
                 // Smooth spring gravity decay
-                pin.velocity -= 3.2f * Time.deltaTime;
+                pin.velocity -= 5.0f * Time.deltaTime; // Stronger gravity — requires precision
 
                 if (pin.currentHeight <= 0f)
                 {

@@ -195,7 +195,8 @@ public class BlackoutManager : MonoBehaviour
         _voltageLoopCoroutine = StartCoroutine(CampusGridVoltageLoop());
 
         // Kick off the random blackout schedule
-        if (!disableBlackouts && !GameModeManager.IsFreeRoamMode)
+        // In Active Mode free roam, allow the blackout schedule to run
+        if (!disableBlackouts && (!GameModeManager.IsFreeRoamMode || !DevDemoPanel.IsCalmMode))
             _scheduleCoroutine = StartCoroutine(BlackoutSchedule());
     }
 
@@ -217,7 +218,8 @@ public class BlackoutManager : MonoBehaviour
     /// </summary>
     public void TriggerBlackout(bool forceDev = false)
     {
-        if (GameModeManager.IsFreeRoamMode && !forceDev) return;
+        // In Free Roam: block random blackouts in Calm Mode, but allow Active Mode or dev-forced blackouts
+        if (GameModeManager.IsFreeRoamMode && !forceDev && DevDemoPanel.IsCalmMode) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (IsBlackoutActive) return;
         if (_blackoutCoroutine != null) StopCoroutine(_blackoutCoroutine);
@@ -322,8 +324,8 @@ public class BlackoutManager : MonoBehaviour
         // Despawn wandering student NPCs during blackout sequence
         DespawnWanderingNPCs();
 
-        // Lock all doors during blackout sequence
-        DoorInteract.LockAllDoorsForBlackout();
+        // Rooms remain accessible during blackout so players can reach lockers to hide!
+        // DoorInteract.LockAllDoorsForBlackout(); (disabled)
 
         // Kill ALL campus lights
         SetAllLightsEnabled(false);

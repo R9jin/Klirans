@@ -251,7 +251,7 @@ public class LobbyKeypadInteract : MonoBehaviour, IInteractable
         if (ObjectiveHUD.Instance != null)
         {
             ObjectiveHUD.Instance.SetObjective(
-                "Lobby Exit Na-unlock! (9-4-2-1)",
+                "Lobby Exit Na-unlock!",
                 "Na-override ang magnetic lockdown clamps sa lobby. Bukas na ang pintuan papunta sa kalayaan!"
             );
         }
@@ -299,7 +299,7 @@ public class LobbyKeypadInteract : MonoBehaviour, IInteractable
 
         bool knowsCode = ItemInspectionViewer3D.DiscoveredClueIDs.Contains("GuardLogbookCode");
         return knowsCode
-            ? "[E] I-override ang Lockdown gamit ang Code 9-4-2-1"
+            ? "[E] I-override ang Emergency Keypad"
             : "[E] Emergency Lobby Keypad (Naka-lock - 4-Digit Code)";
     }
 

@@ -107,15 +107,21 @@ public class AnxietyUI : MonoBehaviour
     {
         if (GameModeManager.IsFreeRoamMode)
         {
-            _targetFill = 0f;
-            if (barFill != null)
+            if (DevDemoPanel.IsCalmMode)
             {
-                barFill.fillAmount = 0f;
-                barFill.color = new Color(0.25f, 0.65f, 0.35f, 0.6f);
+                // Calm Mode: flat green bar, "FREE ROAM | CALM" label
+                _targetFill = 0f;
+                if (barFill != null)
+                {
+                    barFill.fillAmount = 0f;
+                    barFill.color = new Color(0.25f, 0.65f, 0.35f, 0.6f);
+                }
+                if (labelText != null) labelText.text = "FREE ROAM";
+                if (valueText != null) valueText.text = "CALM";
+                return;
             }
-            if (labelText != null) labelText.text = "FREE ROAM";
-            if (valueText != null) valueText.text = "CALM";
-            return;
+            // Active Mode: fall through and show real anxiety like normal gameplay
+            if (labelText != null) labelText.text = "ANXIETY";
         }
 
         _targetFill = Mathf.Clamp01(current / Mathf.Max(1f, max));

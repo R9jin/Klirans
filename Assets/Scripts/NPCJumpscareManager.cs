@@ -432,7 +432,7 @@ public class NPCJumpscareManager : MonoBehaviour
             return;
         }
 
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
 
         if (_playerTransform == null || _playerCam == null)
@@ -501,7 +501,7 @@ public class NPCJumpscareManager : MonoBehaviour
     private void LateUpdate()
     {
         if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver)) return;
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
         if (_playerCam == null || _isScaring) return;
 
         Vector3 playerEyePos = _playerCam.transform.position;
@@ -600,7 +600,7 @@ public class NPCJumpscareManager : MonoBehaviour
     private void OnPlayerControllerHitTransform(Transform hitTransform)
     {
         if (GameOverUI.IsCutsceneActive || (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver)) return;
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
         if (_isScaring || hitTransform == null || _playerTransform == null) return;
 
         for (int i = 0; i < _cachedNPCs.Count; i++)
@@ -663,7 +663,7 @@ public class NPCJumpscareManager : MonoBehaviour
 
     private bool CanTriggerScare()
     {
-        if (GameModeManager.IsFreeRoamMode) return false;
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return false;
         if (DevDemoPanel.IsGodModeActive) return false;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return false;
         if (GameOverUI.IsCutsceneActive) return false;
@@ -687,7 +687,7 @@ public class NPCJumpscareManager : MonoBehaviour
     /// </summary>
     public void PunishPlayerError(string reason, float probability = 0.55f)
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
         if (DevDemoPanel.IsGodModeActive) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (GameOverUI.IsCutsceneActive) return;
@@ -761,7 +761,7 @@ public class NPCJumpscareManager : MonoBehaviour
     /// </summary>
     public void TriggerJumpscare(SkinnedMeshRenderer targetSMR = null, bool isGuard = false)
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
         if (DevDemoPanel.IsGodModeActive) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (GameOverUI.IsCutsceneActive) return;

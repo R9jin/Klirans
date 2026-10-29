@@ -74,13 +74,14 @@ public class TheProctorManager : MonoBehaviour
 
     private void Start()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        // In free roam calm mode: cleanup and skip. In free roam active mode: allow enemy encounters.
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode)
         {
             CleanupProctor();
-            return;
+            // Still subscribe to events so Active Mode toggle works mid-session
         }
 
-        // Hook into BlackoutManager events
+        // Always hook into BlackoutManager events (Active Mode needs this in Free Roam)
         if (BlackoutManager.Instance != null)
         {
             BlackoutManager.Instance.OnBlackoutStart += HandleBlackoutStart;
@@ -201,7 +202,8 @@ public class TheProctorManager : MonoBehaviour
 
     private void HandleBlackoutStart()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        // In Free Roam, only run encounters in Active Mode (IsCalmMode == false)
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
 
         // Prevent duplicate encounters if one is already running
         if (isEncounterActive || _isBlackoutEnding) return;

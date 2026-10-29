@@ -80,6 +80,16 @@ public class ProctorJumpscareQTE : MonoBehaviour
         }
         _instance = this;
 
+        // Failsafe: Ensure all scene-baked QTE containers start deactivated
+        var existingContainers = Resources.FindObjectsOfTypeAll<GameObject>();
+        for (int i = 0; i < existingContainers.Length; i++)
+        {
+            if (existingContainers[i] != null && existingContainers[i].name == "ProctorQTEContainer" && existingContainers[i].scene.isLoaded)
+            {
+                existingContainers[i].SetActive(false);
+            }
+        }
+
         _audioSource = gameObject.AddComponent<AudioSource>();
         _audioSource.spatialBlend = 0f;
         _audioSource.playOnAwake = false;
@@ -106,6 +116,16 @@ public class ProctorJumpscareQTE : MonoBehaviour
                 Instance._qteRoot = null;
             }
             Instance._isQTEActive = false;
+        }
+
+        // Failsafe: Unconditionally deactivate any scene-baked QTE containers
+        var allContainers = Resources.FindObjectsOfTypeAll<GameObject>();
+        for (int i = 0; i < allContainers.Length; i++)
+        {
+            if (allContainers[i] != null && (allContainers[i].name == "ProctorQTEContainer" || allContainers[i].name == "QTEBanner") && allContainers[i].scene.isLoaded)
+            {
+                allContainers[i].SetActive(false);
+            }
         }
     }
 

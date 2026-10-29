@@ -688,7 +688,7 @@ MonoBehaviour:
   clueID: LockerKeyCode
   clueTitle: Nakatagong Numero sa Key Tag
   clueDescription: 'May nakaukit na red ink code sa likod ng key tag: ''CAB-04 //
-    CODE: 7-3-2'' para sa 2nd Floor Faculty Records Locker!'
+    CODE: 8-4-1'' para sa 2nd Floor Faculty Records Locker!'
   revealDirection: {x: -0, y: -0, z: -1}
   detectionAngle: 48
   isDiscovered: 0
