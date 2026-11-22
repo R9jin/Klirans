@@ -165,6 +165,7 @@ public class PickupItem : MonoBehaviour, IInteractable
 
                 var failsafe = GetComponentInParent<DroppedItemFailsafe>();
                 GameObject toDestroy = (failsafe != null) ? failsafe.gameObject : gameObject;
+                SaveManager.RegisterPickedUpItem(gameObject.name);
                 Destroy(toDestroy);
             }
         }

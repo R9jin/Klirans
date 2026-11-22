@@ -84,7 +84,6 @@ public class TutorialScreenUI : MonoBehaviour
 
     private void Start()
     {
-        HookOpeningCutsceneIfPresent();
     }
 
     private void OnDestroy()
@@ -92,10 +91,6 @@ public class TutorialScreenUI : MonoBehaviour
         if (Instance == this)
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
-            if (OpeningCutsceneDirector.Instance != null)
-            {
-                OpeningCutsceneDirector.Instance.OnCutsceneFinished -= OnOpeningCutsceneFinished;
-            }
         }
     }
 
@@ -104,33 +99,6 @@ public class TutorialScreenUI : MonoBehaviour
         IsOpen = false;
         _hasShownPreGameTutorialThisScene = false;
         if (_modalRoot != null) _modalRoot.SetActive(false);
-
-        if (scene.name == "SampleScene")
-        {
-            StartCoroutine(DelayedCutsceneHookRoutine());
-        }
-    }
-
-    private System.Collections.IEnumerator DelayedCutsceneHookRoutine()
-    {
-        yield return null;
-        HookOpeningCutsceneIfPresent();
-    }
-
-    private void HookOpeningCutsceneIfPresent()
-    {
-        if (OpeningCutsceneDirector.Instance != null)
-        {
-            OpeningCutsceneDirector.Instance.OnCutsceneFinished -= OnOpeningCutsceneFinished;
-            OpeningCutsceneDirector.Instance.OnCutsceneFinished += OnOpeningCutsceneFinished;
-        }
-    }
-
-    private void OnOpeningCutsceneFinished()
-    {
-        if (_hasShownPreGameTutorialThisScene) return;
-        _hasShownPreGameTutorialThisScene = true;
-        Open(0, null);
     }
 
     private void Update()

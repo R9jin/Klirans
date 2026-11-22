@@ -131,21 +131,31 @@ public class LoopingStaircaseSystem : MonoBehaviour
         },
         
         // ─────────────────────────────────────────────────────────────────
-        //  FORCED 3F → 1F (UPWARD LOOP)
+        //  3F UPWARD LOOP — cross-stairwell redirect (seamless, no lobby snap)
+        //  Instead of jarring 3F→1F, redirect player to another stairwell at 3F
+        //  Maintains the looping illusion without a visible teleport to the lobby.
         // ─────────────────────────────────────────────────────────────────
         
-        // 3F → forced back to 1F (going up — no 4th floor exists)
+        // MainStairs 3F up → redirect to RightStairs 3F (cross-stair seamless loop)
         new StaircaseConnection {
-            stairwellID = "MainStairs", fromFloor = 3, goingUp = true, normalDestination = 1, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0], forceLoop = true
+            stairwellID = "MainStairs", fromFloor = 3, goingUp = true, normalDestination = 3, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 3, weight = 1.0f }
+            }, forceLoop = false
         },
+        // RightStairs 3F up → redirect to LeftStairs 3F (cross-stair seamless loop)
         new StaircaseConnection {
-            stairwellID = "RightStairs", fromFloor = 3, goingUp = true, normalDestination = 1, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0], forceLoop = true
+            stairwellID = "RightStairs", fromFloor = 3, goingUp = true, normalDestination = 3, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 3, weight = 1.0f }
+            }, forceLoop = false
         },
+        // LeftStairs 3F up → redirect to MainStairs 3F (cross-stair seamless loop)
         new StaircaseConnection {
-            stairwellID = "LeftStairs", fromFloor = 3, goingUp = true, normalDestination = 1, normalProbability = 1.0f,
-            alternateOutcomes = new AlternateOutcome[0], forceLoop = true
+            stairwellID = "LeftStairs", fromFloor = 3, goingUp = true, normalDestination = 3, normalProbability = 1.0f,
+            alternateOutcomes = new AlternateOutcome[] {
+                new AlternateOutcome { destinationFloor = 3, weight = 1.0f }
+            }, forceLoop = false
         },
     };
 
@@ -298,6 +308,13 @@ public class LoopingStaircaseSystem : MonoBehaviour
         if (transitionInProgress) return;
         if (spawnMap == null) BuildLookupTables();
         if (playerObject == null) AutoFindReferences();
+
+        // Anti-jarring guard: Never dump the player from 3F into the 1F lobby!
+        // At 3F, seamlessly loop horizontally between LeftStairs and RightStairs, or to 3F landing.
+        if (fromFloor == 3)
+        {
+            destinationFloor = 3;
+        }
 
         // Prefer the ArrivingUp spawn (player was going up when caught by boundary)
         FloorSpawnPoint spawn = null;
@@ -486,8 +503,24 @@ public class LoopingStaircaseSystem : MonoBehaviour
         bool usedRelative = false;
         float yDelta = GetVerticalFloorOffset(stairwellID, fromFloor, toFloor);
 
+        // Seamless horizontal shift between LeftStairs and RightStairs (mirrored 65.75m apart along Z)
+        if (fromFloor == 3 && toFloor == 3)
+        {
+            float zShift = 0f;
+            if (stairwellID == "LeftStairs") zShift = 65.75f; // Transfer to RightStairs
+            else if (stairwellID == "RightStairs") zShift = -65.75f; // Transfer to LeftStairs
+
+            if (Mathf.Abs(zShift) > 1f)
+            {
+                playerObject.transform.position += new Vector3(0f, 0f, zShift);
+                playerObject.transform.rotation = Quaternion.Euler(0f, savedPlayerYaw, 0f);
+                usedRelative = true;
+                Debug.Log($"[LoopingStaircase] Seamless horizontal stairwell loop ({stairwellID} -> shift {zShift:+0.00;-0.00}m Z)");
+            }
+        }
+
         // Preferred: Relative vertical shift so player remains at exact step position on identical stairs
-        if (Mathf.Abs(yDelta) > 0.1f)
+        if (!usedRelative && Mathf.Abs(yDelta) > 0.1f)
         {
             Vector3 testPos = playerObject.transform.position + new Vector3(0f, yDelta, 0f);
             playerObject.transform.position = testPos;
@@ -631,12 +664,24 @@ public class LoopingStaircaseSystem : MonoBehaviour
 
         foreach (var conn in staircaseConnections)
         {
+            // CRITICAL USER FIX: Normal floor progression (1F <-> 2F <-> 3F) is ALWAYS 100% normal.
+            // Never randomly dump the player into the 1F lobby!
+            if (conn.fromFloor != 3 || !conn.goingUp)
+            {
+                conn.normalProbability = 1.0f;
+                conn.alternateOutcomes = new AlternateOutcome[0];
+            }
+            else
+            {
+                // Top-floor upward boundary loop: loop seamlessly between LeftStairs and RightStairs on 3F
+                // instead of jarringly dumping the player on the base floor!
+                conn.forceLoop = true;
+                conn.normalDestination = 3;
+            }
+
             var key = (conn.stairwellID, conn.fromFloor, conn.goingUp);
             if (connectionMap.ContainsKey(key))
             {
-                Debug.LogWarning($"[LoopingStaircase] Duplicate connection: " +
-                                 $"stairwell='{conn.stairwellID}' from={conn.fromFloor} " +
-                                 $"goingUp={conn.goingUp}. Only first entry used.");
                 continue;
             }
             connectionMap[key] = conn;

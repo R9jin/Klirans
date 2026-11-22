@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 
 /// <summary>
 /// Provides retro PSX-style hover highlights, prefix arrows, and sound feedback
-/// for buttons in the Main Menu.
+/// for buttons in the Main Menu and Pause Menu.
 /// </summary>
 public class MenuButtonHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
@@ -40,6 +40,7 @@ public class MenuButtonHover : MonoBehaviour, IPointerEnterHandler, IPointerExit
             _audioSource.playOnAwake = false;
             _audioSource.spatialBlend = 0f;
         }
+        _audioSource.ignoreListenerPause = true;
     }
 
     private void OnEnable()

@@ -688,7 +688,7 @@ MonoBehaviour:
   clueID: CassetteSafeCode
   clueTitle: Lihim na Code sa Tape Reel
   clueDescription: 'May sulat-kamay gamit ang ballpen sa likod ng cassette label:
-    ''SAFE CODE: 4-1-9''. Ito ang combination sa Guidance Wall Safe sa likod ng frame
+    ''SAFE CODE: 6-2-8''. Ito ang combination sa Guidance Wall Safe sa likod ng frame
     sa Room 207!'
   revealDirection: {x: 0, y: 0, z: 1}
   detectionAngle: 48

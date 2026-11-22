@@ -17,6 +17,7 @@ public static class DeployFacultyVisuals
         public string modelAsset;
         public string idleFbx;
         public string walkFbx;
+        public string runFbx;
         public string talkFbx;
         public string texPath;
         public string matPath;
@@ -45,6 +46,75 @@ public static class DeployFacultyVisuals
         return null;
     }
 
+    /// <summary>
+    /// Creates or updates a looping, in-place AnimationClip asset from an FBX clip.
+    /// Strips root/hips horizontal (X/Z) translation so the 37x armature scale never throws the mesh off its collider.
+    /// </summary>
+    public static AnimationClip GetOrCreateInPlaceLoopClip(string fbxPath, string outName)
+    {
+        AnimationClip srcClip = LoadClipFromFBX(fbxPath);
+        if (srcClip == null) return null;
+
+        if (!AssetDatabase.IsValidFolder("Assets/NPC Assets/Animations/InPlace"))
+        {
+            AssetDatabase.CreateFolder("Assets/NPC Assets/Animations", "InPlace");
+        }
+
+        string dstPath = $"Assets/NPC Assets/Animations/InPlace/{outName}.anim";
+        AnimationClip dstClip = AssetDatabase.LoadAssetAtPath<AnimationClip>(dstPath);
+        bool isNew = false;
+        if (dstClip == null)
+        {
+            dstClip = new AnimationClip();
+            isNew = true;
+        }
+        else
+        {
+            dstClip.ClearCurves();
+        }
+
+        EditorUtility.CopySerialized(srcClip, dstClip);
+        dstClip.name = outName;
+
+        // Strip horizontal X/Z drift on mixamorig:Hips so locomotion is strictly in-place
+        var bindings = AnimationUtility.GetCurveBindings(dstClip);
+        foreach (var b in bindings)
+        {
+            if (b.path.EndsWith("Hips") &&
+                (b.propertyName == "m_LocalPosition.x" || b.propertyName == "m_LocalPosition.z"))
+            {
+                AnimationCurve curve = AnimationUtility.GetEditorCurve(dstClip, b);
+                if (curve != null && curve.keys.Length > 0)
+                {
+                    float startVal = curve.keys[0].value;
+                    float endTime = curve.keys[curve.keys.Length - 1].time;
+                    AnimationCurve flat = AnimationCurve.Constant(0f, endTime, startVal);
+                    AnimationUtility.SetEditorCurve(dstClip, b, flat);
+                }
+            }
+        }
+
+        // Enable seamless looping on the clip settings
+        AnimationClipSettings settings = AnimationUtility.GetAnimationClipSettings(dstClip);
+        settings.loopTime = true;
+        settings.loopBlend = true;
+        settings.keepOriginalOrientation = true;
+        settings.keepOriginalPositionXZ = true;
+        settings.keepOriginalPositionY = true;
+        AnimationUtility.SetAnimationClipSettings(dstClip, settings);
+
+        if (isNew)
+        {
+            AssetDatabase.CreateAsset(dstClip, dstPath);
+        }
+        else
+        {
+            EditorUtility.SetDirty(dstClip);
+        }
+
+        return dstClip;
+    }
+
     private static Material GetOrCreateMaterial(string matPath, string texPath)
     {
         Material mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
@@ -66,7 +136,7 @@ public static class DeployFacultyVisuals
         return mat;
     }
 
-    private static AnimatorController CreateOrGetAnimatorController(string ctrlPath, string idleFbx, string walkFbx, string talkFbx)
+    public static AnimatorController CreateOrGetAnimatorController(string ctrlPath, string goName, string idleFbx, string walkFbx, string runFbx, string talkFbx)
     {
         AnimatorController ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(ctrlPath);
         if (ctrl == null)
@@ -86,11 +156,24 @@ public static class DeployFacultyVisuals
             rootStateMachine.RemoveState(rootStateMachine.states[0].state);
         }
 
-        AnimationClip idleClip = LoadClipFromFBX(idleFbx);
-        AnimationClip walkClip = LoadClipFromFBX(walkFbx);
-        AnimationClip talkClip = LoadClipFromFBX(talkFbx);
+        // Remove any old orphaned BlendTrees in the controller sub-assets
+        Object[] subAssets = AssetDatabase.LoadAllAssetsAtPath(ctrlPath);
+        foreach (var sub in subAssets)
+        {
+            if (sub is BlendTree)
+            {
+                Object.DestroyImmediate(sub, true);
+            }
+        }
 
-        // Locomotion BlendTree State
+        AnimationClip idleClip = GetOrCreateInPlaceLoopClip(idleFbx, $"{goName}_Idle_InPlace");
+        AnimationClip walkClip = GetOrCreateInPlaceLoopClip(walkFbx, $"{goName}_Walk_InPlace");
+        AnimationClip runClip  = !string.IsNullOrEmpty(runFbx)
+            ? GetOrCreateInPlaceLoopClip(runFbx, $"{goName}_Run_InPlace")
+            : walkClip;
+        AnimationClip talkClip = GetOrCreateInPlaceLoopClip(talkFbx, $"{goName}_Talk_InPlace");
+
+        // Locomotion BlendTree State (persisted as sub-asset in controller!)
         var locomotionState = rootStateMachine.AddState("Locomotion");
         var blendTree = new BlendTree
         {
@@ -99,9 +182,14 @@ public static class DeployFacultyVisuals
             blendParameter = "Speed",
             useAutomaticThresholds = false
         };
+        AssetDatabase.AddObjectToAsset(blendTree, ctrl);
+
         if (idleClip != null) blendTree.AddChild(idleClip, 0f);
         if (walkClip != null) blendTree.AddChild(walkClip, 1f);
         else if (idleClip != null) blendTree.AddChild(idleClip, 1f);
+
+        if (runClip != null) blendTree.AddChild(runClip, 2f);
+        else if (walkClip != null) blendTree.AddChild(walkClip, 2f);
 
         locomotionState.motion = blendTree;
         rootStateMachine.defaultState = locomotionState;
@@ -115,16 +203,17 @@ public static class DeployFacultyVisuals
             // Locomotion -> Talking
             var toTalk = locomotionState.AddTransition(talkState);
             toTalk.AddCondition(AnimatorConditionMode.If, 0f, "Talking");
-            toTalk.duration = 0.2f;
+            toTalk.duration = 0.15f;
             toTalk.hasExitTime = false;
 
             // Talking -> Locomotion
             var toLoco = talkState.AddTransition(locomotionState);
             toLoco.AddCondition(AnimatorConditionMode.IfNot, 0f, "Talking");
-            toLoco.duration = 0.2f;
+            toLoco.duration = 0.15f;
             toLoco.hasExitTime = false;
         }
 
+        EditorUtility.SetDirty(blendTree);
         EditorUtility.SetDirty(ctrl);
         return ctrl;
     }
@@ -160,6 +249,7 @@ public static class DeployFacultyVisuals
                 modelAsset = "Assets/NPC Assets/Models/drei.fbx",
                 idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof/IdleProf1.fbx",
                 walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/CatwalkProf1.fbx",
+                runFbx  = "Assets/NPC Assets/Animations/animateds/old_prof/RunningProf1.fbx",
                 talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/TalkingProf1.fbx",
                 texPath = "Assets/NPC Assets/Animations/Texture/old_prof_texture1.png",
                 matPath = "Assets/NPC Assets/Materials/CCSDean_Mat.mat",
@@ -176,6 +266,7 @@ public static class DeployFacultyVisuals
                 modelAsset = "Assets/NPC Assets/Models/drei.fbx",
                 idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/IdleProf2.fbx",
                 walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/CatwalkProf2.fbx",
+                runFbx  = "Assets/NPC Assets/Animations/animateds/old_prof2/RunningProf2.fbx",
                 talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/TalkingProf2.fbx",
                 texPath = "Assets/NPC Assets/Animations/Texture/old_prof_texture2.png",
                 matPath = "Assets/NPC Assets/Materials/EVP_Mat.mat",
@@ -192,6 +283,7 @@ public static class DeployFacultyVisuals
                 modelAsset = "Assets/NPC Assets/Models/drei.fbx",
                 idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof3/IdlePhil.fbx",
                 walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof3/WalkingPhil.fbx",
+                runFbx  = "Assets/NPC Assets/Animations/animateds/old_prof3/RunningPhil.fbx",
                 talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof3/TalkingPhil.fbx",
                 texPath = "Assets/NPC Assets/Animations/Texture/old_prof_texture3.png",
                 matPath = "Assets/NPC Assets/Materials/Librarian_Mat.mat",
@@ -208,6 +300,7 @@ public static class DeployFacultyVisuals
                 modelAsset = "Assets/NPC Assets/Animations/Texture/female_prof1.fbx",
                 idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof/IdleProf1.fbx",
                 walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/CatwalkProf1.fbx",
+                runFbx  = "Assets/NPC Assets/Animations/animateds/old_prof/RunningProf1.fbx",
                 talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/TalkingProf1.fbx",
                 texPath = "Assets/NPC Assets/Animations/Texture/female_prof_texture1.png",
                 matPath = "Assets/NPC Assets/Materials/GuidanceCounselor_Mat.mat",
@@ -225,6 +318,7 @@ public static class DeployFacultyVisuals
                 modelAsset = "Assets/NPC Assets/Animations/Texture/female_prof2.fbx",
                 idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/IdleProf2.fbx",
                 walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/CatwalkProf2.fbx",
+                runFbx  = "Assets/NPC Assets/Animations/animateds/old_prof2/RunningProf2.fbx",
                 talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof2/TalkingProf2.fbx",
                 texPath = "Assets/NPC Assets/Animations/Texture/female_prof_texture2.png",
                 matPath = "Assets/NPC Assets/Materials/Cashier_Mat.mat",
@@ -232,16 +326,17 @@ public static class DeployFacultyVisuals
                 isFemale = true
             },
             // 6. Room 104 - University Registrar (1F) -> Female Professor 3 (female_prof3)
-            // Behind service window workstation (-81.3, 2.35, 4.90), facing West (-X)
+            // Behind service window workstation (-81.75, 2.35, 4.86), facing West (-X)
             new FacultyDef
             {
                 goName = "Signatory_Registrar",
                 roleTitle = "University Registrar",
-                position = new Vector3(-81.3f, 2.35f, 4.90f),
+                position = new Vector3(-81.75f, 2.35f, 4.86f),
                 rotation = Quaternion.Euler(0f, 270f, 0f),
                 modelAsset = "Assets/NPC Assets/Animations/Texture/female_prof3.fbx",
                 idleFbx = "Assets/NPC Assets/Animations/animateds/old_prof/IdleProf1.fbx",
                 walkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/CatwalkProf1.fbx",
+                runFbx  = "Assets/NPC Assets/Animations/animateds/old_prof/RunningProf1.fbx",
                 talkFbx = "Assets/NPC Assets/Animations/animateds/old_prof/TalkingProf1.fbx",
                 texPath = "Assets/NPC Assets/Animations/Texture/female_prof_texture3.png",
                 matPath = "Assets/NPC Assets/Materials/Registrar_Mat.mat",
@@ -271,9 +366,17 @@ public static class DeployFacultyVisuals
                 continue;
             }
 
-            // Set proper position and rotation
-            staffGO.transform.position = def.position;
-            staffGO.transform.rotation = def.rotation;
+            var sitCtrl = staffGO.GetComponent<NPCSitController>();
+            if (sitCtrl != null && sitCtrl.HasChair && sitCtrl.SeatedRootPos != Vector3.zero)
+            {
+                staffGO.transform.position = sitCtrl.SeatedRootPos;
+                staffGO.transform.rotation = sitCtrl.SeatedRootRot;
+            }
+            else
+            {
+                staffGO.transform.position = def.position;
+                staffGO.transform.rotation = def.rotation;
+            }
 
             // Remove legacy VisualModel if present
             Transform oldVM = staffGO.transform.Find("VisualModel");
@@ -287,7 +390,7 @@ public static class DeployFacultyVisuals
             Mesh meshAsset = AssetDatabase.LoadAssetAtPath<Mesh>(def.modelAsset);
             GameObject idlePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(def.idleFbx);
             Material mat = GetOrCreateMaterial(def.matPath, def.texPath);
-            AnimatorController ctrl = CreateOrGetAnimatorController(def.ctrlPath, def.idleFbx, def.walkFbx, def.talkFbx);
+            AnimatorController ctrl = CreateOrGetAnimatorController(def.ctrlPath, def.goName, def.idleFbx, def.walkFbx, def.runFbx, def.talkFbx);
 
             if (meshAsset == null)
             {
@@ -535,7 +638,7 @@ public static class DeployFacultyVisuals
             col.center = new Vector3(0f, col.height * 0.5f, 0f);
 
             EditorUtility.SetDirty(staffGO);
-            log.AppendLine($"Successfully deployed 3D visual rig, textures, and anim controller for {def.goName} ({def.roleTitle}) at {def.position}!");
+            log.AppendLine($"Successfully deployed 3D visual rig, textures, and anim controller for {def.goName} ({def.roleTitle}) at {staffGO.transform.position}!");
         }
 
         EditorSceneManager.MarkSceneDirty(activeScene);

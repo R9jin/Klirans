@@ -1,596 +1,1698 @@
-using System.Collections;
 using UnityEngine;
+
 using UnityEngine.SceneManagement;
+
 using UnityEngine.UI;
 
+using UnityEngine.EventSystems;
+
+
+
 /// <summary>
-/// PauseMenu — ESC pauses the game and shows a styled panel matching the main menu.
-/// Builds all UI entirely in code — no prefab required.
-/// Style: "watch people die" horror font, dark navy/charcoal panel, crimson red accents.
+
+/// Controls the in-game Pause Menu for KLIRANS.
+
+/// Replicates the authentic KLIRANS Main Menu 1:1 with left-aligned horror typography,
+
+/// dark crimson-black vignette backdrop (MenuLeftGradient), and retro PSX hover feedback.
+
 /// </summary>
+
 public class PauseMenu : MonoBehaviour
+
 {
+
+    public static PauseMenu Instance { get; private set; }
+
     public static bool GameIsPaused = false;
 
-    // ── References (auto-built or inspector-assigned) ─────────────────────────
-    [Header("UI Panels")]
+
+
+    [Tooltip("Drag your PauseMenuPanel here from the Hierarchy")]
+
     public GameObject pauseMenuUI;
-    private GameObject _pausePanelRoot;
-    private Canvas     _pauseCanvas;
 
-    // ── Cached player refs ────────────────────────────────────────────────────
-    private PlayerMovement _playerMovement;
 
-    // ── Fonts ─────────────────────────────────────────────────────────────────
-    private Font _horrorFont;  // "watch people die"
-    private Font _bodyFont;    // LegacyRuntime fallback
 
-    // ── Colour palette (matches main menu) ────────────────────────────────────
-    private static readonly Color ColPanel      = new Color(0.04f, 0.04f, 0.06f, 0.94f);   // near-black navy
-    private static readonly Color ColOverlay    = new Color(0f,    0f,    0f,    0.55f);    // dim backdrop
-    private static readonly Color ColTitle      = new Color(0.96f, 0.96f, 0.96f, 1f);      // bright off-white
-    private static readonly Color ColSubtitle   = new Color(0.85f, 0.22f, 0.22f, 1f);      // crimson red
-    private static readonly Color ColBtnText    = new Color(0.88f, 0.88f, 0.88f, 1f);      // light grey
-    private static readonly Color ColBtnHover   = new Color(1f,    0.25f, 0.25f, 1f);      // red hover
-    private static readonly Color ColLabel      = new Color(0.85f, 0.85f, 0.85f, 1f);
-    private static readonly Color ColSliderFill = new Color(0.85f, 0.15f, 0.15f, 1f);
-    private static readonly Color ColSliderBg   = new Color(0.20f, 0.20f, 0.25f, 1f);
+    [Header("Sub-Panels")]
 
-    // ── Volume / FOV ──────────────────────────────────────────────────────────
-    private Slider _volumeSlider;
-    private Text   _volumeValueText;
-    private Slider _fovSlider;
-    private Text   _fovValueText;
-    private Slider _sensitivitySlider;
-    private Text   _sensitivityValueText;
+    [SerializeField] private GameObject _mainButtonsPanel;
 
-    // ─────────────────────────────────────────────────────────────────────────
+    [SerializeField] private GameObject _settingsPanel;
+
+    [SerializeField] private GameObject _controlsPanel;
+
+
+
+    [Header("Settings Sliders")]
+
+    [SerializeField] private Slider _volumeSlider;
+
+    [SerializeField] private Text _volumeValueText;
+
+    [SerializeField] private Slider _fovSlider;
+
+    [SerializeField] private Text _fovValueText;
+
+    [SerializeField] private Slider _sensitivitySlider;
+
+    [SerializeField] private Text _sensitivityValueText;
+
+
+
+    private bool _wasCursorVisibleBeforePause = false;
+
+    private CursorLockMode _cursorLockBeforePause = CursorLockMode.Locked;
+
+
+
     private void Awake()
+
     {
-        LoadFonts();
-        if (pauseMenuUI != null)
+
+        if (Instance != null && Instance != this)
+
         {
-            _pausePanelRoot = pauseMenuUI;
+
+            if (GetComponent<Canvas>() == null && pauseMenuUI == null)
+
+            {
+
+                Destroy(gameObject);
+
+                return;
+
+            }
+
+            Destroy(Instance.gameObject);
+
         }
-        else
-        {
-            BuildPauseUI();
-            pauseMenuUI = _pausePanelRoot;
-        }
-        SetPaused(false);
+
+        Instance = this;
+
+        EnsurePauseMenuUIBuilt();
+
     }
+
+
 
     private void Start()
+
     {
+
         GameIsPaused = false;
+
         Time.timeScale = 1f;
 
-        _playerMovement = FindAnyObjectByType<PlayerMovement>();
+        AudioListener.pause = false;
 
-        // Init sliders from saved prefs
-        float vol  = PlayerPrefs.GetFloat("MasterVolume",    1.0f);
-        float fov  = PlayerPrefs.GetFloat("CameraFOV",       60f);
-        float sens = PlayerPrefs.GetFloat("MouseSensitivity", 2.0f);
 
-        AudioListener.volume = vol;
 
-        if (_volumeSlider      != null) { _volumeSlider.value      = vol;  }
-        if (_fovSlider         != null) { _fovSlider.value         = fov;  }
-        if (_sensitivitySlider != null) { _sensitivitySlider.value  = sens; }
+        EnsurePauseMenuUIBuilt();
 
-        UpdateVolumeText(vol);
-        UpdateFOVText(fov);
-        UpdateSensText(sens);
-        ApplyFOV(fov);
-    }
 
-    /// <summary>
-    /// Returns true if any gameplay modal, interactive puzzle, inspection, or dialogue is currently active.
-    /// Used across subsystems to prevent input leakage, accidental pause overrides, or click bleed.
-    /// </summary>
-    public static bool IsAnyModalOrPuzzleOpen
-    {
-        get
+
+        if (pauseMenuUI != null)
+
         {
-            if (OpeningCutsceneDirector.IsCutsceneActive) return true;
-            if (WinCutsceneDirector.IsCutsceneActive) return true;
-            if (GuardChaseCutsceneDirector.IsCutsceneActive) return true;
-            if (TutorialScreenUI.IsOpen) return true;
-            if (GameSettingsManager.IsSettingsOpen) return true;
-            if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return true;
-            if (HamAndCheeseVendorUI.Instance != null && HamAndCheeseVendorUI.Instance.IsOpen) return true;
-            if (LockpickingMinigame.Instance != null && LockpickingMinigame.Instance.IsActive) return true;
-            if (ItemInspectionModal.IsOpen) return true;
-            if (CashierBalancePuzzle.Instance != null && CashierBalancePuzzle.Instance.IsOpen) return true;
-            if (GuidanceWordPuzzle.Instance != null && GuidanceWordPuzzle.Instance.IsOpen) return true;
-            if (RegistrarDocumentSortPuzzle.Instance != null && RegistrarDocumentSortPuzzle.Instance.IsOpen) return true;
-            if (GuidanceSafePuzzle.Instance != null && GuidanceSafePuzzle.Instance.IsOpen) return true;
-            if (LobbyKeypadInteract.Instance != null && LobbyKeypadInteract.Instance.IsOpen) return true;
-            if (InventoryScreen.Instance != null && InventoryScreen.Instance.IsOpen) return true;
-            return false;
+
+            pauseMenuUI.SetActive(false);
+
         }
+
+        if (_settingsPanel != null) _settingsPanel.SetActive(false);
+
+        if (_controlsPanel != null) _controlsPanel.SetActive(false);
+
+        if (_mainButtonsPanel != null) _mainButtonsPanel.SetActive(true);
+
     }
+
+
 
     private void Update()
-    {
-        // Don't allow pausing during dialogue, jumpscare, vendor, minigame, puzzles, or while reading an inspected note/document
-        if (IsAnyModalOrPuzzleOpen) return;
 
-        if (DevDemoPanel.IsOpen)
-        {
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                DevDemoPanel.ClosePanel();
-            }
-            return;
-        }
+    {
 
         if (Input.GetKeyDown(KeyCode.Escape))
-            TogglePause();
+
+        {
+
+            if (GameSettingsManager.IsSettingsOpen)
+
+            {
+
+                return;
+
+            }
+
+
+
+            // Do not open Pause Menu on Escape if a puzzle or modal is closing on this frame,
+
+            // or if a cutscene or Game Over is playing.
+
+            if (!GameIsPaused && IsAnyModalOrPuzzleOpen)
+
+            {
+
+                return;
+
+            }
+
+
+
+            if (GameIsPaused)
+
+            {
+
+                if (_settingsPanel != null && _settingsPanel.activeSelf)
+
+                {
+
+                    CloseSettingsPanel();
+
+                    return;
+
+                }
+
+                if (_controlsPanel != null && _controlsPanel.activeSelf)
+
+                {
+
+                    CloseControlsPanel();
+
+                    return;
+
+                }
+
+                Resume();
+
+            }
+
+            else
+
+            {
+
+                Pause();
+
+            }
+
+        }
+
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Pause Logic
-    // ─────────────────────────────────────────────────────────────────────────
 
-    public void TogglePause()
+
+    /// <summary>
+
+    /// True if any interactive puzzle, minigame, inspection modal, inventory, or dialogue is currently open.
+
+    /// </summary>
+
+    public static bool IsAnyActivePuzzleOrModalOpen
+
     {
-        if (GameIsPaused) Resume(); else Pause();
+
+        get
+
+        {
+
+            if (ItemInspectionModal.IsOpen) return true;
+
+            if (GuidanceWordPuzzle.Instance != null && GuidanceWordPuzzle.Instance.IsOpen) return true;
+
+            if (CashierBalancePuzzle.Instance != null && CashierBalancePuzzle.Instance.IsOpen) return true;
+
+            if (RegistrarDocumentSortPuzzle.Instance != null && RegistrarDocumentSortPuzzle.Instance.IsOpen) return true;
+
+            if (GuidanceSafePuzzle.Instance != null && GuidanceSafePuzzle.Instance.IsOpen) return true;
+
+            if (ExecutiveSafePuzzle.Instance != null && ExecutiveSafePuzzle.Instance.IsOpen) return true;
+
+            if (LobbyKeypadInteract.Instance != null && LobbyKeypadInteract.Instance.IsOpen) return true;
+
+            if (LockpickingMinigame.IsMinigameActive) return true;
+
+            if (HamAndCheeseVendorUI.Instance != null && HamAndCheeseVendorUI.Instance.IsOpen) return true;
+
+            if (InventoryScreen.Instance != null && InventoryScreen.Instance.IsOpen) return true;
+
+            if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive) return true;
+
+            return false;
+
+        }
+
     }
+
+
+
+    /// <summary>
+
+    /// Force-exits all currently open puzzles, minigames, inspection modals, vendor menus, inventory, and dialogues.
+
+    /// Called immediately when the player is currently being or about to be jumpscared (especially by The Proctor)
+
+    /// or when Game Over triggers.
+
+    /// </summary>
+
+    public static void ForceCloseAllModalsAndPuzzles()
+
+    {
+
+        // 1. Guidance Scrambled Letter Core Values Puzzle (Signature 1)
+
+        var guidancePuzzles = Object.FindObjectsByType<GuidanceWordPuzzle>(FindObjectsInactive.Include);
+
+        for (int i = 0; i < guidancePuzzles.Length; i++)
+
+        {
+
+            if (guidancePuzzles[i] != null)
+
+            {
+
+                guidancePuzzles[i].ClosePuzzle();
+
+                if (guidancePuzzles[i].puzzlePanel != null) guidancePuzzles[i].puzzlePanel.SetActive(false);
+
+                if (guidancePuzzles[i].backdropOverlay != null) guidancePuzzles[i].backdropOverlay.SetActive(false);
+
+            }
+
+        }
+
+        if (GuidanceWordPuzzle.Instance != null)
+
+        {
+
+            GuidanceWordPuzzle.Instance.ClosePuzzle();
+
+            if (GuidanceWordPuzzle.Instance.puzzlePanel != null) GuidanceWordPuzzle.Instance.puzzlePanel.SetActive(false);
+
+            if (GuidanceWordPuzzle.Instance.backdropOverlay != null) GuidanceWordPuzzle.Instance.backdropOverlay.SetActive(false);
+
+        }
+
+
+
+        // 2. Cashier Balance / Ledger Settlement Puzzle (Signature 5)
+
+        var cashierPuzzles = Object.FindObjectsByType<CashierBalancePuzzle>(FindObjectsInactive.Include);
+
+        for (int i = 0; i < cashierPuzzles.Length; i++)
+
+        {
+
+            if (cashierPuzzles[i] != null)
+
+            {
+
+                cashierPuzzles[i].ClosePuzzle();
+
+                if (cashierPuzzles[i].puzzlePanel != null) cashierPuzzles[i].puzzlePanel.SetActive(false);
+
+                if (cashierPuzzles[i].backdropOverlay != null) cashierPuzzles[i].backdropOverlay.SetActive(false);
+
+            }
+
+        }
+
+        if (CashierBalancePuzzle.Instance != null)
+
+        {
+
+            CashierBalancePuzzle.Instance.ClosePuzzle();
+
+            if (CashierBalancePuzzle.Instance.puzzlePanel != null) CashierBalancePuzzle.Instance.puzzlePanel.SetActive(false);
+
+            if (CashierBalancePuzzle.Instance.backdropOverlay != null) CashierBalancePuzzle.Instance.backdropOverlay.SetActive(false);
+
+        }
+
+
+
+        // 3. Registrar Document Sorting Puzzle (Signature 4)
+
+        var registrarPuzzles = Object.FindObjectsByType<RegistrarDocumentSortPuzzle>(FindObjectsInactive.Include);
+
+        for (int i = 0; i < registrarPuzzles.Length; i++)
+
+        {
+
+            if (registrarPuzzles[i] != null)
+
+            {
+
+                registrarPuzzles[i].ClosePuzzle();
+
+                if (registrarPuzzles[i].puzzlePanel != null) registrarPuzzles[i].puzzlePanel.SetActive(false);
+
+                if (registrarPuzzles[i].backdropOverlay != null) registrarPuzzles[i].backdropOverlay.SetActive(false);
+
+            }
+
+        }
+
+        if (RegistrarDocumentSortPuzzle.Instance != null)
+
+        {
+
+            RegistrarDocumentSortPuzzle.Instance.ClosePuzzle();
+
+            if (RegistrarDocumentSortPuzzle.Instance.puzzlePanel != null) RegistrarDocumentSortPuzzle.Instance.puzzlePanel.SetActive(false);
+
+            if (RegistrarDocumentSortPuzzle.Instance.backdropOverlay != null) RegistrarDocumentSortPuzzle.Instance.backdropOverlay.SetActive(false);
+
+        }
+
+
+
+        // 4. Guidance Safe Lock Dial & Executive Safe Lock Dial
+
+        if (GuidanceSafePuzzle.Instance != null)
+
+        {
+
+            GuidanceSafePuzzle.Instance.CloseSafeUI();
+
+        }
+
+        if (ExecutiveSafePuzzle.Instance != null)
+
+        {
+
+            ExecutiveSafePuzzle.Instance.CloseSafeUI();
+
+        }
+
+
+
+        // 5. Lobby Keypad Interact
+
+        if (LobbyKeypadInteract.Instance != null)
+
+        {
+
+            LobbyKeypadInteract.Instance.CloseKeypadUI();
+
+        }
+
+
+
+        // 6. Lockpicking Minigame
+
+        if (LockpickingMinigame.Instance != null)
+
+        {
+
+            LockpickingMinigame.Instance.ForceClose();
+
+        }
+
+
+
+        // 7. 3D & 2D Item Inspection Modals
+
+        if (ItemInspectionViewer3D.Instance != null)
+
+        {
+
+            ItemInspectionViewer3D.Instance.Close();
+
+        }
+
+        if (ItemInspectionModal.Instance != null)
+
+        {
+
+            ItemInspectionModal.Instance.Close();
+
+        }
+
+
+
+        // 8. Ham & Cheese Canteen Vendor
+
+        if (HamAndCheeseVendorUI.Instance != null)
+
+        {
+
+            HamAndCheeseVendorUI.Instance.CloseUI();
+
+        }
+
+
+
+        // 9. Player Inventory Screen (Limit 6 items)
+
+        if (InventoryScreen.Instance != null && InventoryScreen.Instance.IsOpen)
+
+        {
+
+            InventoryScreen.Instance.Toggle();
+
+        }
+
+
+
+        // 10. NPC Tagalog Dialogue System
+
+        if (NPCDialogueSystem.Instance != null && NPCDialogueSystem.Instance.IsDialogueActive)
+
+        {
+
+            NPCDialogueSystem.Instance.ForceCloseImmediate();
+
+        }
+
+    }
+
+
+
+    public static bool IsAnyModalOrPuzzleOpen
+
+    {
+
+        get
+
+        {
+
+            if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return true;
+
+            if (GameOverUI.IsCutsceneActive) return true;
+
+            if (AnxietyManager.Instance != null && AnxietyManager.Instance.IsGameOver) return true;
+
+            if (IsAnyActivePuzzleOrModalOpen) return true;
+
+            return false;
+
+        }
+
+    }
+
+
 
     public void Resume()
+
     {
-        SetPaused(false);
+
+        EnsurePauseMenuUIBuilt();
+
+        if (_settingsPanel != null) _settingsPanel.SetActive(false);
+
+        if (_controlsPanel != null) _controlsPanel.SetActive(false);
+
+        if (_mainButtonsPanel != null) _mainButtonsPanel.SetActive(true);
+
+        if (pauseMenuUI != null) pauseMenuUI.SetActive(false);
+
+
+
         Time.timeScale = 1f;
+
+        AudioListener.pause = false;
+
         GameIsPaused = false;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+
+
+
+        // Restore cursor state depending on whether a modal/inventory is open
+
+        if (IsAnyModalOrPuzzleOpen)
+
+        {
+
+            Cursor.lockState = CursorLockMode.None;
+
+            Cursor.visible = true;
+
+        }
+
+        else
+
+        {
+
+            Cursor.lockState = CursorLockMode.Locked;
+
+            Cursor.visible = false;
+
+        }
+
+
+
+        Debug.Log("[PauseMenu] Game Resumed.");
+
     }
+
+
 
     public void Pause()
+
     {
-        SyncSlidersFromPrefs();
-        SetPaused(true);
+
+        EnsurePauseMenuUIBuilt();
+
+
+
+        _wasCursorVisibleBeforePause = Cursor.visible;
+
+        _cursorLockBeforePause = Cursor.lockState;
+
+
+
+        if (pauseMenuUI != null)
+
+        {
+
+            Canvas parentCanvas = pauseMenuUI.GetComponentInParent<Canvas>();
+
+            if (parentCanvas != null)
+
+            {
+
+                parentCanvas.gameObject.SetActive(true);
+
+                parentCanvas.sortingOrder = Mathf.Max(parentCanvas.sortingOrder, 950);
+
+            }
+
+            pauseMenuUI.SetActive(true);
+
+            pauseMenuUI.transform.SetAsLastSibling();
+
+        }
+
+
+
+        if (_settingsPanel != null) _settingsPanel.SetActive(false);
+
+        if (_controlsPanel != null) _controlsPanel.SetActive(false);
+
+        if (_mainButtonsPanel != null) _mainButtonsPanel.SetActive(true);
+
+
+
+        RefreshSliderValues();
+
+
+
         Time.timeScale = 0f;
+
+        AudioListener.pause = true;
+
         GameIsPaused = true;
+
+
+
         Cursor.lockState = CursorLockMode.None;
+
         Cursor.visible = true;
+
+
+
+        Debug.Log("[PauseMenu] Game Paused.");
+
     }
 
-    private void SyncSlidersFromPrefs()
+
+
+    public void OpenSettingsPanel()
+
     {
-        float vol  = PlayerPrefs.GetFloat("MasterVolume",    1.0f);
-        float fov  = PlayerPrefs.GetFloat("CameraFOV",       60f);
-        float sens = PlayerPrefs.GetFloat("MouseSensitivity", 1.8f);
 
-        if (_volumeSlider      != null) _volumeSlider.SetValueWithoutNotify(vol);
-        if (_fovSlider         != null) _fovSlider.SetValueWithoutNotify(fov);
-        if (_sensitivitySlider != null) _sensitivitySlider.SetValueWithoutNotify(sens);
+        EnsurePauseMenuUIBuilt();
 
-        UpdateVolumeText(vol);
-        UpdateFOVText(fov);
-        UpdateSensText(sens);
+        if (_controlsPanel != null) _controlsPanel.SetActive(false);
+
+        if (pauseMenuUI != null) pauseMenuUI.SetActive(false);
+
+
+
+        GameSettingsManager.OpenSettingsModal(() =>
+
+        {
+
+            if (GameIsPaused && pauseMenuUI != null)
+
+            {
+
+                pauseMenuUI.SetActive(true);
+
+                if (_mainButtonsPanel != null) _mainButtonsPanel.SetActive(true);
+
+                if (_controlsPanel != null) _controlsPanel.SetActive(false);
+
+            }
+
+        });
+
     }
 
-    public void LoadMenu()
+
+
+    public void CloseSettingsPanel()
+
     {
+
+        GameSettingsManager.CloseSettingsModal();
+
+        if (GameIsPaused && pauseMenuUI != null)
+
+        {
+
+            pauseMenuUI.SetActive(true);
+
+            if (_mainButtonsPanel != null) _mainButtonsPanel.SetActive(true);
+
+            if (_controlsPanel != null) _controlsPanel.SetActive(false);
+
+        }
+
+    }
+
+
+
+    public void OpenControlsPanel()
+
+    {
+
+        EnsurePauseMenuUIBuilt();
+
+        if (_mainButtonsPanel != null) _mainButtonsPanel.SetActive(false);
+
+        if (_settingsPanel != null) _settingsPanel.SetActive(false);
+
+        if (_controlsPanel != null) _controlsPanel.SetActive(true);
+
+    }
+
+
+
+    public void CloseControlsPanel()
+
+    {
+
+        if (_controlsPanel != null) _controlsPanel.SetActive(false);
+
+        if (_mainButtonsPanel != null) _mainButtonsPanel.SetActive(true);
+
+    }
+
+
+
+    // Backwards-compatible aliases
+
+    public void OpenSettingsModal() => OpenSettingsPanel();
+
+    public void OpenControlsGuide() => OpenControlsPanel();
+
+
+
+    public void RestartMission()
+
+    {
+
         Time.timeScale = 1f;
+
+        AudioListener.pause = false;
+
         GameIsPaused = false;
-        SceneManager.LoadScene("MainMenu");
+
+
+
+        Scene currentScene = SceneManager.GetActiveScene();
+
+        SceneManager.LoadScene(currentScene.name);
+
     }
+
+
+
+    public void LoadMainMenu()
+
+    {
+
+        Time.timeScale = 1f;
+
+        AudioListener.pause = false;
+
+        GameIsPaused = false;
+
+        Cursor.lockState = CursorLockMode.None;
+
+        Cursor.visible = true;
+
+
+
+        SceneManager.LoadScene("MainMenu");
+
+    }
+
+
 
     public void QuitGame()
+
     {
-        Debug.Log("[PauseMenu] Quit");
+
+        Time.timeScale = 1f;
+
+        AudioListener.pause = false;
+
+        GameIsPaused = false;
+
+
+
+        Debug.Log("[PauseMenu] Quitting Game...");
+
+#if UNITY_EDITOR
+
+        UnityEditor.EditorApplication.isPlaying = false;
+
+#else
+
         Application.Quit();
-    }
 
-    private void SetPaused(bool paused)
-    {
-        if (_pausePanelRoot != null) _pausePanelRoot.SetActive(paused);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // UI Construction
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void LoadFonts()
-    {
-        _horrorFont = UnityEditor_LoadFont("Assets/Main Menu/watch people die.ttf");
-        if (_horrorFont == null) _horrorFont = Resources.Load<Font>("Fonts/Typewriter_Bold");
-        if (_horrorFont == null) _horrorFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-        _bodyFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-    }
-
-    private Font UnityEditor_LoadFont(string path)
-    {
-#if UNITY_EDITOR
-        return UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(path);
-#else
-        return null;
 #endif
+
     }
 
-    private void BuildPauseUI()
+
+
+    private void OnDestroy()
+
     {
-        // ── Root canvas on this GameObject ────────────────────────────────────
-        _pauseCanvas = gameObject.GetComponent<Canvas>();
-        if (_pauseCanvas == null) _pauseCanvas = gameObject.AddComponent<Canvas>();
-        _pauseCanvas.renderMode  = RenderMode.ScreenSpaceOverlay;
-        _pauseCanvas.sortingOrder = 500; // above HUD but below loading screen
 
-        var scaler = gameObject.GetComponent<CanvasScaler>() ?? gameObject.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
-        scaler.matchWidthOrHeight  = 0.5f;
+        if (GameIsPaused)
 
-        if (gameObject.GetComponent<GraphicRaycaster>() == null)
-            gameObject.AddComponent<GraphicRaycaster>();
-
-        // ── Dark fullscreen overlay ───────────────────────────────────────────
-        var overlay = MakeImage("PauseOverlay", transform, ColOverlay);
-        StretchFull(overlay.rectTransform);
-        overlay.raycastTarget = true; // blocks clicks behind
-
-        // ── Left-side panel (same layout as main menu — left 44% of screen) ──
-        _pausePanelRoot = new GameObject("PausePanel");
-        _pausePanelRoot.transform.SetParent(transform, false);
-        var panelRT = _pausePanelRoot.AddComponent<RectTransform>();
-        panelRT.anchorMin      = new Vector2(0f, 0f);
-        panelRT.anchorMax      = new Vector2(0.44f, 1f);
-        panelRT.offsetMin      = Vector2.zero;
-        panelRT.offsetMax      = Vector2.zero;
-
-        var panelImg = _pausePanelRoot.AddComponent<Image>();
-        panelImg.color = ColPanel;
-        panelImg.raycastTarget = true;
-
-        // ── Left vignette gradient (decorative, matches main menu) ────────────
-        var gradSprite = Resources.Load<Sprite>("MenuLeftGradient");
-        if (gradSprite == null)
         {
-            var gradGuids = UnityEditor_FindAsset("MenuLeftGradient");
-            if (gradGuids != null) gradSprite = UnityEditor_LoadSprite(gradGuids);
-        }
-        if (gradSprite != null)
-        {
-            var grad = MakeImage("LeftGrad", transform, Color.white);
-            grad.sprite = gradSprite;
-            grad.raycastTarget = false;
-            var grt = grad.rectTransform;
-            grt.anchorMin = new Vector2(0f, 0f);
-            grt.anchorMax = new Vector2(0.44f, 1f);
-            grt.offsetMin = Vector2.zero;
-            grt.offsetMax = Vector2.zero;
+
+            Time.timeScale = 1f;
+
+            AudioListener.pause = false;
+
+            GameIsPaused = false;
+
         }
 
-        // ── Title: "PAUSED" ───────────────────────────────────────────────────
-        var titleBox = new GameObject("TitleBox");
-        titleBox.transform.SetParent(_pausePanelRoot.transform, false);
-        var titleBoxRT = titleBox.AddComponent<RectTransform>();
-        titleBoxRT.anchorMin = new Vector2(0f, 0.66f);
-        titleBoxRT.anchorMax = new Vector2(1f, 0.95f);
-        titleBoxRT.offsetMin = new Vector2(48f, 0f);
-        titleBoxRT.offsetMax = new Vector2(-12f, 0f);
-
-        MakeText("GameTitleText", titleBox.transform, "PAUSED", _horrorFont, 88, ColTitle, TextAnchor.LowerLeft);
-        MakeText("SubtitleText",  titleBox.transform, "GAME PAUSED  |  KLIRANS",
-                 _horrorFont, 18, ColSubtitle, TextAnchor.UpperLeft);
-
-        // ── Buttons panel ─────────────────────────────────────────────────────
-        var btnPanel = new GameObject("ButtonsPanel");
-        btnPanel.transform.SetParent(_pausePanelRoot.transform, false);
-        var btnPanelRT = btnPanel.AddComponent<RectTransform>();
-        btnPanelRT.anchorMin = new Vector2(0f, 0.22f);
-        btnPanelRT.anchorMax = new Vector2(1f, 0.64f);
-        btnPanelRT.offsetMin = new Vector2(48f, 0f);
-        btnPanelRT.offsetMax = new Vector2(-12f, 0f);
-
-        var vlg = btnPanel.AddComponent<VerticalLayoutGroup>();
-        vlg.childAlignment       = TextAnchor.UpperLeft;
-        vlg.spacing              = 0f;
-        vlg.childForceExpandWidth  = true;
-        vlg.childForceExpandHeight = false;
-        vlg.childControlWidth    = true;
-        vlg.childControlHeight   = true;
-        vlg.padding              = new RectOffset(0, 0, 0, 0);
-
-        MakeMenuButton(btnPanel.transform, "Resume",            () => Resume());
-        if (GameModeManager.IsFreeRoamMode)
-        {
-            MakeMenuButton(btnPanel.transform, "Dev / Demo Panel",  () => { Resume(); DevDemoPanel.OpenPanel(); });
-        }
-        MakeMenuButton(btnPanel.transform, "Tutorial / Help",   () => TutorialScreenUI.OpenTutorial(0, () => { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }));
-        MakeMenuButton(btnPanel.transform, "Settings",          () => GameSettingsManager.OpenSettingsModal(() => { SyncSlidersFromPrefs(); Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }));
-        MakeMenuButton(btnPanel.transform, "Main Menu",         () => LoadMenu());
-        MakeMenuButton(btnPanel.transform, "Quit",              () => QuitGame());
-
-        // ── Settings strip at the bottom of the panel ─────────────────────────
-        BuildSettingsStrip(_pausePanelRoot.transform);
     }
 
-    private void BuildSettingsStrip(Transform parent)
+
+
+    private void RefreshSliderValues()
+
     {
-        var strip = new GameObject("SettingsStrip");
-        strip.transform.SetParent(parent, false);
-        var rt = strip.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 0.01f);
-        rt.anchorMax = new Vector2(1f, 0.20f);
-        rt.offsetMin = new Vector2(48f, 0f);
-        rt.offsetMax = new Vector2(-20f, 0f);
 
-        var vlg = strip.AddComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.UpperLeft;
-        vlg.spacing = 6f;
-        vlg.childForceExpandWidth  = true;
-        vlg.childForceExpandHeight = false;
-        vlg.childControlWidth    = true;
-        vlg.childControlHeight   = true;
+        float vol = PlayerPrefs.GetFloat("MasterVolume", 1.0f);
 
-        // Volume
-        var volRow = MakeSliderRow(strip.transform, "VOLUME",
-            0f, 1f, PlayerPrefs.GetFloat("MasterVolume", 1f),
-            out _volumeSlider, out _volumeValueText);
-        _volumeSlider.onValueChanged.AddListener(val => {
-            AudioListener.volume = val;
-            PlayerPrefs.SetFloat("MasterVolume", val);
-            PlayerPrefs.Save();
-            UpdateVolumeText(val);
+        if (_volumeSlider != null) _volumeSlider.value = vol;
+
+        UpdateVolumeText(vol);
+
+
+
+        float fov = PlayerPrefs.GetFloat("CameraFOV", 60f);
+
+        if (_fovSlider != null) _fovSlider.value = fov;
+
+        UpdateFOVText(fov);
+
+
+
+        float sens = PlayerPrefs.GetFloat("MouseSensitivity", 2.0f);
+
+        if (_sensitivitySlider != null) _sensitivitySlider.value = sens;
+
+        UpdateSensitivityText(sens);
+
+    }
+
+
+
+    public void OnVolumeChanged(float val)
+
+    {
+
+        AudioListener.volume = val;
+
+        PlayerPrefs.SetFloat("MasterVolume", val);
+
+        PlayerPrefs.Save();
+
+        UpdateVolumeText(val);
+
+        if (GameSettingsManager.Instance != null)
+
+        {
+
+            GameSettingsManager.Instance.LoadSettings();
+
+            GameSettingsManager.Instance.ApplyAllSettings();
+
+        }
+
+    }
+
+
+
+    public void OnFOVChanged(float val)
+
+    {
+
+        PlayerPrefs.SetFloat("CameraFOV", val);
+
+        PlayerPrefs.Save();
+
+        UpdateFOVText(val);
+
+
+
+        if (GameSettingsManager.Instance != null)
+
+        {
+
+            GameSettingsManager.Instance.LoadSettings();
+
+            GameSettingsManager.Instance.ApplyAllSettings();
+
+        }
+
+        else
+
+        {
+
+            var cam = Camera.main;
+
+            if (cam != null) cam.fieldOfView = val;
+
+        }
+
+    }
+
+
+
+    public void OnSensitivityChanged(float val)
+
+    {
+
+        PlayerPrefs.SetFloat("MouseSensitivity", val);
+
+        PlayerPrefs.Save();
+
+        UpdateSensitivityText(val);
+
+
+
+        if (GameSettingsManager.Instance != null)
+
+        {
+
+            GameSettingsManager.Instance.LoadSettings();
+
+            GameSettingsManager.Instance.ApplyAllSettings();
+
+        }
+
+        else
+
+        {
+
+            var pm = FindAnyObjectByType<PlayerMovement>();
+
+            if (pm != null) pm.lookSpeed = val;
+
+        }
+
+    }
+
+
+
+    private void UpdateVolumeText(float val)
+
+    {
+
+        if (_volumeValueText != null)
+
+            _volumeValueText.text = Mathf.RoundToInt(val * 100f) + "%";
+
+    }
+
+
+
+    private void UpdateFOVText(float val)
+
+    {
+
+        if (_fovValueText != null)
+
+            _fovValueText.text = Mathf.RoundToInt(val) + "°";
+
+    }
+
+
+
+    private void UpdateSensitivityText(float val)
+
+    {
+
+        if (_sensitivityValueText != null)
+
+            _sensitivityValueText.text = val.ToString("F1");
+
+    }
+
+
+
+    private void EnsurePauseMenuUIBuilt()
+
+    {
+
+        // Guarantee EventSystem exists so buttons can be clicked
+
+        if (EventSystem.current == null && FindAnyObjectByType<EventSystem>() == null)
+
+        {
+
+            var esGO = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+
+            DontDestroyOnLoad(esGO);
+
+        }
+
+
+
+        // 1. Locate or create parent Canvas
+
+        Canvas parentCanvas = GetComponentInParent<Canvas>();
+
+        if (parentCanvas == null)
+
+        {
+
+            var canvasGO = GameObject.Find("PauseCanvas");
+
+            if (canvasGO != null) parentCanvas = canvasGO.GetComponent<Canvas>();
+
+        }
+
+
+
+        if (parentCanvas == null)
+
+        {
+
+            var canvasGO = new GameObject("PauseCanvas");
+
+            parentCanvas = canvasGO.AddComponent<Canvas>();
+
+            parentCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+            parentCanvas.sortingOrder = 950;
+
+            var scaler = canvasGO.AddComponent<CanvasScaler>();
+
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+
+            scaler.referenceResolution = new Vector2(1920, 1080);
+
+            canvasGO.AddComponent<GraphicRaycaster>();
+
+        }
+
+
+
+        parentCanvas.gameObject.SetActive(true);
+
+        if (parentCanvas.GetComponent<GraphicRaycaster>() == null)
+
+        {
+
+            parentCanvas.gameObject.AddComponent<GraphicRaycaster>();
+
+        }
+
+        parentCanvas.sortingOrder = Mathf.Max(parentCanvas.sortingOrder, 950);
+
+
+
+        // 2. Locate or create pauseMenuUI panel
+
+        if (pauseMenuUI == null)
+
+        {
+
+            Transform found = parentCanvas.transform.Find("PauseMenuPanel");
+
+            if (found != null) pauseMenuUI = found.gameObject;
+
+            else
+
+            {
+
+                var foundGlobal = GameObject.Find("PauseMenuPanel");
+
+                if (foundGlobal != null) pauseMenuUI = foundGlobal;
+
+            }
+
+        }
+
+
+
+        if (pauseMenuUI == null)
+
+        {
+
+            var panelGO = new GameObject("PauseMenuPanel", typeof(RectTransform));
+
+            panelGO.transform.SetParent(parentCanvas.transform, false);
+
+            RectTransform panelRT = panelGO.GetComponent<RectTransform>();
+
+            panelRT.anchorMin = Vector2.zero;
+
+            panelRT.anchorMax = Vector2.one;
+
+            panelRT.offsetMin = Vector2.zero;
+
+            panelRT.offsetMax = Vector2.zero;
+
+            pauseMenuUI = panelGO;
+
+        }
+
+
+
+        // Clean out any obsolete centered PauseCardContainer or ContentPanel
+
+        Transform oldCard = pauseMenuUI.transform.Find("PauseCardContainer");
+
+        if (oldCard != null)
+
+        {
+
+            if (Application.isPlaying) Destroy(oldCard.gameObject);
+
+            else DestroyImmediate(oldCard.gameObject);
+
+        }
+
+        Transform oldContent = pauseMenuUI.transform.Find("ContentPanel");
+
+        if (oldContent != null)
+
+        {
+
+            if (Application.isPlaying) Destroy(oldContent.gameObject);
+
+            else DestroyImmediate(oldContent.gameObject);
+
+        }
+
+
+
+        // Locate MainMenu_UI
+
+        Transform menuUITrans = pauseMenuUI.transform.Find("MainMenu_UI");
+
+        if (menuUITrans == null)
+
+        {
+
+            BuildMainMenuPauseLayout();
+
+            menuUITrans = pauseMenuUI.transform.Find("MainMenu_UI");
+
+        }
+
+
+
+        WireRuntimeComponents(menuUITrans);
+
+    }
+
+
+
+    private void WireRuntimeComponents(Transform menuUITrans)
+
+    {
+
+        if (menuUITrans == null) return;
+
+
+
+        // Subtitle text check
+
+        Transform subT = menuUITrans.Find("TitleBox/SubtitleText");
+
+        if (subT != null)
+
+        {
+
+            Text subTxt = subT.GetComponent<Text>();
+
+            if (subTxt != null) subTxt.text = "CLEARANCE PAUSED  |  CAMPUS HORROR";
+
+        }
+
+
+
+        // Panels
+
+        Transform btnPanelT = menuUITrans.Find("MainButtonsPanel");
+
+        if (btnPanelT != null) _mainButtonsPanel = btnPanelT.gameObject;
+
+
+
+        Transform setPanelT = menuUITrans.Find("SettingsPanel");
+
+        if (setPanelT != null) _settingsPanel = setPanelT.gameObject;
+
+
+
+        Transform ctrlPanelT = menuUITrans.Find("ControlsPanel");
+
+        if (ctrlPanelT != null) _controlsPanel = ctrlPanelT.gameObject;
+
+
+
+        // Wire Main Buttons
+
+        if (btnPanelT != null)
+
+        {
+
+            BindBtn(btnPanelT, "Btn_Resume", Resume);
+            BindBtn(btnPanelT, "Btn_SaveGame", () => {
+                if (SaveManager.Instance != null) SaveManager.Instance.SaveGame("QuickSave");
+            });
+            BindBtn(btnPanelT, "Btn_LoadGame", () => {
+                if (SaveManager.Instance != null) {
+                    SaveManager.Instance.LoadGame();
+                    Resume();
+                }
+            });
+
+            BindBtn(btnPanelT, "Btn_Restart", RestartMission);
+
+            BindBtn(btnPanelT, "Btn_Settings", OpenSettingsPanel);
+
+            BindBtn(btnPanelT, "Btn_Controls", OpenControlsPanel);
+
+            BindBtn(btnPanelT, "Btn_MainMenu", LoadMainMenu);
+
+            BindBtn(btnPanelT, "Btn_Quit", QuitGame);
+
+        }
+
+
+
+        // Wire Settings Sliders & Back
+
+        if (setPanelT != null)
+
+        {
+
+            Transform rowVol = setPanelT.Find("Row_MASTERVOLUME");
+
+            if (rowVol != null)
+
+            {
+
+                _volumeSlider = rowVol.Find("Slider")?.GetComponent<Slider>();
+
+                _volumeValueText = rowVol.Find("ValText")?.GetComponent<Text>();
+
+                if (_volumeSlider != null)
+
+                {
+
+                    _volumeSlider.minValue = 0f;
+
+                    _volumeSlider.maxValue = 1f;
+
+                    _volumeSlider.onValueChanged.RemoveAllListeners();
+
+                    _volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
+
+                }
+
+            }
+
+
+
+            Transform rowFOV = setPanelT.Find("Row_CAMERAFOV");
+
+            if (rowFOV != null)
+
+            {
+
+                _fovSlider = rowFOV.Find("Slider")?.GetComponent<Slider>();
+
+                _fovValueText = rowFOV.Find("ValText")?.GetComponent<Text>();
+
+                if (_fovSlider != null)
+
+                {
+
+                    _fovSlider.minValue = 50f;
+
+                    _fovSlider.maxValue = 110f;
+
+                    _fovSlider.onValueChanged.RemoveAllListeners();
+
+                    _fovSlider.onValueChanged.AddListener(OnFOVChanged);
+
+                }
+
+            }
+
+
+
+            Transform rowSens = setPanelT.Find("Row_SENSITIVITY");
+
+            if (rowSens != null)
+
+            {
+
+                _sensitivitySlider = rowSens.Find("Slider")?.GetComponent<Slider>();
+
+                _sensitivityValueText = rowSens.Find("ValText")?.GetComponent<Text>();
+
+                if (_sensitivitySlider != null)
+
+                {
+
+                    _sensitivitySlider.minValue = 0.5f;
+
+                    _sensitivitySlider.maxValue = 5.0f;
+
+                    _sensitivitySlider.onValueChanged.RemoveAllListeners();
+
+                    _sensitivitySlider.onValueChanged.AddListener(OnSensitivityChanged);
+
+                }
+
+            }
+
+
+
+            BindBtn(setPanelT, "Btn_BackSettings", CloseSettingsPanel);
+
+        }
+
+
+
+        // Wire Controls Back
+
+        if (ctrlPanelT != null)
+
+        {
+
+            BindBtn(ctrlPanelT, "Btn_BackControls", CloseControlsPanel);
+
+            BindBtn(ctrlPanelT, "Btn_BackCredits", CloseControlsPanel);
+
+        }
+
+    }
+
+
+
+    private void BindBtn(Transform parent, string name, UnityEngine.Events.UnityAction action)
+
+    {
+
+        Transform t = parent.Find(name);
+
+        if (t == null) return;
+
+        Button b = t.GetComponent<Button>();
+
+        if (b != null)
+
+        {
+
+            b.onClick.RemoveAllListeners();
+
+            b.onClick.AddListener(action);
+
+        }
+
+    }
+
+
+
+    private void BuildMainMenuPauseLayout()
+
+    {
+
+        for (int i = pauseMenuUI.transform.childCount - 1; i >= 0; i--)
+
+        {
+
+            var child = pauseMenuUI.transform.GetChild(i).gameObject;
+
+            if (Application.isPlaying) Destroy(child);
+
+            else DestroyImmediate(child);
+
+        }
+
+
+
+        Image backdropImg = pauseMenuUI.GetComponent<Image>();
+
+        if (backdropImg == null) backdropImg = pauseMenuUI.AddComponent<Image>();
+
+        backdropImg.color = new Color(0.02f, 0.02f, 0.03f, 0.75f);
+
+        backdropImg.raycastTarget = true;
+
+
+
+        RectTransform rootRT = pauseMenuUI.GetComponent<RectTransform>();
+
+        rootRT.anchorMin = Vector2.zero;
+
+        rootRT.anchorMax = Vector2.one;
+
+        rootRT.offsetMin = Vector2.zero;
+
+        rootRT.offsetMax = Vector2.zero;
+
+
+
+        Font horrorFont = Resources.Load<Font>("watch people die");
+
+#if UNITY_EDITOR
+
+        if (horrorFont == null)
+
+            horrorFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>("Assets/Main Menu/watch people die.ttf");
+
+#endif
+
+        Font monoFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+
+
+        Sprite gradientSprite = Resources.Load<Sprite>("MenuLeftGradient");
+
+#if UNITY_EDITOR
+
+        if (gradientSprite == null)
+
+            gradientSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Textures/MenuLeftGradient.png");
+
+#endif
+
+
+
+        // Left Vignette Gradient
+
+        GameObject vigGO = new GameObject("LeftVignetteGradient", typeof(RectTransform), typeof(Image));
+
+        vigGO.transform.SetParent(pauseMenuUI.transform, false);
+
+        RectTransform vigRT = vigGO.GetComponent<RectTransform>();
+
+        vigRT.anchorMin = new Vector2(0f, 0f);
+
+        vigRT.anchorMax = new Vector2(0.52f, 1f);
+
+        vigRT.offsetMin = Vector2.zero;
+
+        vigRT.offsetMax = Vector2.zero;
+
+        Image vigImg = vigGO.GetComponent<Image>();
+
+        if (gradientSprite != null) vigImg.sprite = gradientSprite;
+
+        vigImg.color = Color.white;
+
+        vigImg.raycastTarget = false;
+
+
+
+        // MainMenu_UI Root
+
+        GameObject uiGO = new GameObject("MainMenu_UI", typeof(RectTransform));
+
+        uiGO.transform.SetParent(pauseMenuUI.transform, false);
+
+        RectTransform uiRT = uiGO.GetComponent<RectTransform>();
+
+        uiRT.anchorMin = new Vector2(0.03f, 0.00f);
+
+        uiRT.anchorMax = new Vector2(0.44f, 1.00f);
+
+        uiRT.offsetMin = Vector2.zero;
+
+        uiRT.offsetMax = Vector2.zero;
+
+
+
+        // Title Box
+
+        GameObject titleBox = new GameObject("TitleBox", typeof(RectTransform), typeof(VerticalLayoutGroup));
+
+        titleBox.transform.SetParent(uiGO.transform, false);
+
+        RectTransform tbRT = titleBox.GetComponent<RectTransform>();
+
+        tbRT.anchorMin = new Vector2(0f, 0.60f);
+
+        tbRT.anchorMax = new Vector2(1f, 0.95f);
+
+        tbRT.offsetMin = Vector2.zero;
+
+        tbRT.offsetMax = Vector2.zero;
+
+        var vlgTitle = titleBox.GetComponent<VerticalLayoutGroup>();
+
+        vlgTitle.spacing = 4f;
+
+        vlgTitle.padding = new RectOffset(12, 12, 8, 8);
+
+        vlgTitle.childControlWidth = true;
+
+        vlgTitle.childControlHeight = true;
+
+        vlgTitle.childForceExpandWidth = true;
+
+        vlgTitle.childForceExpandHeight = true;
+
+
+
+        CreateMainLabel(titleBox.transform, "GameTitleText", "KLIRANS", horrorFont, 96, TextAnchor.LowerLeft,
+
+            new Color(0.96f, 0.96f, 0.96f, 1f), new Vector2(3f, -3f));
+
+        CreateMainLabel(titleBox.transform, "SubtitleText", "CLEARANCE PAUSED  |  CAMPUS HORROR", horrorFont, 20, TextAnchor.UpperLeft,
+
+            new Color(0.85f, 0.25f, 0.25f, 1f), new Vector2(1.5f, -1.5f));
+
+
+
+        // Buttons Panel
+
+        GameObject btnPanel = new GameObject("MainButtonsPanel", typeof(RectTransform), typeof(VerticalLayoutGroup));
+
+        btnPanel.transform.SetParent(uiGO.transform, false);
+
+        RectTransform bpRT = btnPanel.GetComponent<RectTransform>();
+
+        bpRT.anchorMin = new Vector2(0f, 0.06f);
+
+        bpRT.anchorMax = new Vector2(1f, 0.58f);
+
+        bpRT.offsetMin = Vector2.zero;
+
+        bpRT.offsetMax = Vector2.zero;
+
+        var vlgBtn = btnPanel.GetComponent<VerticalLayoutGroup>();
+
+        vlgBtn.spacing = 8f;
+
+        vlgBtn.childControlWidth = true;
+
+        vlgBtn.childControlHeight = true;
+
+        vlgBtn.childForceExpandWidth = true;
+
+        vlgBtn.childForceExpandHeight = true;
+
+
+
+        CreateMainMenuButton(btnPanel.transform, "Btn_Resume", "Resume", horrorFont, Resume);
+        CreateMainMenuButton(btnPanel.transform, "Btn_SaveGame", "Save Game (F5)", horrorFont, () => {
+            if (SaveManager.Instance != null) SaveManager.Instance.SaveGame("QuickSave");
+        });
+        CreateMainMenuButton(btnPanel.transform, "Btn_LoadGame", "Load Game (F8)", horrorFont, () => {
+            if (SaveManager.Instance != null) {
+                SaveManager.Instance.LoadGame();
+                Resume();
+            }
         });
 
-        // FOV
-        var fovRow = MakeSliderRow(strip.transform, "FOV",
-            50f, 110f, PlayerPrefs.GetFloat("CameraFOV", 60f),
-            out _fovSlider, out _fovValueText);
-        _fovSlider.onValueChanged.AddListener(val => {
-            ApplyFOV(val);
-            PlayerPrefs.SetFloat("CameraFOV", val);
-            PlayerPrefs.Save();
-            UpdateFOVText(val);
-        });
+        CreateMainMenuButton(btnPanel.transform, "Btn_Restart", "Restart Shift", horrorFont, RestartMission);
 
-        // Sensitivity
-        var sensRow = MakeSliderRow(strip.transform, "SENSITIVITY",
-            0.5f, 5f, PlayerPrefs.GetFloat("MouseSensitivity", 2f),
-            out _sensitivitySlider, out _sensitivityValueText);
-        _sensitivitySlider.onValueChanged.AddListener(val => {
-            if (_playerMovement != null) _playerMovement.lookSpeed = val;
-            PlayerPrefs.SetFloat("MouseSensitivity", val);
-            PlayerPrefs.Save();
-            UpdateSensText(val);
-        });
+        CreateMainMenuButton(btnPanel.transform, "Btn_Settings", "Settings", horrorFont, OpenSettingsPanel);
+
+        CreateMainMenuButton(btnPanel.transform, "Btn_Controls", "Controls & Survival", horrorFont, OpenControlsPanel);
+
+        CreateMainMenuButton(btnPanel.transform, "Btn_MainMenu", "Main Menu", horrorFont, LoadMainMenu);
+
+        CreateMainMenuButton(btnPanel.transform, "Btn_Quit", "Quit", horrorFont, QuitGame);
+
+
+
+        _mainButtonsPanel = btnPanel;
+
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Widget Factories
-    // ─────────────────────────────────────────────────────────────────────────
 
-    private void MakeMenuButton(Transform parent, string label, System.Action onClick)
+
+    private GameObject CreateMainLabel(Transform parent, string name, string text, Font font, int size, TextAnchor align, Color color, Vector2 outlineDist)
+
     {
-        var go = new GameObject($"Btn_{label}");
+
+        GameObject go = new GameObject(name, typeof(RectTransform), typeof(Text), typeof(Outline));
+
         go.transform.SetParent(parent, false);
 
-        var le = go.AddComponent<LayoutElement>();
-        le.preferredHeight = 62f;
-        le.flexibleWidth   = 1f;
+        Text t = go.GetComponent<Text>();
 
-        var btn = go.AddComponent<Button>();
-        var img = go.AddComponent<Image>();
-        img.color = Color.clear; // transparent — text-only like main menu
+        t.font = font;
 
-        var txtObj = new GameObject("Text");
-        txtObj.transform.SetParent(go.transform, false);
-        var txt = txtObj.AddComponent<Text>();
-        txt.text       = label;
-        txt.font       = _horrorFont;
-        txt.fontSize   = 38;
-        txt.color      = ColBtnText;
-        txt.alignment  = TextAnchor.MiddleLeft;
-        txt.horizontalOverflow = HorizontalWrapMode.Overflow;
-        txt.verticalOverflow   = VerticalWrapMode.Overflow;
+        t.text = text;
 
-        var txtRT = txtObj.GetComponent<RectTransform>();
-        txtRT.anchorMin = Vector2.zero;
-        txtRT.anchorMax = Vector2.one;
-        txtRT.offsetMin = Vector2.zero;
-        txtRT.offsetMax = Vector2.zero;
+        t.fontSize = size;
 
-        // Colour tint on hover / click
-        var cols = btn.colors;
-        cols.normalColor      = Color.white;
-        cols.highlightedColor = ColBtnHover;
-        cols.pressedColor     = new Color(0.7f, 0.1f, 0.1f, 1f);
-        cols.fadeDuration     = 0.1f;
-        btn.colors = cols;
-        btn.targetGraphic = txt;
+        t.alignment = align;
 
-        btn.onClick.AddListener(() => onClick?.Invoke());
+        t.color = color;
+
+        t.raycastTarget = false;
+
+
+
+        Outline ol = go.GetComponent<Outline>();
+
+        ol.effectColor = new Color(0f, 0f, 0f, 0.95f);
+
+        ol.effectDistance = outlineDist;
+
+        return go;
+
     }
 
-    private GameObject MakeSliderRow(Transform parent, string labelText,
-        float min, float max, float value,
-        out Slider slider, out Text valText)
+
+
+    private Button CreateMainMenuButton(Transform parent, string name, string label, Font font, UnityEngine.Events.UnityAction onClick)
+
     {
-        var row = new GameObject($"Row_{labelText}");
-        row.transform.SetParent(parent, false);
-        var le = row.AddComponent<LayoutElement>();
-        le.preferredHeight = 28f;
-        le.flexibleWidth   = 1f;
 
-        var hlg = row.AddComponent<HorizontalLayoutGroup>();
-        hlg.childAlignment = TextAnchor.MiddleLeft;
-        hlg.spacing = 10f;
-        hlg.childForceExpandWidth  = false;
-        hlg.childForceExpandHeight = true;
-        hlg.childControlWidth    = false;
-        hlg.childControlHeight   = true;
+        GameObject btnGO = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(MenuButtonHover));
 
-        // Label
-        var lbl = MakeText("Label", row.transform, labelText, _bodyFont, 15, ColLabel, TextAnchor.MiddleLeft);
-        var lblLE = lbl.gameObject.AddComponent<LayoutElement>();
-        lblLE.preferredWidth = 130f;
+        btnGO.transform.SetParent(parent, false);
 
-        // Slider
-        slider = MakeSlider(row.transform, min, max, value);
-        var sliderLE = slider.gameObject.AddComponent<LayoutElement>();
-        sliderLE.preferredWidth  = 160f;
-        sliderLE.flexibleWidth   = 1f;
 
-        // Value text
-        valText = MakeText("ValText", row.transform, "", _bodyFont, 14, ColLabel, TextAnchor.MiddleCenter);
-        var valLE = valText.gameObject.AddComponent<LayoutElement>();
-        valLE.preferredWidth = 48f;
 
-        return row;
-    }
+        Image img = btnGO.GetComponent<Image>();
 
-    private Slider MakeSlider(Transform parent, float min, float max, float value)
-    {
-        var go = new GameObject("Slider");
-        go.transform.SetParent(parent, false);
-        var slider = go.AddComponent<Slider>();
-        slider.minValue = min;
-        slider.maxValue = max;
-        slider.value    = value;
+        img.color = new Color(0f, 0f, 0f, 0f); // Transparent
 
-        // Background
-        var bg = new GameObject("Background");
-        bg.transform.SetParent(go.transform, false);
-        var bgImg = bg.AddComponent<Image>();
-        bgImg.color = ColSliderBg;
-        var bgRT = bg.GetComponent<RectTransform>();
-        bgRT.anchorMin = new Vector2(0f, 0.25f);
-        bgRT.anchorMax = new Vector2(1f, 0.75f);
-        bgRT.offsetMin = Vector2.zero;
-        bgRT.offsetMax = Vector2.zero;
+        img.raycastTarget = true;
 
-        // Fill area
-        var fillArea = new GameObject("Fill Area");
-        fillArea.transform.SetParent(go.transform, false);
-        var faRT = fillArea.AddComponent<RectTransform>();
-        faRT.anchorMin = new Vector2(0f, 0.25f);
-        faRT.anchorMax = new Vector2(1f, 0.75f);
-        faRT.offsetMin = new Vector2(5f, 0f);
-        faRT.offsetMax = new Vector2(-15f, 0f);
 
-        var fill = new GameObject("Fill");
-        fill.transform.SetParent(fillArea.transform, false);
-        var fillImg = fill.AddComponent<Image>();
-        fillImg.color = ColSliderFill;
-        var fillRT = fill.GetComponent<RectTransform>();
-        fillRT.anchorMin = Vector2.zero;
-        fillRT.anchorMax = new Vector2(1f, 1f);
-        fillRT.offsetMin = Vector2.zero;
-        fillRT.offsetMax = new Vector2(10f, 0f);
 
-        // Handle slide area
-        var handleSlide = new GameObject("Handle Slide Area");
-        handleSlide.transform.SetParent(go.transform, false);
-        var hsRT = handleSlide.AddComponent<RectTransform>();
-        hsRT.anchorMin = new Vector2(0f, 0f);
-        hsRT.anchorMax = new Vector2(1f, 1f);
-        hsRT.offsetMin = new Vector2(10f, 0f);
-        hsRT.offsetMax = new Vector2(-10f, 0f);
+        Button btn = btnGO.GetComponent<Button>();
 
-        var handle = new GameObject("Handle");
-        handle.transform.SetParent(handleSlide.transform, false);
-        var handleImg = handle.AddComponent<Image>();
-        handleImg.color = Color.white;
-        var handleRT = handle.GetComponent<RectTransform>();
-        handleRT.sizeDelta = new Vector2(20f, 0f);
+        btn.transition = Selectable.Transition.ColorTint;
 
-        slider.fillRect   = fillRT;
-        slider.handleRect = handleRT;
-        slider.targetGraphic = handleImg;
-        slider.direction  = Slider.Direction.LeftToRight;
+        btn.onClick.AddListener(onClick);
 
-        return slider;
-    }
 
-    private Image MakeImage(string name, Transform parent, Color color)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        var img = go.AddComponent<Image>();
-        img.color = color;
-        return img;
-    }
 
-    private Text MakeText(string name, Transform parent, string content, Font font, int size, Color color, TextAnchor align)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        var txt = go.AddComponent<Text>();
-        txt.text      = content;
-        txt.font      = font;
-        txt.fontSize  = size;
-        txt.color     = color;
-        txt.alignment = align;
-        txt.horizontalOverflow = HorizontalWrapMode.Overflow;
-        txt.verticalOverflow   = VerticalWrapMode.Overflow;
-        StretchFull(go.GetComponent<RectTransform>());
-        return txt;
-    }
+        GameObject textGO = new GameObject("Text", typeof(RectTransform), typeof(Text), typeof(Outline));
 
-    private void StretchFull(RectTransform rt)
-    {
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
-    }
+        textGO.transform.SetParent(btnGO.transform, false);
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Settings helpers
-    // ─────────────────────────────────────────────────────────────────────────
+        RectTransform tRT = textGO.GetComponent<RectTransform>();
 
-    private void ApplyFOV(float fov)
-    {
-        if (_playerMovement == null) _playerMovement = FindAnyObjectByType<PlayerMovement>();
-        if (_playerMovement != null)
-        {
-            _playerMovement.normalFOV = fov;
-            if (_playerMovement.playerCamera != null)
-                _playerMovement.playerCamera.fieldOfView = fov;
-        }
-    }
+        tRT.anchorMin = Vector2.zero;
 
-    private void UpdateVolumeText(float v)
-    {
-        if (_volumeValueText != null) _volumeValueText.text = Mathf.RoundToInt(v * 100f) + "%";
-    }
+        tRT.anchorMax = Vector2.one;
 
-    private void UpdateFOVText(float v)
-    {
-        if (_fovValueText != null) _fovValueText.text = Mathf.RoundToInt(v) + "°";
-    }
+        tRT.offsetMin = Vector2.zero;
 
-    private void UpdateSensText(float v)
-    {
-        if (_sensitivityValueText != null) _sensitivityValueText.text = v.ToString("F1");
-    }
+        tRT.offsetMax = Vector2.zero;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Editor asset helpers (compile-safe for builds)
-    // ─────────────────────────────────────────────────────────────────────────
 
-    private string UnityEditor_FindAsset(string name)
-    {
+
+        Text txt = textGO.GetComponent<Text>();
+
+        txt.font = font;
+
+        txt.text = label;
+
+        txt.fontSize = 38;
+
+        txt.alignment = TextAnchor.MiddleLeft;
+
+        txt.color = new Color(0.88f, 0.88f, 0.88f, 1f);
+
+        txt.raycastTarget = false;
+
+
+
+        Outline ol = textGO.GetComponent<Outline>();
+
+        ol.effectColor = new Color(0f, 0f, 0f, 0.95f);
+
+        ol.effectDistance = new Vector2(2f, -2f);
+
+
+
+        MenuButtonHover hover = btnGO.GetComponent<MenuButtonHover>();
+
+        hover.targetText = txt;
+
+        hover.SetLabel(label);
+
+        hover.prefixOnHover = "> ";
+
+        hover.normalColor = new Color(0.88f, 0.88f, 0.88f, 1f);
+
+        hover.hoverColor = new Color(1f, 0.20f, 0.20f, 1f);
+
+
+
+        AudioClip chime = Resources.Load<AudioClip>("objective_chime");
+
 #if UNITY_EDITOR
-        var guids = UnityEditor.AssetDatabase.FindAssets(name);
-        return guids.Length > 0 ? UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]) : null;
-#else
-        return null;
+
+        if (chime == null)
+
+            chime = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/objective_chime.wav");
+
 #endif
+
+        hover.hoverSound = chime;
+
+        hover.clickSound = chime;
+
+
+
+        return btn;
+
     }
 
-    private Sprite UnityEditor_LoadSprite(string path)
-    {
-#if UNITY_EDITOR
-        return UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path);
-#else
-        return null;
-#endif
-    }
 }
+

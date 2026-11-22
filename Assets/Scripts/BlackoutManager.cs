@@ -23,7 +23,16 @@ using UnityEngine.Rendering;
 /// </summary>
 public class BlackoutManager : MonoBehaviour
 {
-    public static BlackoutManager Instance { get; private set; }
+    private static BlackoutManager _instance;
+    public static BlackoutManager Instance
+    {
+        get
+        {
+            if (_instance == null) _instance = FindAnyObjectByType<BlackoutManager>();
+            return _instance;
+        }
+        private set { _instance = value; }
+    }
 
     // ── Events for enemy AI hooks ─────────────────────────────────────────────
     /// <summary>Fired when the power cuts out (start of blackout).</summary>
@@ -186,7 +195,8 @@ public class BlackoutManager : MonoBehaviour
         _voltageLoopCoroutine = StartCoroutine(CampusGridVoltageLoop());
 
         // Kick off the random blackout schedule
-        if (!disableBlackouts && !GameModeManager.IsFreeRoamMode)
+        // In Active Mode free roam, allow the blackout schedule to run
+        if (!disableBlackouts && (!GameModeManager.IsFreeRoamMode || !DevDemoPanel.IsCalmMode))
             _scheduleCoroutine = StartCoroutine(BlackoutSchedule());
     }
 
@@ -208,7 +218,8 @@ public class BlackoutManager : MonoBehaviour
     /// </summary>
     public void TriggerBlackout(bool forceDev = false)
     {
-        if (GameModeManager.IsFreeRoamMode && !forceDev) return;
+        // In Free Roam: block random blackouts in Calm Mode, but allow Active Mode or dev-forced blackouts
+        if (GameModeManager.IsFreeRoamMode && !forceDev && DevDemoPanel.IsCalmMode) return;
         if (OpeningCutsceneDirector.IsAnyCutscenePlaying) return;
         if (IsBlackoutActive) return;
         if (_blackoutCoroutine != null) StopCoroutine(_blackoutCoroutine);
@@ -281,7 +292,13 @@ public class BlackoutManager : MonoBehaviour
     /// </summary>
     public void RestorePower()
     {
+        // Always despawn any active horror entities the instant power restoration is triggered
+        TheProctorAI.DespawnActiveProctor();
+        WeepingStudentAI.DespawnActiveWeepingStudent();
+        TheProctorManager.Instance?.CleanupProctor();
+
         if (!IsBlackoutActive) return;
+
         if (_blackoutCoroutine != null) StopCoroutine(_blackoutCoroutine);
         _blackoutCoroutine = StartCoroutine(PowerRestorationRoutine());
     }
@@ -307,8 +324,8 @@ public class BlackoutManager : MonoBehaviour
         // Despawn wandering student NPCs during blackout sequence
         DespawnWanderingNPCs();
 
-        // Lock all doors during blackout sequence
-        DoorInteract.LockAllDoorsForBlackout();
+        // Rooms remain accessible during blackout so players can reach lockers to hide!
+        // DoorInteract.LockAllDoorsForBlackout(); (disabled)
 
         // Kill ALL campus lights
         SetAllLightsEnabled(false);
@@ -343,12 +360,17 @@ public class BlackoutManager : MonoBehaviour
 
     private IEnumerator PowerRestorationRoutine()
     {
+        // Immediately despawn any active entities as the generator hum kicks in
+        TheProctorAI.DespawnActiveProctor();
+        WeepingStudentAI.DespawnActiveWeepingStudent();
+        TheProctorManager.Instance?.CleanupProctor();
+
         // ── PHASE 4: Power restoration wind-up ───────────────────────────────
         if (powerUpClip != null)
             _audioSource.PlayOneShot(powerUpClip, powerUpVolume);
 
         // Dramatic flicker: lights stutter twice before coming fully back
-        yield return new WaitForSeconds(1.5f);
+        yield return new WaitForSeconds(0.40f);
         SetAllLightsEnabled(true);
         SetAllLightIntensityMultiplier(0.12f);
         yield return new WaitForSeconds(0.08f);
@@ -362,6 +384,10 @@ public class BlackoutManager : MonoBehaviour
         yield return new WaitForSeconds(0.18f);
 
         // Breaker slams shut — restore lights based on grid state (brownout vs stabilized)
+        TheProctorAI.DespawnActiveProctor();
+        WeepingStudentAI.DespawnActiveWeepingStudent();
+        TheProctorManager.Instance?.CleanupProctor();
+
         SetAllLightsEnabled(true);
         bool stabilized = CircuitBreakerPuzzle.Instance != null && CircuitBreakerPuzzle.Instance.isPowerRestored;
         float finalMultiplier = stabilized ? 0.85f : 0.28f;

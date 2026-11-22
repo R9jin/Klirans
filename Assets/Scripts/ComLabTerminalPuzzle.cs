@@ -295,7 +295,7 @@ public class ComLabTerminalPuzzle : MonoBehaviour, IInteractable
             {
                 ObjectiveHUD.Instance.SetObjective(
                     "Ibalik ang Kuryente sa ComLab",
-                    "Pumunta sa Main Breaker Box sa 2nd Floor at magkabit ng 15A Ceramic Fuse upang magkaroon ng kuryente ang Room 105."
+                    "Pumunta sa Main Breaker Box sa 2nd Floor at magkabit ng 15A Ceramic Fuse upang magkaroon ng kuryente ang ComLab 1."
                 );
             }
             return;
@@ -314,7 +314,7 @@ public class ComLabTerminalPuzzle : MonoBehaviour, IInteractable
                 {
                     ObjectiveHUD.Instance.SetObjective(
                         "ComLab Terminal: Walang Signal",
-                        "Hanapin ang VGA Monitor Cable sa paligid ng Room 105 o maintenance shelves upang maikabit ang display."
+                        "Hanapin ang VGA Monitor Cable sa paligid ng ComLab 1 o maintenance shelves upang maikabit ang display."
                     );
                 }
             }
@@ -408,6 +408,11 @@ public class ComLabTerminalPuzzle : MonoBehaviour, IInteractable
             );
         }
 
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.TriggerAutosave("ComLab Form Printed");
+        }
+
         Debug.Log("[ComLabTerminalPuzzle] Terminal hold cleared and ComLab form dispensed!");
     }
 
@@ -468,6 +473,18 @@ public class ComLabTerminalPuzzle : MonoBehaviour, IInteractable
         {
             _audioSource.pitch = pitch;
             _audioSource.PlayOneShot(clip, vol);
+        }
+    }
+
+    public void RestoreTerminalState(bool cableConnected, bool holdCleared)
+    {
+        isCableConnected = cableConnected;
+        isHoldCleared = holdCleared;
+        FindScreenRendererIfNeeded();
+        ApplyScreenVisuals(isCableConnected);
+        if (physicalFormPickup != null)
+        {
+            physicalFormPickup.SetActive(isHoldCleared);
         }
     }
 }

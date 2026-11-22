@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// TheProctorManager — Singleton controller governing The Proctor's lifecycle during blackouts.
@@ -73,13 +74,14 @@ public class TheProctorManager : MonoBehaviour
 
     private void Start()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        // In free roam calm mode: cleanup and skip. In free roam active mode: allow enemy encounters.
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode)
         {
             CleanupProctor();
-            return;
+            // Still subscribe to events so Active Mode toggle works mid-session
         }
 
-        // Hook into BlackoutManager events
+        // Always hook into BlackoutManager events (Active Mode needs this in Free Roam)
         if (BlackoutManager.Instance != null)
         {
             BlackoutManager.Instance.OnBlackoutStart += HandleBlackoutStart;
@@ -200,7 +202,8 @@ public class TheProctorManager : MonoBehaviour
 
     private void HandleBlackoutStart()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        // In Free Roam, only run encounters in Active Mode (IsCalmMode == false)
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
 
         // Prevent duplicate encounters if one is already running
         if (isEncounterActive || _isBlackoutEnding) return;
@@ -430,7 +433,7 @@ public class TheProctorManager : MonoBehaviour
         _isBlackoutEnding = false;
     }
 
-    private void CleanupProctor()
+    public void CleanupProctor()
     {
         if (_chaseTimerCoroutine != null)
         {
@@ -441,6 +444,80 @@ public class TheProctorManager : MonoBehaviour
         TheProctorAI.DespawnActiveProctor();
         WeepingStudentAI.DespawnActiveWeepingStudent();
         isEncounterActive = false;
+    }
+
+    /// <summary>
+    /// Executes a clean fullscreen whiteout flash and camera recovery that persists
+    /// on this manager singleton even after the offending monster GameObject is destroyed.
+    /// </summary>
+    public void TriggerJumpscareWhiteout(AudioClip hissClip, Camera playerCam, PlayerMovement pm)
+    {
+        StartCoroutine(JumpscareWhiteoutRoutine(hissClip, playerCam, pm));
+    }
+
+    private IEnumerator JumpscareWhiteoutRoutine(AudioClip hissClip, Camera playerCam, PlayerMovement pm)
+    {
+        var hud = GameObject.Find("HudCanvas");
+        Image whiteoutImg = null;
+        GameObject whiteoutGO = null;
+
+        if (hud != null)
+        {
+            whiteoutGO = new GameObject("WhiteoutOverlay", typeof(RectTransform), typeof(Image));
+            whiteoutGO.transform.SetParent(hud.transform, false);
+            var rt = whiteoutGO.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            whiteoutImg = whiteoutGO.GetComponent<Image>();
+            whiteoutImg.color = new Color(1f, 1f, 1f, 1f); // Solid white flash
+            whiteoutImg.raycastTarget = false;
+        }
+
+        if (hissClip != null)
+        {
+            Vector3 soundPos = (playerCam != null) ? playerCam.transform.position : Vector3.zero;
+            AudioSource.PlayClipAtPoint(hissClip, soundPos, 0.8f);
+        }
+
+        // Hold solid white flash for 0.35s
+        yield return new WaitForSeconds(0.35f);
+
+        // Smooth fade down from whiteout (0.85s)
+        float fadeElapsed = 0f;
+        float fadeDuration = 0.85f;
+        float currentFOV = (playerCam != null) ? playerCam.fieldOfView : 40f;
+        float normalFOV = (pm != null) ? pm.normalFOV : 60f;
+
+        while (fadeElapsed < fadeDuration)
+        {
+            fadeElapsed += Time.deltaTime;
+            float t = fadeElapsed / fadeDuration;
+            float alpha = Mathf.Clamp01(1f - t);
+            if (whiteoutImg != null)
+            {
+                whiteoutImg.color = new Color(1f, 1f, 1f, alpha);
+            }
+            if (playerCam != null)
+            {
+                playerCam.fieldOfView = Mathf.Lerp(currentFOV, normalFOV, t);
+            }
+            yield return null;
+        }
+
+        if (whiteoutGO != null) Destroy(whiteoutGO);
+
+        if (pm != null)
+        {
+            pm.isJumpscareCameraOverride = false;
+            pm.SetControlsEnabled(true);
+        }
+        if (playerCam != null)
+        {
+            playerCam.fieldOfView = normalFOV;
+        }
     }
 
     // ── Hallway & Spawn Math ──────────────────────────────────────────────────

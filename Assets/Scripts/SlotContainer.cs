@@ -12,6 +12,8 @@ public abstract class SlotContainer : MonoBehaviour
     public List<InventorySlot> Slots { get; private set; }
     public event Action OnInventoryChanged;
 
+    public void TriggerInventoryChanged() => OnInventoryChanged?.Invoke();
+
     protected virtual void Awake()
     {
         EnsureSlotsInitialized();

@@ -66,9 +66,10 @@ public class LockerHide : MonoBehaviour, IInteractable
             unlockAudio = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/yodguard-door-opening-slowly-1-535465.mp3");
         if (lockedRattleAudio == null)
             lockedRattleAudio = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Sounds/door_closing.mp3");
-        if (storedRewardItem == null && lockerLabel != null && (lockerLabel.Contains("2F") || lockerLabel.IndexOf("CAB-04", System.StringComparison.OrdinalIgnoreCase) >= 0))
+        // Lockers NEVER hold the Executive Seal Stamp — it is exclusively locked in the Executive Vault Safe in Room 103!
+        if (storedRewardItem != null && (storedRewardItem.name.Contains("Seal") || storedRewardItem.itemName.Contains("Seal")))
         {
-            storedRewardItem = UnityEditor.AssetDatabase.LoadAssetAtPath<InventoryItem>("Assets/Items/Executive_Seal_Stamp.asset");
+            storedRewardItem = null;
         }
 #endif
     }
@@ -124,9 +125,9 @@ public class LockerHide : MonoBehaviour, IInteractable
 
             if (hasKey)
             {
-                return knowsCode ? $"[E] Buksan ang {lockerLabel} (Code 7-3-2)" : $"[E] Buksan ang {lockerLabel} gamit ang Susi";
+                return knowsCode ? $"[E] Buksan ang {lockerLabel} " : $"[E] Buksan ang {lockerLabel} gamit ang Susi";
             }
-            return knowsCode ? $"[{lockerLabel}] (Naka-lock - Kailangan ang Susi na may Code 7-3-2)" : $"[{lockerLabel}] (Naka-lock - Kailangan ng Locker Key)";
+            return knowsCode ? $"[{lockerLabel}] (Naka-lock - Kailangan ang Susi )" : $"[{lockerLabel}] (Naka-lock - Kailangan ng Locker Key)";
         }
 
         return $"[E] Magtago sa {lockerLabel}";

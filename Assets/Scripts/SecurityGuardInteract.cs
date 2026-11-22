@@ -14,7 +14,7 @@ public class SecurityGuardInteract : MonoBehaviour, IInteractable
 {
     [Header("Identity & Prompts")]
     public string guardName = "Campus Security Guard";
-    public float interactionRange = 3.8f;
+    public float interactionRange = 4.25f;
 
     [Header("Dialogue Content")]
     [TextArea(2, 4)]
@@ -38,9 +38,16 @@ public class SecurityGuardInteract : MonoBehaviour, IInteractable
 
     private void Awake()
     {
+        if (interactionRange < 4.25f)
+        {
+            interactionRange = 4.25f;
+        }
+
         _sitController = GetComponent<NPCSitController>();
         _animator = GetComponentInChildren<Animator>();
         _talkingHash = Animator.StringToHash("Talking");
+
+        EnsureStaffInteractionZone();
 
         _audioSource = GetComponent<AudioSource>();
         if (_audioSource == null)
@@ -60,6 +67,39 @@ public class SecurityGuardInteract : MonoBehaviour, IInteractable
             }
 #endif
         }
+    }
+
+    /// <summary>
+    /// Creates an upper-body interaction trigger box extending across the security booth desk
+    /// so the player's crosshair raycast reliably hits the guard even when seated behind the counter.
+    /// </summary>
+    private void EnsureStaffInteractionZone()
+    {
+        Transform existing = transform.Find("StaffInteractionZone");
+        GameObject zoneObj;
+        if (existing != null)
+        {
+            zoneObj = existing.gameObject;
+        }
+        else
+        {
+            zoneObj = new GameObject("StaffInteractionZone");
+            zoneObj.transform.SetParent(transform, false);
+        }
+
+        zoneObj.layer = gameObject.layer;
+        zoneObj.transform.localPosition = Vector3.zero;
+        zoneObj.transform.localRotation = Quaternion.identity;
+        zoneObj.transform.localScale = Vector3.one;
+
+        var box = zoneObj.GetComponent<BoxCollider>();
+        if (box == null)
+        {
+            box = zoneObj.AddComponent<BoxCollider>();
+        }
+        box.isTrigger = true;
+        box.center = new Vector3(0f, 1.15f, 0.45f);
+        box.size = new Vector3(1.50f, 1.90f, 1.75f);
     }
 
     private void Start()

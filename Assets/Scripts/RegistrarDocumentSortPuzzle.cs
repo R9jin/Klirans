@@ -178,6 +178,7 @@ public class RegistrarDocumentSortPuzzle : MonoBehaviour
 
     // Runtime state
     public bool IsSolved { get; private set; } = false;
+    public void RestoreSolvedState() { IsSolved = true; }
     public bool IsOpen => puzzlePanel != null && puzzlePanel.activeSelf;
 
     private SortingChallenge _activeChallenge;

@@ -63,13 +63,27 @@ namespace Klirans.Environment
         /// </summary>
         private void EnsureExitBarredGatesAndSolidBlocker()
         {
-            // Expand the interaction trigger so player can press [E] across the full entrance width in front of the solid bars
+            // Adjust the interaction trigger so it only covers the Right Portal (Z = 13.78..15.36)
+            // and a separate child trigger covers the Left Portal (Z = 17.64..19.22),
+            // leaving the Security Guard Booth (Z = 15.40..17.60) completely unobstructed!
             var triggerCol = GetComponent<BoxCollider>();
             if (triggerCol != null && triggerCol.isTrigger)
             {
-                triggerCol.size = new Vector3(1.60f, 2.60f, 6.20f);
-                triggerCol.center = new Vector3(-0.35f, 0f, 0f);
+                triggerCol.size = new Vector3(0.55f, 2.50f, 1.60f);
+                triggerCol.center = new Vector3(-0.20f, 0f, 0f);
             }
+
+            Transform existingLeftTrig = transform.Find("LeftPortal_ExitTrigger");
+            GameObject leftTrigGO = existingLeftTrig != null ? existingLeftTrig.gameObject : new GameObject("LeftPortal_ExitTrigger");
+            leftTrigGO.transform.SetParent(transform, false);
+            leftTrigGO.transform.localPosition = new Vector3(-0.20f, 0f, 4.00f);
+            leftTrigGO.transform.localRotation = Quaternion.identity;
+            leftTrigGO.transform.localScale = Vector3.one;
+            var leftTrigBox = leftTrigGO.GetComponent<BoxCollider>();
+            if (leftTrigBox == null) leftTrigBox = leftTrigGO.AddComponent<BoxCollider>();
+            leftTrigBox.isTrigger = true;
+            leftTrigBox.center = Vector3.zero;
+            leftTrigBox.size = new Vector3(0.55f, 2.50f, 1.60f);
 
             // 1. Solid physical blocker spanning the entire Main Entrance (Left, Center, and Right portals)
             Transform existingBlocker = transform.Find("LobbyExit_SolidGateBlocker");

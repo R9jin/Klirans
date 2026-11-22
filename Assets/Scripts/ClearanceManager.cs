@@ -187,12 +187,41 @@ public class ClearanceManager : MonoBehaviour
 
         RefreshHeldPaperTexture();
         OnSignatureCollected?.Invoke(signatureIndex, total);
+
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.TriggerAutosave($"Signature {signatureIndex + 1}/6");
+        }
+
         return true;
     }
 
     public bool IsFullyClear()          => _collectedSignatures.Count >= 6;
     public int  SignatureCount          => _collectedSignatures.Count;
     public bool HasSignature(int index) => _collectedSignatures.Contains(index);
+
+    public HashSet<int> GetCollectedSignatures() => new HashSet<int>(_collectedSignatures);
+
+    public void RestoreSignatures(IEnumerable<int> signatures, bool slipSubmitted)
+    {
+        _collectedSignatures.Clear();
+        if (signatures != null)
+        {
+            foreach (int sig in signatures)
+            {
+                if (sig >= 0 && sig < 6)
+                {
+                    _collectedSignatures.Add(sig);
+                }
+            }
+        }
+        IsSlipSubmitted = slipSubmitted;
+        RefreshHeldPaperTexture();
+        if (_collectedSignatures.Count > 0)
+        {
+            SetSlipVisible(true);
+        }
+    }
 
     /// <summary>True when the player has returned to the Registrar with all 6 signatures and submitted their slip.</summary>
     public bool IsSlipSubmitted { get; private set; } = false;

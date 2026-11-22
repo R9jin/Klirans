@@ -53,7 +53,9 @@ public class SecurityGuardEndgameManager : MonoBehaviour
 
     private void Awake()
     {
-        if (GameModeManager.IsFreeRoamMode)
+        // In Free Roam Calm Mode skip full init — no endgame needed.
+        // In Free Roam Active Mode (dev testing) we still need the singleton & audio source.
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode)
         {
             isEndgameActive = false;
             return;
@@ -80,7 +82,7 @@ public class SecurityGuardEndgameManager : MonoBehaviour
 
     private void Start()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
         ClearanceManager.OnSlipSubmittedEvent += HandleSlipSubmitted;
 
         // Pre-initialize cutscene director
@@ -106,7 +108,7 @@ public class SecurityGuardEndgameManager : MonoBehaviour
 
     private void HandleSlipSubmitted()
     {
-        if (GameModeManager.IsFreeRoamMode) return;
+        if (GameModeManager.IsFreeRoamMode && DevDemoPanel.IsCalmMode) return;
 
         if (!isEndgameActive)
         {
@@ -138,6 +140,14 @@ public class SecurityGuardEndgameManager : MonoBehaviour
         if (isEndgameActive) return;
 
         Debug.Log("[SecurityGuardEndgameManager] ENDGAME ACTIVATED! Security guard vacating lobby booth to hunt student!");
+
+        // Dev-spawn fast path: skip the cinematic coroutine entirely so the
+        // IsDevSpawning flag stays true through CompleteEndgameActivation.
+        if (DevDemoPanel.IsDevSpawning)
+        {
+            CompleteEndgameActivation();
+            return;
+        }
 
         // If GuardChaseCutsceneDirector exists, launch the cinematic anomaly chase cutscene
         var cutscene = GuardChaseCutsceneDirector.Instance ?? FindAnyObjectByType<GuardChaseCutsceneDirector>(FindObjectsInactive.Include);

@@ -78,12 +78,19 @@ public class CircuitBreakerPuzzle : MonoBehaviour, IInteractable
     private void EnsureSpareFusePickupInGuardBooth()
     {
         SpawnFusePickup("Ceramic_Fuse_Pickup_Lobby", new Vector3(-76.15f, 2.85f, 15.95f));
-        SpawnFusePickup("Ceramic_Fuse_Pickup_Corridor", new Vector3(-84.2f, 2.78f, 21.0f));
+        SpawnFusePickup("Ceramic_Fuse_Pickup_Corridor", new Vector3(-84.2f, 2.35f, 21.0f));
     }
 
     private void SpawnFusePickup(string objectName, Vector3 spawnPos)
     {
         if (GameObject.Find(objectName) != null) return;
+
+        // Ground raycast: snap perfectly flush to surface (floor or desk tabletop)
+        RaycastHit groundHit;
+        if (Physics.Raycast(spawnPos + Vector3.up * 1.5f, Vector3.down, out groundHit, 5.0f, ~0, QueryTriggerInteraction.Ignore))
+        {
+            spawnPos.y = groundHit.point.y + 0.005f;
+        }
 
         GameObject fuseGO = new GameObject(objectName);
         fuseGO.transform.position = spawnPos;
@@ -502,8 +509,13 @@ public class CircuitBreakerPuzzle : MonoBehaviour, IInteractable
         {
             ObjectiveHUD.Instance.SetObjective(
                 "Kuryente sa ComLab Naibalik!",
-                "Naibalik ang power grid sa 2nd Floor. Maaari nang puntahan ang Master Computer Terminal sa Room 105."
+                "Naibalik ang power grid sa 2nd Floor. Maaari nang puntahan ang Master Computer Terminal sa ComLab 1."
             );
+        }
+
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.TriggerAutosave("Power Restored");
         }
 
         Debug.Log("[CircuitBreakerPuzzle] 15A Ceramic Fuse installed. Grid power restored!");
@@ -549,6 +561,31 @@ public class CircuitBreakerPuzzle : MonoBehaviour, IInteractable
         {
             _audioSource.pitch = pitch;
             _audioSource.PlayOneShot(clip, vol);
+        }
+    }
+
+    public void RestorePowerInstant()
+    {
+        isFuseInstalled = true;
+        isPowerRestored = true;
+
+        if (slotStatusLight != null)
+        {
+            slotStatusLight.color = Color.green;
+            slotStatusLight.intensity = 1.5f;
+        }
+
+        if (wingLightsGroup != null)
+        {
+            foreach (var light in wingLightsGroup.GetComponentsInChildren<Light>(true))
+            {
+                light.enabled = true;
+            }
+        }
+
+        if (BlackoutManager.Instance != null)
+        {
+            BlackoutManager.Instance.OnBreakerGridStabilized();
         }
     }
 }
